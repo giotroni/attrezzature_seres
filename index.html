@@ -1,0 +1,1293 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SERES - Archivio Attrezzature</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            padding-bottom: 80px;
+        }
+
+        .header {
+            background: #8B2E1A;
+            color: white;
+            padding: 15px;
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .menu-toggle {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 5px;
+            transition: background 0.3s ease;
+        }
+
+        .menu-toggle:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .header h1 {
+            font-size: 18px;
+            flex: 1;
+        }
+
+        .search-section {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .search-text {
+            font-size: 14px;
+            color: rgba(255,255,255,0.9);
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 150px;
+        }
+
+        .search-text.active {
+            color: #FFD700;
+            font-weight: 500;
+        }
+
+        .search-icon {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 5px;
+            transition: background 0.3s ease;
+            flex-shrink: 0;
+        }
+
+        .search-icon:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .search-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 2500;
+            display: none;
+            backdrop-filter: blur(2px);
+        }
+
+        .search-overlay.show {
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding-top: 100px;
+        }
+
+        .search-container {
+            background: white;
+            border-radius: 25px;
+            padding: 20px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            animation: searchSlideIn 0.3s ease;
+        }
+
+        @keyframes searchSlideIn {
+            from { transform: translateY(-30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .search-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .search-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+        }
+
+        .slide-menu {
+            position: fixed;
+            top: 0;
+            left: -300px;
+            width: 280px;
+            height: 100vh;
+            background: white;
+            z-index: 2000;
+            transition: left 0.3s ease;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            overflow-y: auto;
+        }
+
+        .slide-menu.open {
+            left: 0;
+        }
+
+        .menu-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1500;
+            display: none;
+            backdrop-filter: blur(2px);
+        }
+
+        .menu-overlay.show {
+            display: block;
+        }
+
+        .menu-header {
+            background: #8B2E1A;
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .menu-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        .menu-content {
+            padding: 20px;
+        }
+
+        .menu-item {
+            background: #f8f9ff;
+            border: none;
+            width: 100%;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 10px;
+            text-align: left;
+            cursor: pointer;
+            transition: background 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 16px;
+        }
+
+        .menu-item:hover {
+            background: #e3f2fd;
+        }
+
+        .container {
+            padding: 80px 15px 20px;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .search-bar {
+            background: white;
+            border-radius: 25px;
+            padding: 12px 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border: none;
+            width: 100%;
+            font-size: 16px;
+        }
+
+        .view-content {
+            display: grid;
+            gap: 15px;
+        }
+
+        .category-card, .location-card, .type-card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .category-card:hover, .location-card:hover, .type-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .card-title {
+            font-weight: bold;
+            font-size: 16px;
+            color: #333;
+        }
+
+        .card-count {
+            background: #8B2E1A;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .card-items {
+            font-size: 14px;
+            color: #666;
+            line-height: 1.4;
+        }
+
+        .equipment-card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .equipment-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+        }
+
+        .equipment-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+
+        .equipment-code {
+            background: #8B2E1A;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .equipment-category {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+        }
+
+        .equipment-title {
+            font-weight: bold;
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+
+        .equipment-brand {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+
+        .equipment-location {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            color: #8B2E1A;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            z-index: 1000;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+        }
+
+        .nav-item {
+            flex: 1;
+            padding: 12px 8px;
+            text-align: center;
+            background: none;
+            border: none;
+            cursor: pointer;
+            transition: background 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .nav-item.active {
+            background: #8B2E1A;
+            color: white;
+        }
+
+        .nav-item:not(.active):hover {
+            background: #f5f5f5;
+        }
+
+        .nav-icon {
+            font-size: 20px;
+        }
+
+        .nav-label {
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 2000;
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            background: white;
+            margin: 10% auto;
+            padding: 0;
+            border-radius: 20px;
+            max-width: 450px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            animation: modalSlideIn 0.3s ease;
+        }
+
+        @keyframes modalSlideIn {
+            from { transform: translateY(30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .modal-header {
+            background: #8B2E1A;
+            color: white;
+            padding: 20px;
+            border-radius: 20px 20px 0 0;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .close-btn {
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            color: white;
+            opacity: 0.8;
+        }
+
+        .close-btn:hover {
+            opacity: 1;
+        }
+
+        .detail-item {
+            margin-bottom: 15px;
+        }
+
+        .detail-label {
+            font-weight: bold;
+            color: #666;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .detail-value {
+            font-size: 16px;
+            margin-top: 3px;
+        }
+
+        .move-section {
+            background: #f8f9ff;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .form-input, .form-select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-input:focus, .form-select:focus {
+            outline: none;
+            border-color: #8B2E1A;
+        }
+
+        .btn {
+            background: #8B2E1A;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .history-section {
+            margin-top: 20px;
+        }
+
+        .history-item {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            border-left: 4px solid #8B2E1A;
+        }
+
+        .history-date {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .history-action {
+            font-size: 14px;
+            margin-top: 3px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .back-button {
+            background: none;
+            border: none;
+            color: #8B2E1A;
+            font-size: 16px;
+            cursor: pointer;
+            padding: 10px 0;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .location-icon::before {
+            content: "📍";
+            margin-right: 5px;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 70px 10px 20px;
+            }
+            
+            .slide-menu {
+                width: 260px;
+                left: -260px;
+            }
+
+            .modal-content {
+                margin: 5% auto;
+                width: 95%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <button class="menu-toggle" id="menuToggle">☰</button>
+        <h1>🔧 SERES - Archivio Attrezzature</h1>
+        <div class="search-section">
+            <span class="search-text" id="searchText">Ricerca</span>
+            <button class="search-icon" id="searchToggle">🔍</button>
+        </div>
+    </div>
+
+    <!-- Search Overlay -->
+    <div class="search-overlay" id="searchOverlay">
+        <div class="search-container">
+            <div class="search-header">
+                <h3>🔍 Ricerca Attrezzature</h3>
+                <button class="search-close" id="searchClose">✕</button>
+            </div>
+            <input type="text" class="search-bar" id="searchInput" placeholder="Cerca per codice, tipo, marca o ubicazione..." style="margin-bottom: 0;">
+        </div>
+    </div>
+
+    <!-- Menu Slide -->
+    <div class="menu-overlay" id="menuOverlay"></div>
+    <div class="slide-menu" id="slideMenu">
+        <div class="menu-header">
+            <h3>Menu</h3>
+            <button class="menu-close" id="menuClose">✕</button>
+        </div>
+        <div class="menu-content">
+            <h4 style="margin-bottom: 15px; color: #333;">⚙️ Azioni</h4>
+            <button class="menu-item" id="btnAddLocation">
+                📍 Nuova Ubicazione
+            </button>
+            <button class="menu-item" id="btnAddEquipment">
+                🛠️ Nuova Attrezzatura
+            </button>
+            <button class="menu-item" id="btnRefresh">
+                🔄 Aggiorna Dati
+            </button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="view-content" id="viewContent">
+            <div class="loading">
+                <p>📊 Clicca su "Carica da Google Sheets" per sincronizzare i dati dal tuo foglio.</p>
+                <p style="margin-top: 10px; font-size: 14px;">
+                    <strong>✅ Configurazione completata:</strong><br>
+                    🔐 Service Account configurato<br>
+                    📋 ID Foglio: 1efHWyYHqsZpAbPXuUadz7Mg2ScsZ1iXX15Yv8daVhvg<br>
+                    📧 Assicurati di aver condiviso il foglio con:<br>
+                    <code style="font-size: 11px;">seres-archivio-app@ancient-dragon-416706.iam.gserviceaccount.com</code>
+                </p>
+                <button class="btn" id="loadSheetsBtn" style="margin-top: 15px; max-width: 250px;">📊 Carica da Google Sheets</button>
+                <button class="btn" id="loadDemoFallback" style="margin-top: 10px; max-width: 200px; background: #666;">🧪 Carica Dati Demo</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Navigation -->
+    <div class="bottom-nav">
+        <button class="nav-item active" id="navUbicazione" data-view="ubicazione">
+            <div class="nav-icon">📍</div>
+            <div class="nav-label">Ubicazione</div>
+        </button>
+        <button class="nav-item" id="navCategoria" data-view="categoria">
+            <div class="nav-icon">📂</div>
+            <div class="nav-label">Categoria</div>
+        </button>
+        <button class="nav-item" id="navTipo" data-view="tipo">
+            <div class="nav-icon">🔧</div>
+            <div class="nav-label">Tipo</div>
+        </button>
+    </div>
+
+    <!-- Modal Dettaglio Attrezzatura -->
+    <div id="detailModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="close-btn" id="closeDetailModal">&times;</span>
+                <h2 id="modalTitle">Dettaglio Attrezzatura</h2>
+            </div>
+            <div class="modal-body">
+                <div id="equipmentDetails"></div>
+                
+                <div class="move-section">
+                    <h3 style="margin-bottom: 15px;">🚚 Sposta Attrezzatura</h3>
+                    <div class="form-group">
+                        <label class="form-label">Nuova Ubicazione</label>
+                        <select class="form-select" id="newLocation">
+                            <option value="">Seleziona ubicazione...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Il tuo Nome</label>
+                        <input type="text" class="form-input" id="userName" placeholder="Inserisci il tuo nome">
+                    </div>
+                    <button class="btn" id="moveEquipmentBtn">Sposta Attrezzatura</button>
+                </div>
+
+                <div class="history-section">
+                    <h3 style="margin-bottom: 15px;">📋 Storico Spostamenti</h3>
+                    <div id="movementHistory"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Variabili globali
+        let equipmentData = [];
+        let locationsData = [];
+        let categoriesData = [];
+        let movementLog = [];
+        let currentView = 'ubicazione';
+        let currentFilter = '';
+        let currentEquipmentId = null;
+        
+        // Configurazione Google Sheets
+        const SHEET_ID = '1efHWyYHqsZpAbPXuUadz7Mg2ScsZ1iXX15Yv8daVhvg';
+
+        // Inizializzazione
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('App SERES caricata correttamente');
+            
+            // Event listeners
+            document.getElementById('loadSheetsBtn').addEventListener('click', loadFromGoogleSheets);
+            document.getElementById('loadDemoFallback').addEventListener('click', loadDemoData);
+            document.getElementById('menuToggle').addEventListener('click', toggleMenu);
+            document.getElementById('menuClose').addEventListener('click', closeMenu);
+            document.getElementById('menuOverlay').addEventListener('click', closeMenu);
+            document.getElementById('searchToggle').addEventListener('click', toggleSearch);
+            document.getElementById('searchClose').addEventListener('click', closeSearch);
+            document.getElementById('searchOverlay').addEventListener('click', function(e) {
+                if (e.target === this) closeSearch();
+            });
+            document.getElementById('searchInput').addEventListener('input', filterContent);
+            document.getElementById('searchInput').addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    closeSearch();
+                }
+            });
+            document.getElementById('closeDetailModal').addEventListener('click', closeDetailModal);
+            document.getElementById('moveEquipmentBtn').addEventListener('click', moveEquipment);
+            document.getElementById('btnRefresh').addEventListener('click', loadFromGoogleSheets);
+            
+            // Navigation eventi
+            document.getElementById('navUbicazione').addEventListener('click', function() { switchView('ubicazione'); });
+            document.getElementById('navCategoria').addEventListener('click', function() { switchView('categoria'); });
+            document.getElementById('navTipo').addEventListener('click', function() { switchView('tipo'); });
+
+            // Chiudi modal cliccando fuori
+            window.addEventListener('click', function(event) {
+                const modal = document.getElementById('detailModal');
+                if (event.target === modal) {
+                    closeDetailModal();
+                }
+            });
+        });
+
+        function loadDemoData() {
+            equipmentData = [
+                {
+                    id: 1,
+                    codice: "ATTR0050",
+                    categoria: "ATTREZZATURE ELETTRICHE",
+                    tipo: "ASPIRAPOLVERI",
+                    marcaModello: "FESTOOL CTL 26",
+                    ubicazione: "MANDELLI"
+                },
+                {
+                    id: 2,
+                    codice: "ATTR0051",
+                    categoria: "ATTREZZATURE ELETTRICHE",
+                    tipo: "DREMEL",
+                    marcaModello: "3000 CON FILO 3",
+                    ubicazione: "MANDELLI"
+                },
+                {
+                    id: 3,
+                    codice: "ATTR0052",
+                    categoria: "ATTREZZATURE ELETTRICHE",
+                    tipo: "PROLUNGHE E CAVI",
+                    marcaModello: "PROLUNGA con ruota 5 m",
+                    ubicazione: "MANDELLI"
+                },
+                {
+                    id: 4,
+                    codice: "ATTR0053",
+                    categoria: "ATTREZZATURE FRIGORIFERO",
+                    tipo: "FRIGO PORTATILE",
+                    marcaModello: "DOMETIC CFX3 35",
+                    ubicazione: "FRIGERIO"
+                },
+                {
+                    id: 5,
+                    codice: "ATTR0054",
+                    categoria: "LABORATORIO",
+                    tipo: "MICROSCOPIO",
+                    marcaModello: "ZEISS AXIO",
+                    ubicazione: "LABORATORIO"
+                },
+                {
+                    id: 6,
+                    codice: "ATTR0055",
+                    categoria: "SALUTE",
+                    tipo: "DEFIBRILLATORE",
+                    marcaModello: "PHILIPS HS1",
+                    ubicazione: "SALUTE"
+                },
+                {
+                    id: 7,
+                    codice: "ATTR0056",
+                    categoria: "ATTREZZATURE ELETTRICHE",
+                    tipo: "TRAPANO",
+                    marcaModello: "BOSCH GSB 120",
+                    ubicazione: "PALERMO"
+                },
+                {
+                    id: 8,
+                    codice: "ATTR0057",
+                    categoria: "TRABATELLI E SCALE",
+                    tipo: "SCALA TELESCOPICA",
+                    marcaModello: "FACAL 4x4",
+                    ubicazione: "TRIESTE"
+                }
+            ];
+
+            locationsData = ["MANDELLI", "FRIGERIO", "LABORATORIO", "SALUTE", "PALERMO", "TRIESTE", "VALIER", "ZANAROLI"];
+            categoriesData = ["ATTREZZATURE ELETTRICHE", "ATTREZZATURE FRIGORIFERO", "LABORATORIO", "SALUTE", "TRABATELLI E SCALE"];
+            
+            movementLog = [
+                {
+                    codice: "ATTR0050",
+                    data: "2025-06-10T14:30:00",
+                    utente: "Mario Rossi",
+                    da: "LABORATORIO",
+                    a: "MANDELLI"
+                },
+                {
+                    codice: "ATTR0051",
+                    data: "2025-06-09T09:15:00",
+                    utente: "Giulia Bianchi",
+                    da: "SALUTE", 
+                    a: "MANDELLI"
+                }
+            ];
+            
+            console.log('Dati demo caricati:', equipmentData.length, 'attrezzature');
+            renderCurrentView();
+        }
+
+        function loadFromGoogleSheets() {
+            showLoading('Caricamento da Google Sheets...');
+            
+            console.log('Tentativo di caricamento da Google Sheets...');
+            
+            const ranges = [
+                'attrezzatura!A:E',
+                'log!A:G', 
+                'elenchi!A:A'
+            ];
+
+            const promises = ranges.map(range => 
+                fetch('https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/' + range)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('HTTP ' + response.status + ': ' + response.statusText);
+                    }
+                    return response.json();
+                })
+            );
+
+            Promise.all(promises)
+                .then(function(results) {
+                    const attrezzaturaData = results[0];
+                    const logData = results[1];
+                    const elenchiData = results[2];
+
+                    processAttrezzaturaData(attrezzaturaData.values || []);
+                    processLogData(logData.values || []);
+                    processElenchiData(elenchiData.values || []);
+
+                    console.log('✅ Dati caricati da Google Sheets:', {
+                        attrezzature: equipmentData.length,
+                        ubicazioni: locationsData.length,
+                        movimenti: movementLog.length
+                    });
+
+                    renderCurrentView();
+                    hideLoading();
+                })
+                .catch(function(error) {
+                    console.error('Errore nel caricamento da Google Sheets:', error);
+                    alert('❌ Errore nel caricamento da Google Sheets:\n' + error.message + '\n\n📋 Verifica che il foglio sia pubblico e abbia le schede corrette\n\n🔄 Carico i dati demo come fallback...');
+                    loadDemoData();
+                });
+        }
+
+        function processAttrezzaturaData(data) {
+            if (data.length < 2) return;
+            
+            equipmentData = [];
+            
+            for (let i = 1; i < data.length; i++) {
+                const row = data[i];
+                if (row.length >= 5) {
+                    equipmentData.push({
+                        id: i,
+                        categoria: row[0] || '',
+                        tipo: row[1] || '',
+                        marcaModello: row[2] || '',
+                        ubicazione: row[3] || '',
+                        codice: row[4] || ''
+                    });
+                }
+            }
+            
+            categoriesData = [];
+            const cats = new Set();
+            equipmentData.forEach(function(item) {
+                if (item.categoria) cats.add(item.categoria);
+            });
+            categoriesData = Array.from(cats);
+        }
+
+        function processLogData(data) {
+            if (data.length < 2) return;
+            
+            movementLog = [];
+            
+            for (let i = 1; i < data.length; i++) {
+                const row = data[i];
+                if (row.length >= 7) {
+                    movementLog.push({
+                        data: row[0] || '',
+                        utente: row[1] || '',
+                        azione: row[2] || '',
+                        tabella: row[3] || '',
+                        codice: row[4] || '',
+                        da: row[5] || '',
+                        a: row[6] || ''
+                    });
+                }
+            }
+        }
+
+        function processElenchiData(data) {
+            if (data.length < 2) return;
+            
+            locationsData = [];
+            for (let i = 1; i < data.length; i++) {
+                if (data[i] && data[i][0]) {
+                    locationsData.push(data[i][0]);
+                }
+            }
+        }
+
+        function toggleMenu() {
+            document.getElementById('slideMenu').classList.add('open');
+            document.getElementById('menuOverlay').classList.add('show');
+        }
+
+        function closeMenu() {
+            document.getElementById('slideMenu').classList.remove('open');
+            document.getElementById('menuOverlay').classList.remove('show');
+        }
+
+        function toggleSearch() {
+            document.getElementById('searchOverlay').classList.add('show');
+            setTimeout(function() {
+                document.getElementById('searchInput').focus();
+            }, 300);
+        }
+
+        function closeSearch() {
+            document.getElementById('searchOverlay').classList.remove('show');
+        }
+
+        function switchView(view) {
+            currentView = view;
+            
+            document.querySelectorAll('.nav-item').forEach(function(item) {
+                item.classList.remove('active');
+            });
+            document.querySelector('[data-view="' + view + '"]').classList.add('active');
+            
+            renderCurrentView();
+        }
+
+        function renderCurrentView() {
+            const container = document.getElementById('viewContent');
+            
+            if (currentView === 'ubicazione') {
+                renderLocationView(container);
+            } else if (currentView === 'categoria') {
+                renderCategoryView(container);
+            } else if (currentView === 'tipo') {
+                renderTypeView(container);
+            }
+        }
+
+        function renderLocationView(container) {
+            const locations = getLocationGroups();
+            
+            if (locations.length === 0) {
+                container.innerHTML = '<div class="loading"><p>Nessuna ubicazione trovata</p></div>';
+                return;
+            }
+
+            container.innerHTML = locations.map(function(location) {
+                return '<div class="location-card" onclick="showLocationEquipment(\'' + location.name + '\')">' +
+                    '<div class="card-header">' +
+                        '<div class="card-title">📍 ' + location.name + '</div>' +
+                        '<div class="card-count">' + location.count + '</div>' +
+                    '</div>' +
+                    '<div class="card-items">' + location.types.slice(0, 3).join(', ') + (location.types.length > 3 ? '...' : '') + '</div>' +
+                '</div>';
+            }).join('');
+        }
+
+        function renderCategoryView(container) {
+            const categories = getCategoryGroups();
+            
+            if (categories.length === 0) {
+                container.innerHTML = '<div class="loading"><p>Nessuna categoria trovata</p></div>';
+                return;
+            }
+
+            container.innerHTML = categories.map(function(category) {
+                return '<div class="category-card" onclick="showCategoryEquipment(\'' + category.name + '\')">' +
+                    '<div class="card-header">' +
+                        '<div class="card-title">📂 ' + category.name + '</div>' +
+                        '<div class="card-count">' + category.count + '</div>' +
+                    '</div>' +
+                    '<div class="card-items">' + category.types.slice(0, 3).join(', ') + (category.types.length > 3 ? '...' : '') + '</div>' +
+                '</div>';
+            }).join('');
+        }
+
+        function renderTypeView(container) {
+            const types = getTypeGroups();
+            
+            if (types.length === 0) {
+                container.innerHTML = '<div class="loading"><p>Nessun tipo trovato</p></div>';
+                return;
+            }
+
+            container.innerHTML = types.map(function(type) {
+                return '<div class="type-card" onclick="showTypeEquipment(\'' + type.name + '\')">' +
+                    '<div class="card-header">' +
+                        '<div class="card-title">🔧 ' + type.name + '</div>' +
+                        '<div class="card-count">' + type.count + '</div>' +
+                    '</div>' +
+                    '<div class="card-items">' + type.locations.slice(0, 3).join(', ') + (type.locations.length > 3 ? '...' : '') + '</div>' +
+                '</div>';
+            }).join('');
+        }
+
+        function getLocationGroups() {
+            const filtered = getFilteredEquipment();
+            const groups = {};
+            
+            filtered.forEach(function(item) {
+                if (!groups[item.ubicazione]) {
+                    groups[item.ubicazione] = {
+                        name: item.ubicazione,
+                        count: 0,
+                        types: []
+                    };
+                }
+                groups[item.ubicazione].count++;
+                if (groups[item.ubicazione].types.indexOf(item.tipo) === -1) {
+                    groups[item.ubicazione].types.push(item.tipo);
+                }
+            });
+
+            return Object.values(groups).sort(function(a, b) {
+                return a.name.localeCompare(b.name);
+            });
+        }
+
+        function getCategoryGroups() {
+            const filtered = getFilteredEquipment();
+            const groups = {};
+            
+            filtered.forEach(function(item) {
+                if (!groups[item.categoria]) {
+                    groups[item.categoria] = {
+                        name: item.categoria,
+                        count: 0,
+                        types: []
+                    };
+                }
+                groups[item.categoria].count++;
+                if (groups[item.categoria].types.indexOf(item.tipo) === -1) {
+                    groups[item.categoria].types.push(item.tipo);
+                }
+            });
+
+            return Object.values(groups).sort(function(a, b) {
+                return a.name.localeCompare(b.name);
+            });
+        }
+
+        function getTypeGroups() {
+            const filtered = getFilteredEquipment();
+            const groups = {};
+            
+            filtered.forEach(function(item) {
+                if (!groups[item.tipo]) {
+                    groups[item.tipo] = {
+                        name: item.tipo,
+                        count: 0,
+                        locations: []
+                    };
+                }
+                groups[item.tipo].count++;
+                if (groups[item.tipo].locations.indexOf(item.ubicazione) === -1) {
+                    groups[item.tipo].locations.push(item.ubicazione);
+                }
+            });
+
+            return Object.values(groups).sort(function(a, b) {
+                return a.name.localeCompare(b.name);
+            });
+        }
+
+        function getFilteredEquipment() {
+            if (!currentFilter) return equipmentData;
+            
+            return equipmentData.filter(function(item) {
+                return item.codice.toLowerCase().indexOf(currentFilter) !== -1 ||
+                       item.tipo.toLowerCase().indexOf(currentFilter) !== -1 ||
+                       item.marcaModello.toLowerCase().indexOf(currentFilter) !== -1 ||
+                       item.ubicazione.toLowerCase().indexOf(currentFilter) !== -1 ||
+                       item.categoria.toLowerCase().indexOf(currentFilter) !== -1;
+            });
+        }
+
+        function showLocationEquipment(location) {
+            showEquipmentList('ubicazione', location);
+        }
+
+        function showCategoryEquipment(category) {
+            showEquipmentList('categoria', category);
+        }
+
+        function showTypeEquipment(type) {
+            showEquipmentList('tipo', type);
+        }
+
+        function showEquipmentList(filterType, filterValue) {
+            const container = document.getElementById('viewContent');
+            let filteredEquipment = equipmentData;
+            
+            if (filterType === 'ubicazione') {
+                filteredEquipment = equipmentData.filter(function(item) {
+                    return item.ubicazione === filterValue;
+                });
+            } else if (filterType === 'categoria') {
+                filteredEquipment = equipmentData.filter(function(item) {
+                    return item.categoria === filterValue;
+                });
+            } else if (filterType === 'tipo') {
+                filteredEquipment = equipmentData.filter(function(item) {
+                    return item.tipo === filterValue;
+                });
+            }
+            
+            const backButton = '<button class="back-button" onclick="renderCurrentView()">← Torna alla vista ' + currentView + '</button>';
+            
+            if (filteredEquipment.length === 0) {
+                container.innerHTML = backButton + '<div class="loading"><p>Nessuna attrezzatura trovata</p></div>';
+                return;
+            }
+
+            const equipmentCards = filteredEquipment.map(function(item) {
+                return '<div class="equipment-card" onclick="showEquipmentDetail(' + item.id + ')">' +
+                    '<div class="equipment-header">' +
+                        '<span class="equipment-code">' + item.codice + '</span>' +
+                        '<span class="equipment-category">' + item.categoria + '</span>' +
+                    '</div>' +
+                    '<div class="equipment-title">' + item.tipo + '</div>' +
+                    '<div class="equipment-brand">' + item.marcaModello + '</div>' +
+                    '<div class="equipment-location">' +
+                        '<span class="location-icon"></span>' +
+                        item.ubicazione +
+                    '</div>' +
+                '</div>';
+            }).join('');
+
+            container.innerHTML = backButton + equipmentCards;
+        }
+
+        function showEquipmentDetail(id) {
+            const equipment = equipmentData.find(function(item) {
+                return item.id === id;
+            });
+            if (!equipment) return;
+
+            currentEquipmentId = id;
+            
+            document.getElementById('modalTitle').textContent = equipment.tipo;
+            
+            const detailsHtml = 
+                '<div class="detail-item">' +
+                    '<div class="detail-label">Codice</div>' +
+                    '<div class="detail-value">' + equipment.codice + '</div>' +
+                '</div>' +
+                '<div class="detail-item">' +
+                    '<div class="detail-label">Categoria</div>' +
+                    '<div class="detail-value">' + equipment.categoria + '</div>' +
+                '</div>' +
+                '<div class="detail-item">' +
+                    '<div class="detail-label">Tipo</div>' +
+                    '<div class="detail-value">' + equipment.tipo + '</div>' +
+                '</div>' +
+                '<div class="detail-item">' +
+                    '<div class="detail-label">Marca/Modello</div>' +
+                    '<div class="detail-value">' + equipment.marcaModello + '</div>' +
+                '</div>' +
+                '<div class="detail-item">' +
+                    '<div class="detail-label">Ubicazione Attuale</div>' +
+                    '<div class="detail-value">📍 ' + equipment.ubicazione + '</div>' +
+                '</div>';
+            
+            document.getElementById('equipmentDetails').innerHTML = detailsHtml;
+            
+            const locationSelect = document.getElementById('newLocation');
+            locationSelect.innerHTML = '<option value="">Seleziona ubicazione...</option>' +
+                locationsData
+                    .filter(function(loc) { return loc !== equipment.ubicazione; })
+                    .map(function(loc) { return '<option value="' + loc + '">' + loc + '</option>'; })
+                    .join('');
+            
+            showMovementHistory(equipment.codice);
+            
+            document.getElementById('detailModal').style.display = 'block';
+        }
+
+        function closeDetailModal() {
+            document.getElementById('detailModal').style.display = 'none';
+            document.getElementById('newLocation').value = '';
+            document.getElementById('userName').value = '';
+        }
+
+        function showMovementHistory(codice) {
+            const movements = movementLog.filter(function(log) {
+                return log.codice === codice;
+            });
+            const historyContainer = document.getElementById('movementHistory');
+            
+            if (movements.length === 0) {
+                historyContainer.innerHTML = '<p style="color: #666; font-style: italic;">Nessuno spostamento registrato</p>';
+                return;
+            }
+            
+            historyContainer.innerHTML = movements
+                .sort(function(a, b) {
+                    return new Date(b.data) - new Date(a.data);
+                })
+                .map(function(movement) {
+                    const date = new Date(movement.data);
+                    return '<div class="history-item">' +
+                        '<div class="history-date">' + date.toLocaleDateString('it-IT') + ' ' + date.toLocaleTimeString('it-IT', {hour: '2-digit', minute: '2-digit'}) + '</div>' +
+                        '<div class="history-action">' +
+                            '<strong>' + movement.utente + '</strong> ha spostato da ' +
+                            '<strong>' + movement.da + '</strong> a <strong>' + movement.a + '</strong>' +
+                        '</div>' +
+                    '</div>';
+                }).join('');
+        }
+
+        function moveEquipment() {
+            const newLocation = document.getElementById('newLocation').value;
+            const userName = document.getElementById('userName').value.trim();
+            
+            if (!newLocation || !userName) {
+                alert('⚠️ Seleziona una ubicazione e inserisci il tuo nome');
+                return;
+            }
+            
+            const equipment = equipmentData.find(function(item) {
+                return item.id === currentEquipmentId;
+            });
+            const oldLocation = equipment.ubicazione;
+            
+            equipment.ubicazione = newLocation;
+            
+            movementLog.push({
+                codice: equipment.codice,
+                data: new Date().toISOString(),
+                utente: userName,
+                azione: 'Spostamento Ubicazione',
+                tabella: 'attrezzatura',
+                da: oldLocation,
+                a: newLocation
+            });
+            
+            alert('✅ Attrezzatura ' + equipment.codice + ' spostata da ' + oldLocation + ' a ' + newLocation);
+            
+            renderCurrentView();
+            showEquipmentDetail(currentEquipmentId);
+        }
+
+        function filterContent() {
+            currentFilter = document.getElementById('searchInput').value.toLowerCase();
+            const searchText = document.getElementById('searchText');
+            
+            if (currentFilter) {
+                searchText.textContent = currentFilter;
+                searchText.classList.add('active');
+            } else {
+                searchText.textContent = 'Ricerca';
+                searchText.classList.remove('active');
+            }
+            
+            renderCurrentView();
+        }
+
+        function showLoading(message) {
+            const container = document.getElementById('viewContent');
+            container.innerHTML = '<div class="loading"><p>' + message + '</p></div>';
+        }
+
+        function hideLoading() {
+            // La vista verrà aggiornata da renderCurrentView()
+        }
+    </script>
+</body>
+</html>
