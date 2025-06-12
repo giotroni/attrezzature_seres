@@ -604,16 +604,12 @@
     <div class="container">
         <div class="view-content" id="viewContent">
             <div class="loading">
-                <p>📊 Clicca su "Carica da Google Sheets" per sincronizzare i dati dal tuo foglio.</p>
-                <p style="margin-top: 10px; font-size: 14px;">
-                    <strong>✅ Configurazione completata:</strong><br>
-                    🔐 Service Account configurato<br>
-                    📋 ID Foglio: 1efHWyYHqsZpAbPXuUadz7Mg2ScsZ1iXX15Yv8daVhvg<br>
-                    📧 Assicurati di aver condiviso il foglio con:<br>
-                    <code style="font-size: 11px;">seres-archivio-app@ancient-dragon-416706.iam.gserviceaccount.com</code>
-                </p>
-                <button class="btn" id="loadSheetsBtn" style="margin-top: 15px; max-width: 250px;">📊 Carica da Google Sheets</button>
-                <button class="btn" id="loadDemoFallback" style="margin-top: 10px; max-width: 200px; background: #666;">🧪 Carica Dati Demo</button>
+                <p>🔄 Caricamento dati da Google Sheets...</p>
+                <div style="margin-top: 20px;">
+                    <div style="width: 100%; background: #e0e0e0; border-radius: 10px; overflow: hidden;">
+                        <div id="loadingBar" style="width: 0%; height: 4px; background: #8B2E1A; transition: width 0.3s ease;"></div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -679,14 +675,16 @@
         
         // Configurazione Google Sheets
         const SHEET_ID = '1efHWyYHqsZpAbPXuUadz7Mg2ScsZ1iXX15Yv8daVhvg';
+        const API_KEY = 'AIzaSyCc8HZz0QCZ-OtQF_wu4GuBhmeAdTceUWE';
 
         // Inizializzazione
         document.addEventListener('DOMContentLoaded', function() {
             console.log('App SERES caricata correttamente');
             
+            // Avvia automaticamente il caricamento da Google Sheets
+            loadFromGoogleSheets();
+            
             // Event listeners
-            document.getElementById('loadSheetsBtn').addEventListener('click', loadFromGoogleSheets);
-            document.getElementById('loadDemoFallback').addEventListener('click', loadDemoData);
             document.getElementById('menuToggle').addEventListener('click', toggleMenu);
             document.getElementById('menuClose').addEventListener('click', closeMenu);
             document.getElementById('menuOverlay').addEventListener('click', closeMenu);
@@ -823,7 +821,7 @@
             ];
 
             const promises = ranges.map(range => 
-                fetch('https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/' + range + '?key=AIzaSyCc8HZz0QCZ-OtQF_wu4GuBhmeAdTceUWE')
+                fetch('https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/' + range)
                 .then(response => {
                     if (!response.ok) {
                         throw new Error('HTTP ' + response.status + ': ' + response.statusText);
@@ -1282,7 +1280,14 @@
 
         function showLoading(message) {
             const container = document.getElementById('viewContent');
-            container.innerHTML = '<div class="loading"><p>' + message + '</p></div>';
+            container.innerHTML = '<div class="loading">' +
+                '<p>' + message + '</p>' +
+                '<div style="margin-top: 20px;">' +
+                    '<div style="width: 100%; background: #e0e0e0; border-radius: 10px; overflow: hidden;">' +
+                        '<div id="loadingBar" style="width: 0%; height: 4px; background: #8B2E1A; transition: width 0.3s ease;"></div>' +
+                    '</div>' +
+                '</div>' +
+            '</div>';
         }
 
         function hideLoading() {
