@@ -1231,7 +1231,78 @@
                 }).join('');
         }
 
-        function moveEquipment() {
+        async function updateGoogleSheet(range, values) {
+            const API_KEY = 'AIzaSyCc8HZz0QCZ-OtQF_wu4GuBhmeAdTceUWE';
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}?valueInputOption=RAW&key=${API_KEY}`;
+            
+            try {
+                const response = await fetch(url, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        values: values
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                return await response.json();
+            } catch (error) {
+                console.error('Errore durante l\'aggiornamento del foglio Google:', error);
+                throw error;
+            }
+        }
+
+        async function appendToGoogleSheet(range, values) {
+            const API_KEY = 'AIzaSyCc8HZz0QCZ-OtQF_wu4GuBhmeAdTceUWE';
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS&key=${API_KEY}`;
+            
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        values: values
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                return await response.json();
+            } catch (error) {
+                console.error('Errore durante l\'aggiunta al foglio Google:', error);
+                throw error;
+            }
+        }
+
+        async function findRowInSheet(codice) {
+            try {
+                const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/attrezzatura!A:E?key=AIzaSyCc8HZz0QCZ-OtQF_wu4GuBhmeAdTceUWE`);
+                const data = await response.json();
+                const values = data.values || [];
+                
+                // Trova l'indice della riga con il codice specificato
+                for (let i = 0; i < values.length; i++) {
+                    if (values[i][4] === codice) { // La colonna E (indice 4) contiene il codice
+                        return i + 1; // +1 perché le righe in Google Sheets iniziano da 1
+                    }
+                }
+                return null;
+            } catch (error) {
+                console.error('Errore durante la ricerca nel foglio Google:', error);
+                throw error;
+            }
+        }
+
+        async function moveEquipment() {
             const newLocation = document.getElementById('newLocation').value;
             const userName = document.getElementById('userName').value.trim();
             
@@ -1245,22 +1316,54 @@
             });
             const oldLocation = equipment.ubicazione;
             
-            equipment.ubicazione = newLocation;
-            
-            movementLog.push({
-                codice: equipment.codice,
-                data: new Date().toISOString(),
-                utente: userName,
-                azione: 'Spostamento Ubicazione',
-                tabella: 'attrezzatura',
-                da: oldLocation,
-                a: newLocation
-            });
-            
-            alert('✅ Attrezzatura ' + equipment.codice + ' spostata da ' + oldLocation + ' a ' + newLocation);
-            
-            renderCurrentView();
-            showEquipmentDetail(currentEquipmentId);
+            try {
+                // Trova la riga dell'attrezzatura nel foglio
+                const row = await findRowInSheet(equipment.codice);
+                if (!row) {
+                    throw new Error('Attrezzatura non trovata nel foglio Google');
+                }
+
+                // Aggiorna l'ubicazione nel foglio "attrezzatura"
+                await updateGoogleSheet(
+                    `attrezzatura!D${row}`, // Colonna D contiene l'ubicazione
+                    [[newLocation]]
+                );
+
+                // Aggiungi una nuova riga nel foglio "log"
+                const now = new Date();
+                await appendToGoogleSheet(
+                    'log!A:G',
+                    [[
+                        now.toISOString(), // Data
+                        userName, // Utente
+                        'Spostamento Ubicazione', // Azione
+                        'attrezzatura', // Tabella
+                        equipment.codice, // Codice
+                        oldLocation, // Da
+                        newLocation // A
+                    ]]
+                );
+
+                // Aggiorna i dati locali
+                equipment.ubicazione = newLocation;
+                movementLog.push({
+                    codice: equipment.codice,
+                    data: now.toISOString(),
+                    utente: userName,
+                    azione: 'Spostamento Ubicazione',
+                    tabella: 'attrezzatura',
+                    da: oldLocation,
+                    a: newLocation
+                });
+                
+                alert('✅ Attrezzatura ' + equipment.codice + ' spostata da ' + oldLocation + ' a ' + newLocation);
+                
+                renderCurrentView();
+                showEquipmentDetail(currentEquipmentId);
+            } catch (error) {
+                console.error('Errore durante lo spostamento:', error);
+                alert('❌ Errore durante lo spostamento: ' + error.message);
+            }
         }
 
         function filterContent() {
