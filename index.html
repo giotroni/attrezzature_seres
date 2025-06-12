@@ -823,7 +823,7 @@
             ];
 
             const promises = ranges.map(range => 
-                fetch('https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/' + range)
+                fetch('https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/' + range + '?key=AIzaSyCc8HZz0QCZ-OtQF_wu4GuBhmeAdTceUWE')
                 .then(response => {
                     if (!response.ok) {
                         throw new Error('HTTP ' + response.status + ': ' + response.statusText);
