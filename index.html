@@ -751,6 +751,10 @@
         // Costanti e variabili globali
         const SHEET_ID = '1efHWyYHqsZpAbPXuUadz7Mg2ScsZ1iXX15Yv8daVhvg';
         const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbyWzNZ91kZBr9D3PhQNO7FLSXypRt1Ret0EvlBMuW_GgIAMKB9r4Ag4GHnvoHCVJCUvsA/exec';
+        
+        let currentView = 'ubicazione'; // Inizializzazione della vista predefinita
+        let attrezzature = []; // Array per memorizzare i dati delle attrezzature
+        let filteredData = []; // Array per i dati filtrati dalla ricerca
 
         // Funzioni di inizializzazione
         document.addEventListener('DOMContentLoaded', function() {
@@ -792,95 +796,46 @@
             });
         });
 
-        function loadDemoData() {
-            equipmentData = [
-                {
-                    id: 1,
-                    codice: "ATTR0050",
-                    categoria: "ATTREZZATURE ELETTRICHE",
-                    tipo: "ASPIRAPOLVERI",
-                    marcaModello: "FESTOOL CTL 26",
-                    ubicazione: "MANDELLI"
-                },
-                {
-                    id: 2,
-                    codice: "ATTR0051",
-                    categoria: "ATTREZZATURE ELETTRICHE",
-                    tipo: "DREMEL",
-                    marcaModello: "3000 CON FILO 3",
-                    ubicazione: "MANDELLI"
-                },
-                {
-                    id: 3,
-                    codice: "ATTR0052",
-                    categoria: "ATTREZZATURE ELETTRICHE",
-                    tipo: "PROLUNGHE E CAVI",
-                    marcaModello: "PROLUNGA con ruota 5 m",
-                    ubicazione: "MANDELLI"
-                },
-                {
-                    id: 4,
-                    codice: "ATTR0053",
-                    categoria: "ATTREZZATURE FRIGORIFERO",
-                    tipo: "FRIGO PORTATILE",
-                    marcaModello: "DOMETIC CFX3 35",
-                    ubicazione: "FRIGERIO"
-                },
-                {
-                    id: 5,
-                    codice: "ATTR0054",
-                    categoria: "LABORATORIO",
-                    tipo: "MICROSCOPIO",
-                    marcaModello: "ZEISS AXIO",
-                    ubicazione: "LABORATORIO"
-                },
-                {
-                    id: 6,
-                    codice: "ATTR0055",
-                    categoria: "SALUTE",
-                    tipo: "DEFIBRILLATORE",
-                    marcaModello: "PHILIPS HS1",
-                    ubicazione: "SALUTE"
-                },
-                {
-                    id: 7,
-                    codice: "ATTR0056",
-                    categoria: "ATTREZZATURE ELETTRICHE",
-                    tipo: "TRAPANO",
-                    marcaModello: "BOSCH GSB 120",
-                    ubicazione: "PALERMO"
-                },
-                {
-                    id: 8,
-                    codice: "ATTR0057",
-                    categoria: "TRABATELLI E SCALE",
-                    tipo: "SCALA TELESCOPICA",
-                    marcaModello: "FACAL 4x4",
-                    ubicazione: "TRIESTE"
+        async function loadData() {
+            try {
+                showLoadingOverlay('Caricamento dati in corso...');
+                const response = await fetch(WEBAPP_URL + '?action=getData');
+                if (!response.ok) {
+                    throw new Error('Errore nel caricamento dei dati');
                 }
-            ];
+                const data = await response.json();
+                if (!data || !data.success) {
+                    throw new Error(data.error || 'Errore nel formato dei dati');
+                }
+                attrezzature = data.data || [];
+                filteredData = [...attrezzature];
+                renderCurrentView();
+            } catch (error) {
+                console.error('Errore nel caricamento:', error);
+                showError('Errore nel caricamento dei dati. Carico i dati demo come fallback...');
+                // Carica i dati demo come fallback
+                loadDemoData();
+            } finally {
+                hideLoadingOverlay();
+            }
+        }
 
-            locationsData = ["MANDELLI", "FRIGERIO", "LABORATORIO", "SALUTE", "PALERMO", "TRIESTE", "VALIER", "ZANAROLI"];
-            categoriesData = ["ATTREZZATURE ELETTRICHE", "ATTREZZATURE FRIGORIFERO", "LABORATORIO", "SALUTE", "TRABATELLI E SCALE"];
-            
-            movementLog = [
+        function loadDemoData() {
+            // Dati demo di esempio
+            attrezzature = [
                 {
-                    codice: "ATTR0050",
-                    data: "2025-06-10T14:30:00",
-                    utente: "Mario Rossi",
-                    da: "LABORATORIO",
-                    a: "MANDELLI"
+                    id: 'DEMO1',
+                    nome: 'Attrezzatura Demo 1',
+                    categoria: 'Test',
+                    tipo: 'Demo',
+                    ubicazione: 'Magazzino',
+                    stato: 'Disponibile',
+                    note: 'Attrezzatura di test',
+                    movimenti: []
                 },
-                {
-                    codice: "ATTR0051",
-                    data: "2025-06-09T09:15:00",
-                    utente: "Giulia Bianchi",
-                    da: "SALUTE", 
-                    a: "MANDELLI"
-                }
+                // Aggiungi altri dati demo se necessario
             ];
-            
-            console.log('Dati demo caricati:', equipmentData.length, 'attrezzature');
+            filteredData = [...attrezzature];
             renderCurrentView();
         }
 
