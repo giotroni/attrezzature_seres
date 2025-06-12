@@ -542,6 +542,54 @@
             margin-right: 5px;
         }
 
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 3000;
+            display: none;
+            backdrop-filter: blur(2px);
+            align-items: center;
+            justify-content: center;
+        }
+
+        .loading-overlay.show {
+            display: flex;
+        }
+
+        .loading-content {
+            background: white;
+            padding: 20px 30px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .loading-content p {
+            margin: 10px 0;
+            color: #333;
+            font-size: 16px;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #8B2E1A;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
         @media (max-width: 480px) {
             .container {
                 padding: 70px 10px 20px;
@@ -660,6 +708,13 @@
                     <div id="movementHistory"></div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <p id="loadingMessage">Spostamento in corso...</p>
         </div>
     </div>
 
@@ -1342,6 +1397,8 @@
             const oldLocation = equipment.ubicazione;
             
             try {
+                showLoading('Spostamento attrezzatura in corso...');
+
                 // Invia i dati all'Apps Script
                 await updateGoogleSheetViaWebApp('moveEquipment', {
                     codice: equipment.codice,
@@ -1363,11 +1420,13 @@
                     a: newLocation
                 });
                 
+                hideLoading();
+                closeDetailModal(); // Chiude la scheda di dettaglio
                 alert('✅ Attrezzatura ' + equipment.codice + ' spostata da ' + oldLocation + ' a ' + newLocation);
                 
                 renderCurrentView();
-                showEquipmentDetail(currentEquipmentId);
             } catch (error) {
+                hideLoading();
                 console.error('Errore durante lo spostamento:', error);
                 alert('❌ Errore durante lo spostamento: ' + error.message);
             }
@@ -1389,19 +1448,12 @@
         }
 
         function showLoading(message) {
-            const container = document.getElementById('viewContent');
-            container.innerHTML = '<div class="loading">' +
-                '<p>' + message + '</p>' +
-                '<div style="margin-top: 20px;">' +
-                    '<div style="width: 100%; background: #e0e0e0; border-radius: 10px; overflow: hidden;">' +
-                        '<div id="loadingBar" style="width: 0%; height: 4px; background: #8B2E1A; transition: width 0.3s ease;"></div>' +
-                    '</div>' +
-                '</div>' +
-            '</div>';
+            document.getElementById('loadingMessage').textContent = message;
+            document.getElementById('loadingOverlay').classList.add('show');
         }
 
         function hideLoading() {
-            // La vista verrà aggiornata da renderCurrentView()
+            document.getElementById('loadingOverlay').classList.remove('show');
         }
     </script>
 </body>
