@@ -1302,6 +1302,31 @@
             }
         }
 
+        async function updateGoogleSheetViaWebApp(action, data) {
+            const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbyWzNZ91kZBr9D3PhQNO7FLSXypRt1Ret0EvlBMuW_GgIAMKB9r4Ag4GHnvoHCVJCUvsA/exec';
+            
+            try {
+                const response = await fetch(WEBAPP_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: action,
+                        data: data
+                    })
+                });
+
+                // A causa di 'no-cors', non possiamo leggere la risposta
+                // Assumiamo che sia andata a buon fine se non ci sono errori
+                return true;
+            } catch (error) {
+                console.error('Errore durante l\'aggiornamento del foglio Google:', error);
+                throw error;
+            }
+        }
+
         async function moveEquipment() {
             const newLocation = document.getElementById('newLocation').value;
             const userName = document.getElementById('userName').value.trim();
@@ -1317,38 +1342,20 @@
             const oldLocation = equipment.ubicazione;
             
             try {
-                // Trova la riga dell'attrezzatura nel foglio
-                const row = await findRowInSheet(equipment.codice);
-                if (!row) {
-                    throw new Error('Attrezzatura non trovata nel foglio Google');
-                }
-
-                // Aggiorna l'ubicazione nel foglio "attrezzatura"
-                await updateGoogleSheet(
-                    `attrezzatura!D${row}`, // Colonna D contiene l'ubicazione
-                    [[newLocation]]
-                );
-
-                // Aggiungi una nuova riga nel foglio "log"
-                const now = new Date();
-                await appendToGoogleSheet(
-                    'log!A:G',
-                    [[
-                        now.toISOString(), // Data
-                        userName, // Utente
-                        'Spostamento Ubicazione', // Azione
-                        'attrezzatura', // Tabella
-                        equipment.codice, // Codice
-                        oldLocation, // Da
-                        newLocation // A
-                    ]]
-                );
+                // Invia i dati all'Apps Script
+                await updateGoogleSheetViaWebApp('moveEquipment', {
+                    codice: equipment.codice,
+                    newLocation: newLocation,
+                    userName: userName,
+                    oldLocation: oldLocation,
+                    timestamp: new Date().toISOString()
+                });
 
                 // Aggiorna i dati locali
                 equipment.ubicazione = newLocation;
                 movementLog.push({
                     codice: equipment.codice,
-                    data: now.toISOString(),
+                    data: new Date().toISOString(),
                     utente: userName,
                     azione: 'Spostamento Ubicazione',
                     tabella: 'attrezzatura',
