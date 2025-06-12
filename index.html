@@ -753,8 +753,31 @@
         const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbyWzNZ91kZBr9D3PhQNO7FLSXypRt1Ret0EvlBMuW_GgIAMKB9r4Ag4GHnvoHCVJCUvsA/exec';
         
         let currentView = 'ubicazione'; // Inizializzazione della vista predefinita
+        let currentFilter = ''; // Inizializzazione del filtro di ricerca
         let attrezzature = []; // Array per memorizzare i dati delle attrezzature
         let filteredData = []; // Array per i dati filtrati dalla ricerca
+
+        // Funzioni di utilità per mostrare/nascondere l'overlay di caricamento
+        function showLoadingOverlay(message) {
+            const overlay = document.getElementById('loadingOverlay');
+            const messageElement = document.getElementById('loadingMessage');
+            if (messageElement) messageElement.textContent = message || 'Caricamento in corso...';
+            if (overlay) overlay.style.display = 'flex';
+        }
+
+        function hideLoadingOverlay() {
+            const overlay = document.getElementById('loadingOverlay');
+            if (overlay) overlay.style.display = 'none';
+        }
+
+        function showError(message) {
+            const errorElement = document.createElement('div');
+            errorElement.className = 'error-message';
+            errorElement.textContent = message;
+            errorElement.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #ff4444; color: white; padding: 15px; border-radius: 5px; z-index: 9999;';
+            document.body.appendChild(errorElement);
+            setTimeout(() => errorElement.remove(), 5000);
+        }
 
         // Funzioni di inizializzazione
         document.addEventListener('DOMContentLoaded', function() {
