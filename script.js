@@ -21,6 +21,7 @@ function loadFromGoogleSheets() {
     showLoading('Caricamento da Google Sheets...');
     
     console.log('Tentativo di caricamento da Google Sheets...');
+    console.log('Sheet ID:', SHEET_ID);
     
     const ranges = [
         'attrezzatura!A:E',
@@ -28,21 +29,37 @@ function loadFromGoogleSheets() {
         'elenchi!A:A'
     ];
 
-    const promises = ranges.map(range => 
-        fetch('https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/' + range + '?key=AIzaSyCc8HZz0QCZ-OtQF_wu4GuBhmeAdTceUWE')
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('HTTP ' + response.status + ': ' + response.statusText);
-            }
-            return response.json();
-        })
-    );
-
-    Promise.all(promises)
+    const API_KEY = 'AIzaSyCc8HZz0QCZ-OtQF_wu4GuBhmeAdTceUWE';
+    
+    const promises = ranges.map(range => {
+        const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}?key=${API_KEY}`;
+        console.log('Fetching:', url);
+        
+        return fetch(url)
+            .then(response => {
+                console.log('Response status:', response.status);
+                if (!response.ok) {
+                    return response.text().then(text => {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}\nResponse: ${text}`);
+                    });
+                }
+                return response.json();
+            })
+            .catch(error => {
+                console.error('Error fetching range', range, ':', error);
+                throw error;
+            });
+    });    Promise.all(promises)
         .then(function(results) {
+            console.log('Dati ricevuti:', results);
+            
             const attrezzaturaData = results[0];
             const logData = results[1];
             const elenchiData = results[2];
+
+            if (!attrezzaturaData.values || attrezzaturaData.values.length < 2) {
+                throw new Error('Nessun dato trovato nel foglio attrezzatura');
+            }
 
             processAttrezzaturaData(attrezzaturaData.values || []);
             processLogData(logData.values || []);
