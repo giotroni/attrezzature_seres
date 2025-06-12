@@ -116,7 +116,6 @@
             max-width: 400px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.3);
             animation: searchSlideIn 0.3s ease;
-            position: relative;
         }
 
         @keyframes searchSlideIn {
@@ -228,34 +227,6 @@
             border: none;
             width: 100%;
             font-size: 16px;
-            position: relative;
-        }
-
-        .search-container {
-            position: relative;
-            margin-bottom: 20px;
-        }
-
-        .clear-search {
-            position: absolute;
-            right: 15px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: none;
-            border: none;
-            color: #666;
-            font-size: 18px;
-            cursor: pointer;
-            padding: 5px;
-            display: none;
-        }
-
-        .clear-search.visible {
-            display: block;
-        }
-
-        .clear-search:hover {
-            color: #333;
         }
 
         .view-content {
@@ -599,16 +570,13 @@
     </div>
 
     <!-- Search Overlay -->
-    <div id="searchOverlay" class="search-overlay">
+    <div class="search-overlay" id="searchOverlay">
         <div class="search-container">
             <div class="search-header">
-                <h2>Cerca attrezzature</h2>
-                <button class="search-close" onclick="closeSearch()">&times;</button>
+                <h3>🔍 Ricerca Attrezzature</h3>
+                <button class="search-close" id="searchClose">✕</button>
             </div>
-            <div class="search-input-container">
-                <input type="text" id="searchInput" class="search-bar" placeholder="Cerca per codice, tipo o ubicazione..." oninput="handleSearchInput(this)">
-                <button id="clearSearch" class="clear-search" onclick="clearSearch()">&times;</button>
-            </div>
+            <input type="text" class="search-bar" id="searchInput" placeholder="Cerca per codice, tipo, marca o ubicazione..." style="margin-bottom: 0;">
         </div>
     </div>
 
@@ -962,11 +930,7 @@
         function toggleSearch() {
             document.getElementById('searchOverlay').classList.add('show');
             setTimeout(function() {
-                const searchInput = document.getElementById('searchInput');
-                searchInput.focus();
-                if (searchInput.value.length > 0) {
-                    document.getElementById('clearSearch').classList.add('visible');
-                }
+                document.getElementById('searchInput').focus();
             }, 300);
         }
 
@@ -1323,24 +1287,6 @@
 
         function hideLoading() {
             // La vista verrà aggiornata da renderCurrentView()
-        }
-
-        function handleSearchInput(input) {
-            const clearButton = document.getElementById('clearSearch');
-            if (input.value.length > 0) {
-                clearButton.classList.add('visible');
-            } else {
-                clearButton.classList.remove('visible');
-            }
-            // Existing search functionality here
-            renderCurrentView();
-        }
-
-        function clearSearch() {
-            const searchInput = document.getElementById('searchInput');
-            searchInput.value = '';
-            document.getElementById('clearSearch').classList.remove('visible');
-            renderCurrentView();
         }
     </script>
 </body>
