@@ -633,6 +633,65 @@
                 width: 95%;
             }
         }
+
+        .about-modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            z-index: 2000;
+            max-width: 90%;
+            width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .about-modal h2 {
+            color: #8B2E1A;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #8B2E1A;
+            padding-bottom: 10px;
+        }
+
+        .about-modal h3 {
+            color: #333;
+            margin: 15px 0 10px;
+        }
+
+        .about-modal p {
+            margin-bottom: 15px;
+            line-height: 1.5;
+        }
+
+        .about-modal ul {
+            margin-bottom: 15px;
+            padding-left: 20px;
+        }
+
+        .about-modal li {
+            margin-bottom: 8px;
+            line-height: 1.4;
+        }
+
+        .about-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #8B2E1A;
+        }
+
+        .about-close:hover {
+            color: #333;
+        }
     </style>
 </head>
 <body>
@@ -664,7 +723,7 @@
             <button class="menu-close" id="menuClose">✕</button>
         </div>
         <div class="menu-content">
-            <h4 style="margin-bottom: 15px; color: #333;">⚙️ Azioni</h4>
+            <h4 style="margin: 25px 0 15px; color: #333;">⚙️ Azioni</h4>
             <button class="menu-item" id="btnAddLocation">
                 📍 Nuova Ubicazione
             </button>
@@ -674,9 +733,44 @@
             <button class="menu-item" id="btnRefresh">
                 🔄 Aggiorna Dati
             </button>
+            <h4 style="margin: 25px 0 15px; color: #333;">ℹ️ Info</h4>
+            <button class="menu-item" id="btnAbout">
+                📖 Guida all'uso
+            </button>
         </div>
     </div>
 
+    <!-- About Modal -->
+    <div class="about-modal" id="aboutModal">
+        <button class="about-close" id="aboutClose">✕</button>
+        <h2>📱 Gestione Attrezzature SERES</h2>
+        
+        <h3>🎯 Scopo dell'applicazione</h3>
+        <p>Questa applicazione permette di gestire e tracciare tutte le attrezzature SERES, mantenendo uno storico dei movimenti e facilitando la ricerca degli strumenti.</p>
+
+        <h3>🔍 Come utilizzare l'app</h3>
+        <ul>
+            <li><strong>Visualizzazione:</strong> È possibile visualizzare le attrezzature per ubicazione, categoria o tipo utilizzando il menu in alto.</li>
+            <li><strong>Ricerca:</strong> Usa la barra di ricerca per trovare rapidamente un'attrezzatura specifica. La ricerca funziona su codice, tipo, marca/modello, ubicazione e categoria.</li>
+            <li><strong>Dettagli:</strong> Clicca su un'attrezzatura per vedere tutti i dettagli e lo storico dei movimenti.</li>
+            <li><strong>Spostamenti:</strong> Nella vista dettaglio, puoi registrare lo spostamento di un'attrezzatura in una nuova ubicazione.</li>
+        </ul>
+
+        <h3>➕ Gestione dati</h3>
+        <ul>
+            <li><strong>Nuova Ubicazione:</strong> Aggiungi una nuova ubicazione dal menu laterale.</li>
+            <li><strong>Nuova Attrezzatura:</strong> Registra una nuova attrezzatura nel sistema.</li>
+            <li><strong>Aggiorna Dati:</strong> Sincronizza i dati con il foglio Google Sheets.</li>
+        </ul>
+
+        <h3>💡 Suggerimenti</h3>
+        <ul>
+            <li>Usa il pulsante di ricerca per filtrare rapidamente le attrezzature.</li>
+            <li>Controlla sempre l'ubicazione attuale prima di cercare un'attrezzatura.</li>
+            <li>Registra sempre i movimenti delle attrezzature per mantenere uno storico accurato.</li>
+        </ul>
+    </div>
+    
     <div class="container">
         <div class="view-content" id="viewContent">
             <div class="loading">
@@ -815,6 +909,30 @@
                 const modal = document.getElementById('detailModal');
                 if (event.target === modal) {
                     closeDetailModal();
+                }
+            });
+
+            // About Modal
+            const btnAbout = document.getElementById('btnAbout');
+            const aboutModal = document.getElementById('aboutModal');
+            const aboutClose = document.getElementById('aboutClose');
+            const menuOverlay = document.getElementById('menuOverlay');
+
+            btnAbout.addEventListener('click', function() {
+                aboutModal.style.display = 'block';
+                menuOverlay.style.display = 'block';
+                slideMenu.classList.remove('open');
+            });
+
+            aboutClose.addEventListener('click', function() {
+                aboutModal.style.display = 'none';
+                menuOverlay.style.display = 'none';
+            });
+
+            menuOverlay.addEventListener('click', function() {
+                if (aboutModal.style.display === 'block') {
+                    aboutModal.style.display = 'none';
+                    menuOverlay.style.display = 'none';
                 }
             });
         });
