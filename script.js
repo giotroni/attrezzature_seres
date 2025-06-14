@@ -6,6 +6,8 @@ let currentView = 'ubicazione'; // Inizializzazione della vista predefinita
 let currentFilter = ''; // Inizializzazione del filtro di ricerca
 let attrezzature = []; // Array per memorizzare i dati delle attrezzature
 let filteredData = []; // Array per i dati filtrati dalla ricerca
+let locationsData = []; // Array per memorizzare i dati delle ubicazioni
+let currentEquipment = null; // Attrezzatura attualmente selezionata per lo spostamento
 
 // Funzioni di utilità per mostrare/nascondere l'overlay di caricamento
 function showLoadingOverlay(message) {
@@ -30,11 +32,14 @@ function showError(message) {
 }
 
 // Funzioni di inizializzazione
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
     console.log('App SERES caricata correttamente');
     
-    // Avvia automaticamente il caricamento da Google Sheets
-    loadFromGoogleSheets();
+    // Carica le ubicazioni disponibili
+    await loadLocations();
+    
+    // Carica i dati delle attrezzature
+    await loadData();
     
     // Event listeners
     document.getElementById('menuToggle').addEventListener('click', toggleMenu);
@@ -727,4 +732,38 @@ function showLoading(message) {
 
 function hideLoading() {
     document.getElementById('loadingOverlay').classList.remove('show');
+}
+
+async function loadLocations() {
+    try {
+        const response = await fetch(`${WEBAPP_URL}?action=getLocations`);
+        if (!response.ok) {
+            throw new Error('Errore nel caricamento delle ubicazioni');
+        }
+        const data = await response.json();
+        if (!data.success) {
+            throw new Error(data.error || 'Errore nel formato dei dati delle ubicazioni');
+        }
+        locationsData = data.locations || [];
+        console.log('Ubicazioni caricate:', locationsData);
+    } catch (error) {
+        console.error('Errore nel caricamento delle ubicazioni:', error);
+        showError('Errore nel caricamento delle ubicazioni disponibili');
+    }
+}
+
+async function showMoveEquipmentModal(equipment) {
+    const modal = document.getElementById('moveEquipmentModal');
+    const locationSelect = document.getElementById('newLocation');
+    
+    // Aggiorna la lista delle ubicazioni
+    locationSelect.innerHTML = '<option value="">Seleziona ubicazione...</option>' +
+        locationsData
+            .filter(loc => loc !== equipment.ubicazione) // Esclude l'ubicazione attuale
+            .map(loc => `<option value="${loc}">${loc}</option>`)
+            .join('');
+    
+    currentEquipment = equipment;
+    modal.style.display = 'block';
+    document.getElementById('moveEquipmentForm').reset();
 }
