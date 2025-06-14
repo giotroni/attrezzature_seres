@@ -125,19 +125,41 @@ function setupEventListeners() {
 async function callApi(action, data = null) {
     debugLog('Chiamata API:', { action, data });
     
-    const options = {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            action: action,
-            data: data
-        })
-    };
-
-    try {
-        const response = await fetch(WEBAPP_URL, options);
+    // Usa GET per operazioni di lettura, POST per operazioni di scrittura
+    const isReadOperation = ['getData', 'getLocations'].includes(action);
+    const url = new URL(WEBAPP_URL);
+    
+    if (isReadOperation) {
+        // Per le operazioni GET, aggiungi i parametri all'URL
+        url.searchParams.append('action', action);
+        if (data) {
+            Object.entries(data).forEach(([key, value]) => {
+                url.searchParams.append(key, value);
+            });
+        }
+        
+        const options = {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json'
+            }
+        };
+        debugLog('GET request:', { url: url.toString(), options });
+    } else {
+        // Per le operazioni POST, usa il body JSON
+        var options = {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                action: action,
+                data: data
+            })
+        };
+        debugLog('POST request:', { url: url.toString(), options });
+    }    try {
+        const response = await fetch(isReadOperation ? url.toString() : WEBAPP_URL, options);
         debugLog('Risposta ricevuta:', response);
         
         if (!response.ok) {
@@ -147,7 +169,8 @@ async function callApi(action, data = null) {
         const result = await response.json();
         debugLog('Dati ricevuti:', result);
         
-        if (!result.success) {
+        // Non controlliamo più result.success ma verifichiamo che ci sia result.data o result.status
+        if (!result.data && !result.status) {
             throw new Error(result.error || 'Errore nella risposta');
         }
         
