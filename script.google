@@ -1,13 +1,27 @@
 // Configurazione CORS per consentire le richieste dalla tua web app
 function setupCORS(e) {
-  const cache = CacheService.getScriptCache();
   const MAX_AGE = '3600'; // Tempo di cache in secondi
+  const ALLOWED_ORIGINS = [
+    'https://v3-v2--seres-tools.netlify.app',
+    'http://127.0.0.1:5500', // Per test locali
+    'http://localhost:5500'  // Per test locali
+  ];
+
+  // Ottieni l'origine della richiesta
+  const origin = e.parameter.origin || 
+                (e.headers && e.headers['Origin']) || 
+                (e.headers && e.headers['origin']);
+
+  // Usa l'origine della richiesta se è nella lista consentita, altrimenti usa la prima origine consentita
+  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+
   return ContentService
     .createTextOutput(JSON.stringify({ status: 'success' }))
     .setMimeType(ContentService.MimeType.JSON)
-    .setHeader('Access-Control-Allow-Origin', '*')
+    .setHeader('Access-Control-Allow-Origin', allowedOrigin)
     .setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-    .setHeader('Access-Control-Allow-Headers', 'Content-Type')
+    .setHeader('Access-Control-Allow-Headers', 'Content-Type, Origin')
+    .setHeader('Access-Control-Allow-Credentials', 'true')
     .setHeader('Access-Control-Max-Age', MAX_AGE);
 }
 
@@ -57,12 +71,17 @@ function handleRequest(e) {
         break;
       default:
         throw new Error('Azione non valida: ' + action);
-    }
+    }    const origin = e.parameter.origin || 
+                (e.headers && e.headers['Origin']) || 
+                (e.headers && e.headers['origin']) || 
+                'https://v3-v2--seres-tools.netlify.app';
 
     return ContentService
       .createTextOutput(JSON.stringify({ status: 'success', data: result }))
       .setMimeType(ContentService.MimeType.JSON)
-      .setHeader('Access-Control-Allow-Origin', '*');
+      .setHeader('Access-Control-Allow-Origin', origin)
+      .setHeader('Access-Control-Allow-Headers', 'Content-Type, Origin')
+      .setHeader('Access-Control-Allow-Credentials', 'true');
 
   } catch (error) {
     return ContentService

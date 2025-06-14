@@ -1,6 +1,6 @@
 // Costanti e variabili globali
 const SHEET_ID = '1efHWyYHqsZpAbPXuUadz7Mg2ScsZ1iXX15Yv8daVhvg';
-const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbzB5w7uWISpZ31i3JCTf1sGnfG7-4mGVSvPYr9slfbuK_9t5LNZ5tHX7shucPZiJ1xspw/exec';
+const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbzhquJSqs2O-zgwFBe7JM2XG-8rc2keR-h49oGJVeRt0D9xZsAUT8LjZnHqkXYZBtOMwQ/exec';
 
 // Debug flag
 const DEBUG = true;
