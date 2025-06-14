@@ -1,13 +1,14 @@
 // Costanti e variabili globali
 const SHEET_ID = '1efHWyYHqsZpAbPXuUadz7Mg2ScsZ1iXX15Yv8daVhvg';
-const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbyWzNZ91kZBr9D3PhQNO7FLSXypRt1Ret0EvlBMuW_GgIAMKB9r4Ag4GHnvoHCVJCUvsA/exec';
+const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycby77YAe1Neoyke8JTq3RzkeHLYQHuyTI3V1JzcTEaHAUeyZnMqQFStN33KaZaAqGAfvoA/exec';
 
-let currentView = 'ubicazione'; // Inizializzazione della vista predefinita
-let currentFilter = ''; // Inizializzazione del filtro di ricerca
-let attrezzature = []; // Array per memorizzare i dati delle attrezzature
-let filteredData = []; // Array per i dati filtrati dalla ricerca
-let locationsData = []; // Array per memorizzare i dati delle ubicazioni
-let currentEquipment = null; // Attrezzatura attualmente selezionata per lo spostamento
+// Variabili globali
+let currentView = 'ubicazione';
+let currentFilter = '';
+let attrezzature = [];
+let filteredData = [];
+let locationsData = [];
+let currentEquipment = null;
 
 // Funzioni di utilità per mostrare/nascondere l'overlay di caricamento
 function showLoadingOverlay(message) {
@@ -35,35 +36,45 @@ function showError(message) {
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('App SERES caricata correttamente');
     
-    // Carica le ubicazioni disponibili
-    await loadLocations();
+    try {
+        showLoadingOverlay('Inizializzazione app...');
+        // Prima carica le ubicazioni
+        await loadLocations();
+        // Poi carica i dati delle attrezzature
+        await loadData();
+    } catch (error) {
+        console.error('Errore durante l\'inizializzazione:', error);
+        showError('Errore durante l\'inizializzazione dell\'app');
+    } finally {
+        hideLoadingOverlay();
+    }
     
-    // Carica i dati delle attrezzature
-    await loadData();
-    
-    // Event listeners
-    document.getElementById('menuToggle').addEventListener('click', toggleMenu);
-    document.getElementById('menuClose').addEventListener('click', closeMenu);
-    document.getElementById('menuOverlay').addEventListener('click', closeMenu);
-    document.getElementById('searchToggle').addEventListener('click', toggleSearch);
-    document.getElementById('searchClose').addEventListener('click', closeSearch);
-    document.getElementById('searchOverlay').addEventListener('click', function(e) {
-        if (e.target === this) closeSearch();
-    });
-    document.getElementById('searchInput').addEventListener('input', filterContent);
-    document.getElementById('searchInput').addEventListener('keydown', function(e) {
+    // Inizializza gli event listeners
+    setupEventListeners();
+});
+
+// Setup degli event listeners
+function setupEventListeners() {
+    document.getElementById('menuToggle')?.addEventListener('click', toggleMenu);
+    document.getElementById('menuClose')?.addEventListener('click', closeMenu);
+    document.getElementById('menuOverlay')?.addEventListener('click', closeMenu);
+    document.getElementById('searchToggle')?.addEventListener('click', toggleSearch);
+    document.getElementById('searchClose')?.addEventListener('click', closeSearch);
+    document.getElementById('searchOverlay')?.addEventListener('click', closeSearch);
+    document.getElementById('searchInput')?.addEventListener('input', filterContent);
+    document.getElementById('searchInput')?.addEventListener('keydown', function(e) {
         if (e.key === 'Enter') {
             closeSearch();
         }
     });
-    document.getElementById('closeDetailModal').addEventListener('click', closeDetailModal);
-    document.getElementById('moveEquipmentBtn').addEventListener('click', moveEquipment);
-    document.getElementById('btnRefresh').addEventListener('click', loadFromGoogleSheets);
+    document.getElementById('closeDetailModal')?.addEventListener('click', closeDetailModal);
+    document.getElementById('moveEquipmentBtn')?.addEventListener('click', moveEquipment);
+    document.getElementById('btnRefresh')?.addEventListener('click', loadFromGoogleSheets);
     
     // Navigation eventi
-    document.getElementById('navUbicazione').addEventListener('click', function() { switchView('ubicazione'); });
-    document.getElementById('navCategoria').addEventListener('click', function() { switchView('categoria'); });
-    document.getElementById('navTipo').addEventListener('click', function() { switchView('tipo'); });
+    document.getElementById('navUbicazione')?.addEventListener('click', function() { switchView('ubicazione'); });
+    document.getElementById('navCategoria')?.addEventListener('click', function() { switchView('categoria'); });
+    document.getElementById('navTipo')?.addEventListener('click', function() { switchView('tipo'); });
 
     // Chiudi modal cliccando fuori
     window.addEventListener('click', function(event) {
@@ -98,153 +109,72 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
 });
 
+// Funzione per caricare i dati delle attrezzature
 async function loadData() {
     try {
         showLoadingOverlay('Caricamento dati in corso...');
-        const response = await fetch(WEBAPP_URL + '?action=getData');
+        const response = await fetch(`${WEBAPP_URL}?action=getData`);
         if (!response.ok) {
-            throw new Error('Errore nel caricamento dei dati');
+            throw new Error('Errore nella risposta del server');
         }
         const data = await response.json();
-        if (!data || !data.success) {
+        if (!data.success) {
             throw new Error(data.error || 'Errore nel formato dei dati');
         }
+        
         attrezzature = data.data || [];
         filteredData = [...attrezzature];
+        
+        // Inizializza la vista corrente
         renderCurrentView();
     } catch (error) {
         console.error('Errore nel caricamento:', error);
-        showError('Errore nel caricamento dei dati. Carico i dati demo come fallback...');
-        // Carica i dati demo come fallback
+        showError('Errore nel caricamento dei dati. Carico i dati demo...');
         loadDemoData();
     } finally {
         hideLoadingOverlay();
     }
 }
 
+// Funzione per caricare le ubicazioni
+async function loadLocations() {
+    try {
+        const response = await fetch(`${WEBAPP_URL}?action=getLocations`);
+        if (!response.ok) {
+            throw new Error('Errore nella risposta del server');
+        }
+        const data = await response.json();
+        if (!data.success) {
+            throw new Error(data.error || 'Errore nel formato dei dati delle ubicazioni');
+        }
+        
+        locationsData = data.locations || [];
+        console.log('Ubicazioni caricate:', locationsData);
+    } catch (error) {
+        console.error('Errore nel caricamento delle ubicazioni:', error);
+        // Carica le ubicazioni di default in caso di errore
+        locationsData = ['Magazzino', 'Officina', 'Laboratorio'];
+        showError('Errore nel caricamento delle ubicazioni. Uso le ubicazioni di default.');
+    }
+}
+
+// Funzione per caricare i dati demo
 function loadDemoData() {
-    // Dati demo di esempio
     attrezzature = [
         {
             id: 'DEMO1',
-            nome: 'Attrezzatura Demo 1',
-            categoria: 'Test',
-            tipo: 'Demo',
+            codice: 'ATT001',
+            tipo: 'Chiave inglese',
+            marcaModello: 'Stanley 12"',
             ubicazione: 'Magazzino',
+            categoria: 'Utensili manuali',
             stato: 'Disponibile',
-            note: 'Attrezzatura di test',
+            note: 'Attrezzatura demo',
             movimenti: []
-        },
-        // Aggiungi altri dati demo se necessario
+        }
     ];
     filteredData = [...attrezzature];
     renderCurrentView();
-}
-
-function loadFromGoogleSheets() {
-    showLoading('Caricamento da Google Sheets...');
-    
-    console.log('Tentativo di caricamento da Google Sheets...');
-    
-    const ranges = [
-        'attrezzatura!A:E',
-        'log!A:G', 
-        'elenchi!A:A'
-    ];
-
-    const promises = ranges.map(range => 
-        fetch('https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/' + range + '?key=AIzaSyCc8HZz0QCZ-OtQF_wu4GuBhmeAdTceUWE')
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('HTTP ' + response.status + ': ' + response.statusText);
-            }
-            return response.json();
-        })
-    );
-
-    Promise.all(promises)
-        .then(function(results) {
-            const attrezzaturaData = results[0];
-            const logData = results[1];
-            const elenchiData = results[2];
-
-            processAttrezzaturaData(attrezzaturaData.values || []);
-            processLogData(logData.values || []);
-            processElenchiData(elenchiData.values || []);
-
-            console.log('✅ Dati caricati da Google Sheets:', {
-                attrezzature: equipmentData.length,
-                ubicazioni: locationsData.length,
-                movimenti: movementLog.length
-            });
-
-            renderCurrentView();
-            hideLoading();
-        })
-        .catch(function(error) {
-            console.error('Errore nel caricamento da Google Sheets:', error);
-            alert('❌ Errore nel caricamento da Google Sheets:\n' + error.message + '\n\n📋 Verifica che il foglio sia pubblico e abbia le schede corrette\n\n🔄 Carico i dati demo come fallback...');
-            loadDemoData();
-        });
-}
-
-function processAttrezzaturaData(data) {
-    if (data.length < 2) return;
-    
-    equipmentData = [];
-    
-    for (let i = 1; i < data.length; i++) {
-        const row = data[i];
-        if (row.length >= 5) {
-            equipmentData.push({
-                id: i,
-                categoria: row[0] || '',
-                tipo: row[1] || '',
-                marcaModello: row[2] || '',
-                ubicazione: row[3] || '',
-                codice: row[4] || ''
-            });
-        }
-    }
-    
-    categoriesData = [];
-    const cats = new Set();
-    equipmentData.forEach(function(item) {
-        if (item.categoria) cats.add(item.categoria);
-    });
-    categoriesData = Array.from(cats);
-}
-
-function processLogData(data) {
-    if (data.length < 2) return;
-    
-    movementLog = [];
-    
-    for (let i = 1; i < data.length; i++) {
-        const row = data[i];
-        if (row.length >= 7) {
-            movementLog.push({
-                data: row[0] || '',
-                utente: row[1] || '',
-                azione: row[2] || '',
-                tabella: row[3] || '',
-                codice: row[4] || '',
-                da: row[5] || '',
-                a: row[6] || ''
-            });
-        }
-    }
-}
-
-function processElenchiData(data) {
-    if (data.length < 2) return;
-    
-    locationsData = [];
-    for (let i = 1; i < data.length; i++) {
-        if (data[i] && data[i][0]) {
-            locationsData.push(data[i][0]);
-        }
-    }
 }
 
 // Funzioni UI
@@ -732,38 +662,4 @@ function showLoading(message) {
 
 function hideLoading() {
     document.getElementById('loadingOverlay').classList.remove('show');
-}
-
-async function loadLocations() {
-    try {
-        const response = await fetch(`${WEBAPP_URL}?action=getLocations`);
-        if (!response.ok) {
-            throw new Error('Errore nel caricamento delle ubicazioni');
-        }
-        const data = await response.json();
-        if (!data.success) {
-            throw new Error(data.error || 'Errore nel formato dei dati delle ubicazioni');
-        }
-        locationsData = data.locations || [];
-        console.log('Ubicazioni caricate:', locationsData);
-    } catch (error) {
-        console.error('Errore nel caricamento delle ubicazioni:', error);
-        showError('Errore nel caricamento delle ubicazioni disponibili');
-    }
-}
-
-async function showMoveEquipmentModal(equipment) {
-    const modal = document.getElementById('moveEquipmentModal');
-    const locationSelect = document.getElementById('newLocation');
-    
-    // Aggiorna la lista delle ubicazioni
-    locationSelect.innerHTML = '<option value="">Seleziona ubicazione...</option>' +
-        locationsData
-            .filter(loc => loc !== equipment.ubicazione) // Esclude l'ubicazione attuale
-            .map(loc => `<option value="${loc}">${loc}</option>`)
-            .join('');
-    
-    currentEquipment = equipment;
-    modal.style.display = 'block';
-    document.getElementById('moveEquipmentForm').reset();
 }
