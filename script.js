@@ -107,7 +107,7 @@ function setupEventListeners() {
             menuOverlay.style.display = 'none';
         }
     });
-});
+};
 
 // Funzione per caricare i dati delle attrezzature
 async function loadData() {
