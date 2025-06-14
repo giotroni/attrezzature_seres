@@ -1,27 +1,145 @@
-// Costanti
+// Costanti e variabili globali
 const SHEET_ID = '1efHWyYHqsZpAbPXuUadz7Mg2ScsZ1iXX15Yv8daVhvg';
 const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbyWzNZ91kZBr9D3PhQNO7FLSXypRt1Ret0EvlBMuW_GgIAMKB9r4Ag4GHnvoHCVJCUvsA/exec';
 
-// Variabili globali
-let currentView = 'ubicazione';
-let currentEquipmentId = null;
-let currentFilter = '';
+let currentView = 'ubicazione'; // Inizializzazione della vista predefinita
+let currentFilter = ''; // Inizializzazione del filtro di ricerca
+let attrezzature = []; // Array per memorizzare i dati delle attrezzature
+let filteredData = []; // Array per i dati filtrati dalla ricerca
 
-let equipmentData = [];
-let locationsData = [];
-let categoriesData = [];
-let movementLog = [];
+// Funzioni di utilità per mostrare/nascondere l'overlay di caricamento
+function showLoadingOverlay(message) {
+    const overlay = document.getElementById('loadingOverlay');
+    const messageElement = document.getElementById('loadingMessage');
+    if (messageElement) messageElement.textContent = message || 'Caricamento in corso...';
+    if (overlay) overlay.style.display = 'flex';
+}
+
+function hideLoadingOverlay() {
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) overlay.style.display = 'none';
+}
+
+function showError(message) {
+    const errorElement = document.createElement('div');
+    errorElement.className = 'error-message';
+    errorElement.textContent = message;
+    errorElement.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #ff4444; color: white; padding: 15px; border-radius: 5px; z-index: 9999;';
+    document.body.appendChild(errorElement);
+    setTimeout(() => errorElement.remove(), 5000);
+}
 
 // Funzioni di inizializzazione
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('App SERES caricata correttamente');
+    
+    // Avvia automaticamente il caricamento da Google Sheets
     loadFromGoogleSheets();
+    
+    // Event listeners
+    document.getElementById('menuToggle').addEventListener('click', toggleMenu);
+    document.getElementById('menuClose').addEventListener('click', closeMenu);
+    document.getElementById('menuOverlay').addEventListener('click', closeMenu);
+    document.getElementById('searchToggle').addEventListener('click', toggleSearch);
+    document.getElementById('searchClose').addEventListener('click', closeSearch);
+    document.getElementById('searchOverlay').addEventListener('click', function(e) {
+        if (e.target === this) closeSearch();
+    });
+    document.getElementById('searchInput').addEventListener('input', filterContent);
+    document.getElementById('searchInput').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            closeSearch();
+        }
+    });
+    document.getElementById('closeDetailModal').addEventListener('click', closeDetailModal);
+    document.getElementById('moveEquipmentBtn').addEventListener('click', moveEquipment);
+    document.getElementById('btnRefresh').addEventListener('click', loadFromGoogleSheets);
+    
+    // Navigation eventi
+    document.getElementById('navUbicazione').addEventListener('click', function() { switchView('ubicazione'); });
+    document.getElementById('navCategoria').addEventListener('click', function() { switchView('categoria'); });
+    document.getElementById('navTipo').addEventListener('click', function() { switchView('tipo'); });
+
+    // Chiudi modal cliccando fuori
+    window.addEventListener('click', function(event) {
+        const modal = document.getElementById('detailModal');
+        if (event.target === modal) {
+            closeDetailModal();
+        }
+    });
+
+    // About Modal
+    const btnAbout = document.getElementById('btnAbout');
+    const aboutModal = document.getElementById('aboutModal');
+    const aboutClose = document.getElementById('aboutClose');
+    const menuOverlay = document.getElementById('menuOverlay');
+
+    btnAbout.addEventListener('click', function() {
+        aboutModal.style.display = 'block';
+        menuOverlay.style.display = 'block';
+        slideMenu.classList.remove('open');
+    });
+
+    aboutClose.addEventListener('click', function() {
+        aboutModal.style.display = 'none';
+        menuOverlay.style.display = 'none';
+    });
+
+    menuOverlay.addEventListener('click', function() {
+        if (aboutModal.style.display === 'block') {
+            aboutModal.style.display = 'none';
+            menuOverlay.style.display = 'none';
+        }
+    });
 });
+
+async function loadData() {
+    try {
+        showLoadingOverlay('Caricamento dati in corso...');
+        const response = await fetch(WEBAPP_URL + '?action=getData');
+        if (!response.ok) {
+            throw new Error('Errore nel caricamento dei dati');
+        }
+        const data = await response.json();
+        if (!data || !data.success) {
+            throw new Error(data.error || 'Errore nel formato dei dati');
+        }
+        attrezzature = data.data || [];
+        filteredData = [...attrezzature];
+        renderCurrentView();
+    } catch (error) {
+        console.error('Errore nel caricamento:', error);
+        showError('Errore nel caricamento dei dati. Carico i dati demo come fallback...');
+        // Carica i dati demo come fallback
+        loadDemoData();
+    } finally {
+        hideLoadingOverlay();
+    }
+}
+
+function loadDemoData() {
+    // Dati demo di esempio
+    attrezzature = [
+        {
+            id: 'DEMO1',
+            nome: 'Attrezzatura Demo 1',
+            categoria: 'Test',
+            tipo: 'Demo',
+            ubicazione: 'Magazzino',
+            stato: 'Disponibile',
+            note: 'Attrezzatura di test',
+            movimenti: []
+        },
+        // Aggiungi altri dati demo se necessario
+    ];
+    filteredData = [...attrezzature];
+    renderCurrentView();
+}
 
 function loadFromGoogleSheets() {
     showLoading('Caricamento da Google Sheets...');
     
     console.log('Tentativo di caricamento da Google Sheets...');
-    console.log('Sheet ID:', SHEET_ID);
     
     const ranges = [
         'attrezzatura!A:E',
@@ -29,37 +147,21 @@ function loadFromGoogleSheets() {
         'elenchi!A:A'
     ];
 
-    const API_KEY = 'AIzaSyCc8HZz0QCZ-OtQF_wu4GuBhmeAdTceUWE';
-    
-    const promises = ranges.map(range => {
-        const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}?key=${API_KEY}`;
-        console.log('Fetching:', url);
-        
-        return fetch(url)
-            .then(response => {
-                console.log('Response status:', response.status);
-                if (!response.ok) {
-                    return response.text().then(text => {
-                        throw new Error(`HTTP ${response.status}: ${response.statusText}\nResponse: ${text}`);
-                    });
-                }
-                return response.json();
-            })
-            .catch(error => {
-                console.error('Error fetching range', range, ':', error);
-                throw error;
-            });
-    });    Promise.all(promises)
+    const promises = ranges.map(range => 
+        fetch('https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/' + range + '?key=AIzaSyCc8HZz0QCZ-OtQF_wu4GuBhmeAdTceUWE')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('HTTP ' + response.status + ': ' + response.statusText);
+            }
+            return response.json();
+        })
+    );
+
+    Promise.all(promises)
         .then(function(results) {
-            console.log('Dati ricevuti:', results);
-            
             const attrezzaturaData = results[0];
             const logData = results[1];
             const elenchiData = results[2];
-
-            if (!attrezzaturaData.values || attrezzaturaData.values.length < 2) {
-                throw new Error('Nessun dato trovato nel foglio attrezzatura');
-            }
 
             processAttrezzaturaData(attrezzaturaData.values || []);
             processLogData(logData.values || []);
@@ -81,38 +183,6 @@ function loadFromGoogleSheets() {
         });
 }
 
-function loadDemoData() {
-    equipmentData = [
-        {
-            id: 1,
-            codice: "ATTR0050",
-            categoria: "ATTREZZATURE ELETTRICHE",
-            tipo: "TRAPANO",
-            marcaModello: "MAKITA HP457DWE",
-            ubicazione: "MANDELLI"
-        },
-        // ... altri dati demo ...
-    ];
-
-    locationsData = ["MANDELLI", "FRIGERIO", "LABORATORIO", "SALUTE", "PALERMO", "TRIESTE", "VALIER", "ZANAROLI"];
-    categoriesData = ["ATTREZZATURE ELETTRICHE", "ATTREZZATURE FRIGORIFERO", "LABORATORIO", "SALUTE", "TRABATELLI E SCALE"];
-    
-    movementLog = [
-        {
-            codice: "ATTR0050",
-            data: "2025-06-10T14:30:00",
-            utente: "Mario Rossi",
-            da: "LABORATORIO",
-            a: "MANDELLI"
-        },
-        // ... altri log demo ...
-    ];
-    
-    console.log('Dati demo caricati:', equipmentData.length, 'attrezzature');
-    renderCurrentView();
-}
-
-// Funzioni di processamento dati
 function processAttrezzaturaData(data) {
     if (data.length < 2) return;
     
@@ -186,11 +256,7 @@ function closeMenu() {
 function toggleSearch() {
     document.getElementById('searchOverlay').classList.add('show');
     setTimeout(function() {
-        const searchInput = document.getElementById('searchInput');
-        searchInput.focus();
-        if (searchInput.value.length > 0) {
-            document.getElementById('clearSearch').classList.add('visible');
-        }
+        document.getElementById('searchInput').focus();
     }, 300);
 }
 
@@ -198,24 +264,6 @@ function closeSearch() {
     document.getElementById('searchOverlay').classList.remove('show');
 }
 
-function handleSearchInput(input) {
-    const clearButton = document.getElementById('clearSearch');
-    if (input.value.length > 0) {
-        clearButton.classList.add('visible');
-    } else {
-        clearButton.classList.remove('visible');
-    }
-    renderCurrentView();
-}
-
-function clearSearch() {
-    const searchInput = document.getElementById('searchInput');
-    searchInput.value = '';
-    document.getElementById('clearSearch').classList.remove('visible');
-    renderCurrentView();
-}
-
-// Funzioni di rendering
 function switchView(view) {
     currentView = view;
     
@@ -246,23 +294,16 @@ function renderLocationView(container) {
         container.innerHTML = '<div class="loading"><p>Nessuna ubicazione trovata</p></div>';
         return;
     }
-    
-    const locationCards = locations.map(function(location) {
-        const equipmentCount = location.equipment.length;
-        const equipmentList = location.equipment
-            .map(function(item) { return item.tipo; })
-            .join(', ');
-        
+
+    container.innerHTML = locations.map(function(location) {
         return '<div class="location-card" onclick="showLocationEquipment(\'' + location.name + '\')">' +
             '<div class="card-header">' +
-                '<div class="card-title">' + location.name + '</div>' +
-                '<div class="card-count">' + equipmentCount + '</div>' +
+                '<div class="card-title">📍 ' + location.name + '</div>' +
+                '<div class="card-count">' + location.count + '</div>' +
             '</div>' +
-            '<div class="card-items">' + equipmentList + '</div>' +
+            '<div class="card-items">' + location.types.slice(0, 3).join(', ') + (location.types.length > 3 ? '...' : '') + '</div>' +
         '</div>';
     }).join('');
-    
-    container.innerHTML = locationCards;
 }
 
 function renderCategoryView(container) {
@@ -272,23 +313,16 @@ function renderCategoryView(container) {
         container.innerHTML = '<div class="loading"><p>Nessuna categoria trovata</p></div>';
         return;
     }
-    
-    const categoryCards = categories.map(function(category) {
-        const equipmentCount = category.equipment.length;
-        const equipmentList = category.equipment
-            .map(function(item) { return item.tipo; })
-            .join(', ');
-        
+
+    container.innerHTML = categories.map(function(category) {
         return '<div class="category-card" onclick="showCategoryEquipment(\'' + category.name + '\')">' +
             '<div class="card-header">' +
-                '<div class="card-title">' + category.name + '</div>' +
-                '<div class="card-count">' + equipmentCount + '</div>' +
+                '<div class="card-title">📂 ' + category.name + '</div>' +
+                '<div class="card-count">' + category.count + '</div>' +
             '</div>' +
-            '<div class="card-items">' + equipmentList + '</div>' +
+            '<div class="card-items">' + category.types.slice(0, 3).join(', ') + (category.types.length > 3 ? '...' : '') + '</div>' +
         '</div>';
     }).join('');
-    
-    container.innerHTML = categoryCards;
 }
 
 function renderTypeView(container) {
@@ -298,90 +332,154 @@ function renderTypeView(container) {
         container.innerHTML = '<div class="loading"><p>Nessun tipo trovato</p></div>';
         return;
     }
-    
-    const typeCards = types.map(function(type) {
-        const equipmentCount = type.equipment.length;
-        const equipmentList = type.equipment
-            .map(function(item) { return item.marcaModello; })
-            .join(', ');
-        
+
+    container.innerHTML = types.map(function(type) {
         return '<div class="type-card" onclick="showTypeEquipment(\'' + type.name + '\')">' +
             '<div class="card-header">' +
-                '<div class="card-title">' + type.name + '</div>' +
-                '<div class="card-count">' + equipmentCount + '</div>' +
+                '<div class="card-title">🔧 ' + type.name + '</div>' +
+                '<div class="card-count">' + type.count + '</div>' +
             '</div>' +
-            '<div class="card-items">' + equipmentList + '</div>' +
+            '<div class="card-items">' + type.locations.slice(0, 3).join(', ') + (type.locations.length > 3 ? '...' : '') + '</div>' +
         '</div>';
     }).join('');
-    
-    container.innerHTML = typeCards;
 }
 
-// Funzioni di utilità
 function getLocationGroups() {
-    const locations = {};
+    const filtered = getFilteredEquipment();
+    const groups = {};
     
-    equipmentData.forEach(function(item) {
-        if (currentFilter && !matchesFilter(item)) return;
-        
-        if (!locations[item.ubicazione]) {
-            locations[item.ubicazione] = {
+    filtered.forEach(function(item) {
+        if (!groups[item.ubicazione]) {
+            groups[item.ubicazione] = {
                 name: item.ubicazione,
-                equipment: []
+                count: 0,
+                types: []
             };
         }
-        locations[item.ubicazione].equipment.push(item);
+        groups[item.ubicazione].count++;
+        if (groups[item.ubicazione].types.indexOf(item.tipo) === -1) {
+            groups[item.ubicazione].types.push(item.tipo);
+        }
     });
-    
-    return Object.values(locations).sort((a, b) => a.name.localeCompare(b.name));
+
+    return Object.values(groups).sort(function(a, b) {
+        return a.name.localeCompare(b.name);
+    });
 }
 
 function getCategoryGroups() {
-    const categories = {};
+    const filtered = getFilteredEquipment();
+    const groups = {};
     
-    equipmentData.forEach(function(item) {
-        if (currentFilter && !matchesFilter(item)) return;
-        
-        if (!categories[item.categoria]) {
-            categories[item.categoria] = {
+    filtered.forEach(function(item) {
+        if (!groups[item.categoria]) {
+            groups[item.categoria] = {
                 name: item.categoria,
-                equipment: []
+                count: 0,
+                types: []
             };
         }
-        categories[item.categoria].equipment.push(item);
+        groups[item.categoria].count++;
+        if (groups[item.categoria].types.indexOf(item.tipo) === -1) {
+            groups[item.categoria].types.push(item.tipo);
+        }
     });
-    
-    return Object.values(categories).sort((a, b) => a.name.localeCompare(b.name));
+
+    return Object.values(groups).sort(function(a, b) {
+        return a.name.localeCompare(b.name);
+    });
 }
 
 function getTypeGroups() {
-    const types = {};
+    const filtered = getFilteredEquipment();
+    const groups = {};
     
-    equipmentData.forEach(function(item) {
-        if (currentFilter && !matchesFilter(item)) return;
-        
-        if (!types[item.tipo]) {
-            types[item.tipo] = {
+    filtered.forEach(function(item) {
+        if (!groups[item.tipo]) {
+            groups[item.tipo] = {
                 name: item.tipo,
-                equipment: []
+                count: 0,
+                locations: []
             };
         }
-        types[item.tipo].equipment.push(item);
+        groups[item.tipo].count++;
+        if (groups[item.tipo].locations.indexOf(item.ubicazione) === -1) {
+            groups[item.tipo].locations.push(item.ubicazione);
+        }
     });
+
+    return Object.values(groups).sort(function(a, b) {
+        return a.name.localeCompare(b.name);
+    });
+}
+
+function getFilteredEquipment() {
+    if (!currentFilter) return equipmentData;
     
-    return Object.values(types).sort((a, b) => a.name.localeCompare(b.name));
+    return equipmentData.filter(function(item) {
+        return item.codice.toLowerCase().indexOf(currentFilter) !== -1 ||
+                item.tipo.toLowerCase().indexOf(currentFilter) !== -1 ||
+                item.marcaModello.toLowerCase().indexOf(currentFilter) !== -1 ||
+                item.ubicazione.toLowerCase().indexOf(currentFilter) !== -1 ||
+                item.categoria.toLowerCase().indexOf(currentFilter) !== -1;
+    });
 }
 
-function matchesFilter(item) {
-    const filter = currentFilter.toLowerCase();
-    return item.codice.toLowerCase().includes(filter) ||
-           item.tipo.toLowerCase().includes(filter) ||
-           item.categoria.toLowerCase().includes(filter) ||
-           item.marcaModello.toLowerCase().includes(filter) ||
-           item.ubicazione.toLowerCase().includes(filter);
+function showLocationEquipment(location) {
+    showEquipmentList('ubicazione', location);
 }
 
-// Funzioni per la gestione dei dettagli
+function showCategoryEquipment(category) {
+    showEquipmentList('categoria', category);
+}
+
+function showTypeEquipment(type) {
+    showEquipmentList('tipo', type);
+}
+
+function showEquipmentList(filterType, filterValue) {
+    const container = document.getElementById('viewContent');
+    let filteredEquipment = equipmentData;
+    
+    if (filterType === 'ubicazione') {
+        filteredEquipment = equipmentData.filter(function(item) {
+            return item.ubicazione === filterValue;
+        });
+    } else if (filterType === 'categoria') {
+        filteredEquipment = equipmentData.filter(function(item) {
+            return item.categoria === filterValue;
+        });
+    } else if (filterType === 'tipo') {
+        filteredEquipment = equipmentData.filter(function(item) {
+            return item.tipo === filterValue;
+        });
+    }
+    
+    const backButton = '<button class="back-button" onclick="renderCurrentView()">← Torna alla vista ' + currentView + '</button>';
+    
+    if (filteredEquipment.length === 0) {
+        container.innerHTML = backButton + '<div class="loading"><p>Nessuna attrezzatura trovata</p></div>';
+        return;
+    }
+
+    const equipmentCards = filteredEquipment.map(function(item) {
+        return '<div class="equipment-card" onclick="showEquipmentDetail(' + item.id + ')">' +
+            '<div class="equipment-header">' +
+                '<span class="equipment-code">' + item.codice + '</span>' +
+                '<span class="equipment-category">' + item.categoria + '</span>' +
+            '</div>' +
+            '<div class="equipment-title">' + item.tipo + '</div>' +
+            '<div class="equipment-brand">' + item.marcaModello + '</div>' +
+            '<div class="equipment-location">' +
+                '<span class="location-icon"></span>' +
+                item.ubicazione +
+            '</div>' +
+        '</div>';
+    }).join('');
+
+    container.innerHTML = backButton + equipmentCards;
+}
+
 function showEquipmentDetail(id) {
     const equipment = equipmentData.find(function(item) {
         return item.id === id;
@@ -428,6 +526,135 @@ function showEquipmentDetail(id) {
     document.getElementById('detailModal').style.display = 'block';
 }
 
+function closeDetailModal() {
+    document.getElementById('detailModal').style.display = 'none';
+    document.getElementById('newLocation').value = '';
+    document.getElementById('userName').value = '';
+}
+
+function showMovementHistory(codice) {
+    const movements = movementLog.filter(function(log) {
+        return log.codice === codice;
+    });
+    const historyContainer = document.getElementById('movementHistory');
+    
+    if (movements.length === 0) {
+        historyContainer.innerHTML = '<p style="color: #666; font-style: italic;">Nessuno spostamento registrato</p>';
+        return;
+    }
+    
+    historyContainer.innerHTML = movements
+        .sort(function(a, b) {
+            return new Date(b.data) - new Date(a.data);
+        })
+        .map(function(movement) {
+            const date = new Date(movement.data);
+            return '<div class="history-item">' +
+                '<div class="history-date">' + date.toLocaleDateString('it-IT') + ' ' + date.toLocaleTimeString('it-IT', {hour: '2-digit', minute: '2-digit'}) + '</div>' +
+                '<div class="history-action">' +
+                    '<strong>' + movement.utente + '</strong> ha spostato da ' +
+                    '<strong>' + movement.da + '</strong> a <strong>' + movement.a + '</strong>' +
+                '</div>' +
+            '</div>';
+        }).join('');
+}
+
+async function updateGoogleSheet(range, values) {
+    const API_KEY = 'AIzaSyCc8HZz0QCZ-OtQF_wu4GuBhmeAdTceUWE';
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}?valueInputOption=RAW&key=${API_KEY}`;
+    
+    try {
+        const response = await fetch(url, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                values: values
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        return await response.json();
+    } catch (error) {
+        console.error('Errore durante l\'aggiornamento del foglio Google:', error);
+        throw error;
+    }
+}
+
+async function appendToGoogleSheet(range, values) {
+    const API_KEY = 'AIzaSyCc8HZz0QCZ-OtQF_wu4GuBhmeAdTceUWE';
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS&key=${API_KEY}`;
+    
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                values: values
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        return await response.json();
+    } catch (error) {
+        console.error('Errore durante l\'aggiunta al foglio Google:', error);
+        throw error;
+    }
+}
+
+async function findRowInSheet(codice) {
+    try {
+        const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/attrezzatura!A:E?key=AIzaSyCc8HZz0QCZ-OtQF_wu4GuBhmeAdTceUWE`);
+        const data = await response.json();
+        const values = data.values || [];
+        
+        // Trova l'indice della riga con il codice specificato
+        for (let i = 0; i < values.length; i++) {
+            if (values[i][4] === codice) { // La colonna E (indice 4) contiene il codice
+                return i + 1; // +1 perché le righe in Google Sheets iniziano da 1
+            }
+        }
+        return null;
+    } catch (error) {
+        console.error('Errore durante la ricerca nel foglio Google:', error);
+        throw error;
+    }
+}
+
+async function updateGoogleSheetViaWebApp(action, data) {
+    const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbyWzNZ91kZBr9D3PhQNO7FLSXypRt1Ret0EvlBMuW_GgIAMKB9r4Ag4GHnvoHCVJCUvsA/exec';
+    
+    try {
+        const response = await fetch(WEBAPP_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                action: action,
+                data: data
+            })
+        });
+
+        // A causa di 'no-cors', non possiamo leggere la risposta
+        // Assumiamo che sia andata a buon fine se non ci sono errori
+        return true;
+    } catch (error) {
+        console.error('Errore durante l\'aggiornamento del foglio Google:', error);
+        throw error;
+    }
+}
+
 async function moveEquipment() {
     const newLocation = document.getElementById('newLocation').value;
     const userName = document.getElementById('userName').value.trim();
@@ -467,7 +694,7 @@ async function moveEquipment() {
         });
         
         hideLoading();
-        closeDetailModal();
+        closeDetailModal(); // Chiude la scheda di dettaglio
         alert('✅ Attrezzatura ' + equipment.codice + ' spostata da ' + oldLocation + ' a ' + newLocation);
         
         renderCurrentView();
@@ -478,74 +705,6 @@ async function moveEquipment() {
     }
 }
 
-function closeDetailModal() {
-    document.getElementById('detailModal').style.display = 'none';
-    document.getElementById('newLocation').value = '';
-    document.getElementById('userName').value = '';
-}
-
-function showMovementHistory(codice) {
-    const movements = movementLog.filter(function(log) {
-        return log.codice === codice;
-    });
-    const historyContainer = document.getElementById('movementHistory');
-    
-    if (movements.length === 0) {
-        historyContainer.innerHTML = '<p style="color: #666; font-style: italic;">Nessuno spostamento registrato</p>';
-        return;
-    }
-    
-    historyContainer.innerHTML = movements
-        .sort(function(a, b) {
-            return new Date(b.data) - new Date(a.data);
-        })
-        .map(function(movement) {
-            const date = new Date(movement.data);
-            return '<div class="history-item">' +
-                '<div class="history-date">' + date.toLocaleDateString('it-IT') + ' ' + date.toLocaleTimeString('it-IT', {hour: '2-digit', minute: '2-digit'}) + '</div>' +
-                '<div class="history-action">' +
-                    '<strong>' + movement.utente + '</strong> ha spostato da ' +
-                    '<strong>' + movement.da + '</strong> a <strong>' + movement.a + '</strong>' +
-                '</div>' +
-            '</div>';
-        }).join('');
-}
-
-// Funzioni di integrazione con Google Sheets
-async function updateGoogleSheetViaWebApp(action, data) {
-    try {
-        const response = await fetch(WEBAPP_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                action: action,
-                data: data
-            })
-        });
-
-        // A causa di 'no-cors', non possiamo leggere la risposta
-        // Assumiamo che sia andata a buon fine se non ci sono errori
-        return true;
-    } catch (error) {
-        console.error('Errore durante l\'aggiornamento del foglio Google:', error);
-        throw error;
-    }
-}
-
-// Funzioni di loading
-function showLoading(message) {
-    document.getElementById('loadingMessage').textContent = message;
-    document.getElementById('loadingOverlay').classList.add('show');
-}
-
-function hideLoading() {
-    document.getElementById('loadingOverlay').classList.remove('show');
-}
-
-// Funzioni di ricerca
 function filterContent() {
     currentFilter = document.getElementById('searchInput').value.toLowerCase();
     const searchText = document.getElementById('searchText');
@@ -559,4 +718,13 @@ function filterContent() {
     }
     
     renderCurrentView();
+}
+
+function showLoading(message) {
+    document.getElementById('loadingMessage').textContent = message;
+    document.getElementById('loadingOverlay').classList.add('show');
+}
+
+function hideLoading() {
+    document.getElementById('loadingOverlay').classList.remove('show');
 }
