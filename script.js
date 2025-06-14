@@ -48,15 +48,14 @@ function showError(message) {
 // Funzioni di inizializzazione
 document.addEventListener('DOMContentLoaded', async function() {
     debugLog('Inizializzazione applicazione');
-    
-    try {
+      try {
         showLoadingOverlay('Inizializzazione app...');
-        debugLog('Caricamento ubicazioni...');
-        // Prima carica le ubicazioni
-        await loadLocations();
+        debugLog('Impostazione ubicazioni di default...');
+        // Usa le ubicazioni di default invece di caricarle
+        locationsData = ['Magazzino', 'Officina', 'Laboratorio'];
         
         debugLog('Caricamento dati attrezzature...');
-        // Poi carica i dati delle attrezzature
+        // Carica i dati delle attrezzature
         await loadData();
         
         debugLog('Setup event listeners...');
