@@ -1,6 +1,6 @@
 // Costanti e variabili globali
 const SHEET_ID = '1efHWyYHqsZpAbPXuUadz7Mg2ScsZ1iXX15Yv8daVhvg';
-const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycby77YAe1Neoyke8JTq3RzkeHLYQHuyTI3V1JzcTEaHAUeyZnMqQFStN33KaZaAqGAfvoA/exec';
+const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbzB5w7uWISpZ31i3JCTf1sGnfG7-4mGVSvPYr9slfbuK_9t5LNZ5tHX7shucPZiJ1xspw/exec';
 
 // Debug flag
 const DEBUG = true;
@@ -121,28 +121,51 @@ function setupEventListeners() {
     });
 };
 
-// Funzione per caricare i dati delle attrezzature
-async function loadData() {
+// Funzione helper per le chiamate API
+async function callApi(action, data = null) {
+    debugLog('Chiamata API:', { action, data });
+    
+    const options = {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            action: action,
+            data: data
+        })
+    };
+
     try {
-        debugLog('Inizio caricamento dati');
-        showLoadingOverlay('Caricamento dati in corso...');
-        
-        debugLog('Chiamata API:', `${WEBAPP_URL}?action=getData`);
-        const response = await fetch(`${WEBAPP_URL}?action=getData`);
+        const response = await fetch(WEBAPP_URL, options);
         debugLog('Risposta ricevuta:', response);
         
         if (!response.ok) {
             throw new Error(`Errore HTTP: ${response.status}`);
         }
         
-        const data = await response.json();
-        debugLog('Dati ricevuti:', data);
+        const result = await response.json();
+        debugLog('Dati ricevuti:', result);
         
-        if (!data.success) {
-            throw new Error(data.error || 'Errore nel formato dei dati');
+        if (!result.success) {
+            throw new Error(result.error || 'Errore nella risposta');
         }
         
-        attrezzature = data.data || [];
+        return result;
+    } catch (error) {
+        console.error('Errore nella chiamata API:', error);
+        throw error;
+    }
+}
+
+// Funzione per caricare i dati delle attrezzature
+async function loadData() {
+    try {
+        debugLog('Inizio caricamento dati');
+        showLoadingOverlay('Caricamento dati in corso...');
+        
+        const result = await callApi('getData');
+        attrezzature = result.data || [];
         filteredData = [...attrezzature];
         debugLog('Dati processati:', {
             attrezzature: attrezzature.length,
@@ -163,23 +186,8 @@ async function loadData() {
 async function loadLocations() {
     try {
         debugLog('Inizio caricamento ubicazioni');
-        debugLog('Chiamata API:', `${WEBAPP_URL}?action=getLocations`);
-        
-        const response = await fetch(`${WEBAPP_URL}?action=getLocations`);
-        debugLog('Risposta ricevuta:', response);
-        
-        if (!response.ok) {
-            throw new Error(`Errore HTTP: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        debugLog('Dati ubicazioni ricevuti:', data);
-        
-        if (!data.success) {
-            throw new Error(data.error || 'Errore nel formato dei dati delle ubicazioni');
-        }
-        
-        locationsData = data.locations || [];
+        const result = await callApi('getLocations');
+        locationsData = result.locations || [];
         debugLog('Ubicazioni caricate:', locationsData);
     } catch (error) {
         console.error('Errore nel caricamento delle ubicazioni:', error);
@@ -441,22 +449,8 @@ async function loadData() {
         debugLog('Inizio caricamento dati');
         showLoadingOverlay('Caricamento dati in corso...');
         
-        debugLog('Chiamata API:', `${WEBAPP_URL}?action=getData`);
-        const response = await fetch(`${WEBAPP_URL}?action=getData`);
-        debugLog('Risposta ricevuta:', response);
-        
-        if (!response.ok) {
-            throw new Error(`Errore HTTP: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        debugLog('Dati ricevuti:', data);
-        
-        if (!data.success) {
-            throw new Error(data.error || 'Errore nel formato dei dati');
-        }
-        
-        attrezzature = data.data || [];
+        const result = await callApi('getData');
+        attrezzature = result.data || [];
         filteredData = [...attrezzature];
         debugLog('Dati processati:', {
             attrezzature: attrezzature.length,
@@ -477,23 +471,8 @@ async function loadData() {
 async function loadLocations() {
     try {
         debugLog('Inizio caricamento ubicazioni');
-        debugLog('Chiamata API:', `${WEBAPP_URL}?action=getLocations`);
-        
-        const response = await fetch(`${WEBAPP_URL}?action=getLocations`);
-        debugLog('Risposta ricevuta:', response);
-        
-        if (!response.ok) {
-            throw new Error(`Errore HTTP: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        debugLog('Dati ubicazioni ricevuti:', data);
-        
-        if (!data.success) {
-            throw new Error(data.error || 'Errore nel formato dei dati delle ubicazioni');
-        }
-        
-        locationsData = data.locations || [];
+        const result = await callApi('getLocations');
+        locationsData = result.locations || [];
         debugLog('Ubicazioni caricate:', locationsData);
     } catch (error) {
         console.error('Errore nel caricamento delle ubicazioni:', error);
@@ -880,19 +859,7 @@ async function moveEquipment(event) {
         };
         
         // Invia la richiesta di aggiornamento
-        const response = await fetch(`${WEBAPP_URL}?action=moveEquipment`, {
-            method: 'POST',
-            body: JSON.stringify(updateData)
-        });
-        
-        if (!response.ok) {
-            throw new Error('Errore nella risposta del server');
-        }
-        
-        const result = await response.json();
-        if (!result.success) {
-            throw new Error(result.error || 'Errore nell\'aggiornamento');
-        }
+        const result = await callApi('moveEquipment', updateData);
         
         // Aggiorna i dati locali
         currentEquipment.ubicazione = newLocation;

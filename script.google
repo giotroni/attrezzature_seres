@@ -1,0 +1,146 @@
+// Configurazione CORS per consentire le richieste dalla tua web app
+function setupCORS(e) {
+  const cache = CacheService.getScriptCache();
+  const MAX_AGE = '3600'; // Tempo di cache in secondi
+  return ContentService
+    .createTextOutput(JSON.stringify({ status: 'success' }))
+    .setMimeType(ContentService.MimeType.JSON)
+    .setHeader('Access-Control-Allow-Origin', '*')
+    .setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+    .setHeader('Access-Control-Allow-Headers', 'Content-Type')
+    .setHeader('Access-Control-Max-Age', MAX_AGE);
+}
+
+// Gestione delle richieste OPTIONS (pre-flight CORS)
+function doOptions(e) {
+  return setupCORS(e);
+}
+
+// Gestione delle richieste GET
+function doGet(e) {
+  return handleRequest(e);
+}
+
+// Gestione delle richieste POST
+function doPost(e) {
+  return handleRequest(e);
+}
+
+// Funzione principale per gestire tutte le richieste
+function handleRequest(e) {
+  try {
+    let action = '';
+    let params = {};
+    
+    // Determina se è una richiesta GET o POST e ottieni i parametri
+    if (e.parameter) {
+      // GET request
+      action = e.parameter.action;
+      params = e.parameter;
+    } else if (e.postData) {
+      // POST request
+      const postData = JSON.parse(e.postData.contents);
+      action = postData.action;
+      params = postData;
+    }
+
+    let result;
+    switch (action) {
+      case 'getData':
+        result = getData();
+        break;
+      case 'getLocations':
+        result = getLocations();
+        break;
+      case 'moveEquipment':
+        result = moveEquipment(params.id, params.newLocation, params.note);
+        break;
+      default:
+        throw new Error('Azione non valida: ' + action);
+    }
+
+    return ContentService
+      .createTextOutput(JSON.stringify({ status: 'success', data: result }))
+      .setMimeType(ContentService.MimeType.JSON)
+      .setHeader('Access-Control-Allow-Origin', '*');
+
+  } catch (error) {
+    return ContentService
+      .createTextOutput(JSON.stringify({ status: 'error', message: error.toString() }))
+      .setMimeType(ContentService.MimeType.JSON)
+      .setHeader('Access-Control-Allow-Origin', '*');
+  }
+}
+
+// Funzione per ottenere tutti i dati delle attrezzature
+function getData() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('database');
+  const dataRange = sheet.getDataRange();
+  const values = dataRange.getValues();
+  
+  // Converti i dati in un array di oggetti con intestazioni
+  const headers = values[0];
+  const data = values.slice(1).map(row => {
+    let obj = {};
+    headers.forEach((header, index) => {
+      obj[header] = row[index];
+    });
+    return obj;
+  });
+  
+  return data;
+}
+
+// Funzione per ottenere l'elenco delle ubicazioni
+function getLocations() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('elenchi');
+  const locationRange = sheet.getRange('A2:A').getValues();
+  
+  // Filtra le righe vuote e crea un array di ubicazioni
+  const locations = locationRange
+    .filter(row => row[0] !== '')
+    .map(row => row[0]);
+  
+  return locations;
+}
+
+// Funzione per spostare un'attrezzatura
+function moveEquipment(id, newLocation, note) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('database');
+    const dataRange = sheet.getDataRange();
+    const values = dataRange.getValues();
+    const headers = values[0];
+    
+    // Trova gli indici delle colonne necessarie
+    const idIndex = headers.indexOf('ID');
+    const locationIndex = headers.indexOf('Ubicazione');
+    const noteIndex = headers.indexOf('Note');
+    const dateIndex = headers.indexOf('Data_Movimento');
+    
+    // Trova la riga dell'attrezzatura
+    const rowIndex = values.findIndex(row => row[idIndex].toString() === id.toString());
+    
+    if (rowIndex === -1) {
+      throw new Error('Attrezzatura non trovata');
+    }
+    
+    // Aggiorna i dati
+    const row = rowIndex + 1; // Converti in 1-based index per Sheets
+    sheet.getRange(row, locationIndex + 1).setValue(newLocation);
+    sheet.getRange(row, noteIndex + 1).setValue(note);
+    sheet.getRange(row, dateIndex + 1).setValue(new Date());
+    
+    return {
+      message: 'Attrezzatura spostata con successo',
+      id: id,
+      newLocation: newLocation
+    };
+    
+  } catch (error) {
+    throw new Error('Errore durante lo spostamento: ' + error.toString());
+  }
+}
