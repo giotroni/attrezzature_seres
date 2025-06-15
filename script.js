@@ -769,9 +769,14 @@ function validateNewLocation(location) {
     // Converti in maiuscolo e rimuovi spazi iniziali/finali
     const formattedLocation = location.trim().toUpperCase();
     
-    // Verifica se l'ubicazione esiste già
-    if (locationsData.includes(formattedLocation)) {
-        return { valid: false, message: 'Questa ubicazione esiste già' };
+    // Verifica se l'ubicazione esiste già (case insensitive)
+    if (locationsData.some(existing => existing.toUpperCase() === formattedLocation)) {
+        return { valid: false, message: 'Questa ubicazione esiste già nel sistema' };
+    }
+    
+    // Verifica che non contenga caratteri speciali
+    if (!/^[A-Z0-9\s-]+$/.test(formattedLocation)) {
+        return { valid: false, message: 'L\'ubicazione può contenere solo lettere, numeri, spazi e trattini' };
     }
     
     return { valid: true, formatted: formattedLocation };
