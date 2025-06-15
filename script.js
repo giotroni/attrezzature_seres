@@ -672,8 +672,25 @@ async function moveEquipment() {
         }
         newLocation = validation.formatted;
         
-        // Aggiungi la nuova ubicazione alla lista
-        locationsData.push(newLocation);
+        try {
+            // Registra l'inserimento della nuova ubicazione nel log
+            await updateGoogleSheetViaWebApp('logAction', {
+                timestamp: new Date().toISOString(),
+                userName: userName,
+                azione: 'Inserimento Ubicazione',
+                tabella: 'elenchi',
+                codice: '',
+                da: '',
+                a: newLocation
+            });
+            
+            // Aggiungi la nuova ubicazione alla lista
+            locationsData.push(newLocation);
+        } catch (error) {
+            console.error('Errore durante la registrazione della nuova ubicazione:', error);
+            alert('⚠️ Errore durante la registrazione della nuova ubicazione');
+            return;
+        }
     } else if (!newLocation) {
         alert('⚠️ Seleziona una ubicazione');
         return;
