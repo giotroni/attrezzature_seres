@@ -493,16 +493,6 @@ function showEquipmentDetail(id) {
     
     document.getElementById('modalTitle').textContent = equipment.tipo;
     
-    // Aggiorna la lista delle ubicazioni
-    const locationSelect = document.getElementById('newLocation');
-    locationSelect.innerHTML = '';
-    locationsData.sort().forEach(location => {
-        const option = document.createElement('option');
-        option.value = location;
-        option.textContent = location;
-        locationSelect.appendChild(option);
-    });
-    
     const detailsHtml = 
         '<div class="detail-item">' +
             '<div class="detail-label">Codice</div>' +
@@ -526,13 +516,8 @@ function showEquipmentDetail(id) {
         '</div>';
     
     document.getElementById('equipmentDetails').innerHTML = detailsHtml;
-    
-    const locationSelect = document.getElementById('newLocation');
-    locationSelect.innerHTML = '<option value="">Seleziona ubicazione...</option>' +
-        locationsData
-            .filter(function(loc) { return loc !== equipment.ubicazione; })
-            .map(function(loc) { return '<option value="' + loc + '">' + loc + '</option>'; })
-            .join('');
+      // Aggiorna la lista delle ubicazioni disponibili
+    updateLocationSelect(equipment);
     
     showMovementHistory(equipment.codice);
     
@@ -798,4 +783,26 @@ function handleNewLocationCheckbox() {
             select.appendChild(option);
         });
     }
+}
+
+// Funzione per aggiornare il select delle ubicazioni
+function updateLocationSelect(equipment) {
+    const select = document.getElementById('newLocation');
+    if (!select) return;
+
+    // Resetta il checkbox di nuova ubicazione
+    const checkbox = document.getElementById('isNewLocationCheckbox');
+    if (checkbox) checkbox.checked = false;
+
+    // Popola il select con le ubicazioni disponibili
+    select.innerHTML = '<option value="">Seleziona ubicazione...</option>';
+    locationsData
+        .sort()
+        .filter(loc => loc !== equipment.ubicazione)
+        .forEach(loc => {
+            const option = document.createElement('option');
+            option.value = loc;
+            option.textContent = loc;
+            select.appendChild(option);
+        });
 }
