@@ -662,8 +662,7 @@ async function moveEquipment() {
         alert('⚠️ Inserisci il tuo nome');
         return;
     }
-    
-    if (isNewLocation) {
+      if (isNewLocation) {
         // Valida e formatta la nuova ubicazione
         const validation = validateNewLocation(newLocation);
         if (!validation.valid) {
@@ -672,25 +671,8 @@ async function moveEquipment() {
         }
         newLocation = validation.formatted;
         
-        try {
-            // Registra l'inserimento della nuova ubicazione nel log
-            await updateGoogleSheetViaWebApp('logAction', {
-                timestamp: new Date().toISOString(),
-                userName: userName,
-                azione: 'Inserimento Ubicazione',
-                tabella: 'elenchi',
-                codice: '',
-                da: '',
-                a: newLocation
-            });
-            
-            // Aggiungi la nuova ubicazione alla lista
-            locationsData.push(newLocation);
-        } catch (error) {
-            console.error('Errore durante la registrazione della nuova ubicazione:', error);
-            alert('⚠️ Errore durante la registrazione della nuova ubicazione');
-            return;
-        }
+        // Aggiungi la nuova ubicazione alla lista
+        locationsData.push(newLocation);
     } else if (!newLocation) {
         alert('⚠️ Seleziona una ubicazione');
         return;
