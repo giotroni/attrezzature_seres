@@ -20,6 +20,15 @@ function hideLoadingOverlay() {
     if (overlay) overlay.style.display = 'none';
 }
 
+function showMessage(message) {
+    const messageElement = document.createElement('div');
+    messageElement.className = 'success-message';
+    messageElement.textContent = message;
+    messageElement.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #4CAF50; color: white; padding: 15px; border-radius: 5px; z-index: 9999; box-shadow: 0 2px 5px rgba(0,0,0,0.2);';
+    document.body.appendChild(messageElement);
+    setTimeout(() => messageElement.remove(), 5000);
+}
+
 function showError(message) {
     const errorElement = document.createElement('div');
     errorElement.className = 'error-message';
