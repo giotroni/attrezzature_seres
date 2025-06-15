@@ -1,37 +1,117 @@
 function doPost(e) {
   const data = JSON.parse(e.postData.contents);
+  const sheet = SpreadsheetApp.getActiveSpreadsheet();
   
-  if (data.action === 'moveEquipment') {
-    const sheet = SpreadsheetApp.getActiveSpreadsheet();
-    const attrezzaturaSheet = sheet.getSheetByName('attrezzatura');
-    const logSheet = sheet.getSheetByName('log');
-    
-    // Trova la riga dell'attrezzatura
-    const values = attrezzaturaSheet.getDataRange().getValues();
-    let row = -1;
-    for (let i = 0; i < values.length; i++) {
-      if (values[i][4] === data.data.codice) { // colonna E (indice 4) contiene il codice
-        row = i + 1;
+  let response = {
+    success: false,
+    message: '',
+    data: null
+  };
+
+  try {
+    switch (data.action) {
+      case 'moveEquipment':
+        response = handleMoveEquipment(data.data, sheet);
         break;
-      }
+      case 'addEquipment':
+        response = handleAddEquipment(data.data, sheet);
+        break;
+      default:
+        throw new Error('Azione non supportata: ' + data.action);
     }
-    
-    if (row > 0) {
-      // Aggiorna l'ubicazione
-      attrezzaturaSheet.getRange(row, 4).setValue(data.data.newLocation); // colonna D (indice 4)
-      
-      // Aggiungi il log
-      logSheet.appendRow([
-        data.data.timestamp,
-        data.data.userName,
-        'Spostamento Ubicazione',
-        'attrezzatura',
-        data.data.codice,
-        data.data.oldLocation,
-        data.data.newLocation
-      ]);
+  } catch (error) {
+    response.message = error.toString();
+  }
+
+  return ContentService
+    .createTextOutput(JSON.stringify(response))
+    .setMimeType(ContentService.MimeType.JSON)
+    .setHeader('Access-Control-Allow-Origin', '*');
+}
+
+function handleMoveEquipment(data, sheet) {
+  const attrezzaturaSheet = sheet.getSheetByName('attrezzatura');
+  const logSheet = sheet.getSheetByName('log');
+  
+  // Trova la riga dell'attrezzatura
+  const values = attrezzaturaSheet.getDataRange().getValues();
+  let row = -1;
+  for (let i = 0; i < values.length; i++) {
+    if (values[i][4] === data.codice) { // colonna E (indice 4) contiene il codice
+      row = i + 1;
+      break;
     }
   }
   
-  return ContentService.createTextOutput('Success');
+  if (row > 0) {
+    // Aggiorna l'ubicazione
+    attrezzaturaSheet.getRange(row, 4).setValue(data.newLocation); // colonna D (indice 4)
+    
+    // Determina se è una nuova ubicazione
+    const azione = data.isNewLocation ? 
+      'Spostamento attrezzatura e inserimento nuova ubicazione' : 
+      'Spostamento Ubicazione';
+    
+    // Aggiungi il log
+    logSheet.appendRow([
+      data.timestamp,
+      data.userName,
+      azione,
+      'attrezzatura',
+      data.codice,
+      data.oldLocation,
+      data.newLocation
+    ]);
+
+    return {
+      success: true,
+      message: 'Attrezzatura spostata con successo',
+      data: null
+    };
+  }
+  
+  throw new Error('Attrezzatura non trovata');
+}
+
+function handleAddEquipment(data, sheet) {
+  const attrezzaturaSheet = sheet.getSheetByName('attrezzatura');
+  const logSheet = sheet.getSheetByName('log');
+  
+  // Validazione dati
+  if (!data.categoria || !data.tipo || !data.marca || !data.ubicazione) {
+    throw new Error('Tutti i campi obbligatori devono essere compilati');
+  }
+  
+  // Genera nuovo codice
+  const values = attrezzaturaSheet.getDataRange().getValues();
+  const lastRow = values.length;
+  const newCode = `ATTR${String(lastRow).padStart(4, '0')}`;
+  
+  // Inserisci nuova attrezzatura
+  attrezzaturaSheet.appendRow([
+    data.categoria,           // Categoria
+    data.tipo,               // Tipo
+    data.marca,              // Marca/Modello
+    data.ubicazione,         // Ubicazione
+    newCode,                 // Codice
+    new Date(),              // Data inserimento
+    data.note || ''          // Note (opzionale)
+  ]);
+  
+  // Aggiungi il log nel formato richiesto
+  logSheet.appendRow([
+    new Date(),              // Timestamp
+    data.userName || 'Sistema', // Utente
+    'Inserimento attrezzatura', // Azione
+    'attrezzatura',          // Tabella
+    newCode,                 // Riga Modificata (codice)
+    '//',                    // Valore precedente (// per nuovo inserimento)
+    data.marca               // Nuovo valore (marca/modello)
+  ]);
+  
+  return {
+    success: true,
+    message: 'Attrezzatura inserita con successo',
+    data: { codice: newCode }
+  };
 }

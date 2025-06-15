@@ -1,6 +1,6 @@
 // Costanti e variabili globali
 const SHEET_ID = '1efHWyYHqsZpAbPXuUadz7Mg2ScsZ1iXX15Yv8daVhvg';
-const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbyWzNZ91kZBr9D3PhQNO7FLSXypRt1Ret0EvlBMuW_GgIAMKB9r4Ag4GHnvoHCVJCUvsA/exec';
+const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxwxGZQtlPsy7S2bzDkzs4GYvbzVqXu7BKP-RLvMnRDbEnH-nvkwvm4wQmn8HP9mRp8sQ/exec';
 
 let currentView = 'ubicazione'; // Inizializzazione della vista predefinita
 let currentFilter = ''; // Inizializzazione del filtro di ricerca
@@ -629,7 +629,7 @@ async function findRowInSheet(codice) {
 }
 
 async function updateGoogleSheetViaWebApp(action, data) {
-    const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbyWzNZ91kZBr9D3PhQNO7FLSXypRt1Ret0EvlBMuW_GgIAMKB9r4Ag4GHnvoHCVJCUvsA/exec';
+    const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxwxGZQtlPsy7S2bzDkzs4GYvbzVqXu7BKP-RLvMnRDbEnH-nvkwvm4wQmn8HP9mRp8sQ/exec';
     
     try {
         const response = await fetch(WEBAPP_URL, {
@@ -684,15 +684,14 @@ async function moveEquipment() {
     const oldLocation = equipment.ubicazione;
     
     try {
-        showLoading('Spostamento attrezzatura in corso...');
-
-        // Invia i dati all'Apps Script
+        showLoading('Spostamento attrezzatura in corso...');        // Invia i dati all'Apps Script
         await updateGoogleSheetViaWebApp('moveEquipment', {
             codice: equipment.codice,
             newLocation: newLocation,
             userName: userName,
             oldLocation: oldLocation,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            isNewLocation: isNewLocation // Aggiunto flag per nuova ubicazione
         });
 
         // Aggiorna i dati locali
