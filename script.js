@@ -639,32 +639,22 @@ async function findRowInSheet(codice) {
 
 async function updateGoogleSheetViaWebApp(action, data) {
     const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxwxGZQtlPsy7S2bzDkzs4GYvbzVqXu7BKP-RLvMnRDbEnH-nvkwvm4wQmn8HP9mRp8sQ/exec';
-    
-    try {
+      try {
         const response = await fetch(WEBAPP_URL, {
             method: 'POST',
+            mode: 'no-cors',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
                 action: action,
-                data: {
-                    ...data,
-                    timestamp: new Date().toISOString() // Assicuriamoci che il timestamp sia sempre presente
-                }
+                data: data
             })
         });
 
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const result = await response.json();
-        if (!result.success) {
-            throw new Error(result.message || 'Errore sconosciuto');
-        }
-        
-        return result;
+        // Con mode: 'no-cors' non possiamo leggere la risposta
+        // Assumiamo che sia andata a buon fine se non ci sono errori
+        return true;
     } catch (error) {
         console.error('Errore durante l\'aggiornamento del foglio Google:', error);
         throw error;
@@ -699,20 +689,17 @@ async function moveEquipment() {
     
     const equipment = equipmentData.find(item => item.id === currentEquipmentId);
     const oldLocation = equipment.ubicazione;
-    
-    try {
+      try {
         showLoading('Spostamento attrezzatura in corso...');
         
         // Invia i dati all'Apps Script
-        const result = await updateGoogleSheetViaWebApp('moveEquipment', {
+        await updateGoogleSheetViaWebApp('moveEquipment', {
             codice: equipment.codice,
             newLocation: newLocation,
             userName: userName,
             oldLocation: oldLocation,
             isNewLocation: isNewLocation,    // Flag per nuova ubicazione
-            tipo: equipment.tipo,            // Informazioni aggiuntive per il log
-            marca: equipment.marca,
-            categoria: equipment.categoria
+            timestamp: new Date().toISOString()
         });
 
         // Aggiorna i dati locali
