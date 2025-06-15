@@ -643,19 +643,28 @@ async function updateGoogleSheetViaWebApp(action, data) {
     try {
         const response = await fetch(WEBAPP_URL, {
             method: 'POST',
-            mode: 'no-cors',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
                 action: action,
-                data: data
+                data: {
+                    ...data,
+                    timestamp: new Date().toISOString() // Assicuriamoci che il timestamp sia sempre presente
+                }
             })
         });
 
-        // A causa di 'no-cors', non possiamo leggere la risposta
-        // Assumiamo che sia andata a buon fine se non ci sono errori
-        return true;
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        if (!result.success) {
+            throw new Error(result.message || 'Errore sconosciuto');
+        }
+        
+        return result;
     } catch (error) {
         console.error('Errore durante l\'aggiornamento del foglio Google:', error);
         throw error;
@@ -668,14 +677,15 @@ async function moveEquipment() {
     const isNewLocation = document.getElementById('isNewLocationCheckbox').checked;
     
     if (!userName) {
-        alert('⚠️ Inserisci il tuo nome');
+        showError('⚠️ Inserisci il tuo nome');
         return;
     }
-      if (isNewLocation) {
+
+    if (isNewLocation) {
         // Valida e formatta la nuova ubicazione
         const validation = validateNewLocation(newLocation);
         if (!validation.valid) {
-            alert('⚠️ ' + validation.message);
+            showError('⚠️ ' + validation.message);
             return;
         }
         newLocation = validation.formatted;
@@ -683,25 +693,29 @@ async function moveEquipment() {
         // Aggiungi la nuova ubicazione alla lista
         locationsData.push(newLocation);
     } else if (!newLocation) {
-        alert('⚠️ Seleziona una ubicazione');
+        showError('⚠️ Seleziona una ubicazione');
         return;
     }
     
-    const equipment = equipmentData.find(function(item) {
-        return item.id === currentEquipmentId;
-    });
+    const equipment = equipmentData.find(item => item.id === currentEquipmentId);
     const oldLocation = equipment.ubicazione;
     
     try {
-        showLoading('Spostamento attrezzatura in corso...');        // Invia i dati all'Apps Script
-        await updateGoogleSheetViaWebApp('moveEquipment', {
+        showLoading('Spostamento attrezzatura in corso...');
+        
+        // Invia i dati all'Apps Script
+        const result = await updateGoogleSheetViaWebApp('moveEquipment', {
             codice: equipment.codice,
             newLocation: newLocation,
             userName: userName,
             oldLocation: oldLocation,
-            timestamp: new Date().toISOString(),
-            isNewLocation: isNewLocation // Aggiunto flag per nuova ubicazione
-        });        // Aggiorna i dati locali
+            isNewLocation: isNewLocation,    // Flag per nuova ubicazione
+            tipo: equipment.tipo,            // Informazioni aggiuntive per il log
+            marca: equipment.marca,
+            categoria: equipment.categoria
+        });
+
+        // Aggiorna i dati locali
         equipment.ubicazione = newLocation;
         
         // Reset form e chiudi il modal
@@ -709,28 +723,17 @@ async function moveEquipment() {
         handleNewLocationCheckbox(); // Resetta lo stato del form e ricrea il select
         closeDetailModal(); // Chiude il modal
         
-        // Mostra messaggio di successo una sola volta usando la funzione showMessage
-        showMessage(`✅ Attrezzatura ${equipment.codice} spostata da ${oldLocation} a ${newLocation}`);
-        
-        movementLog.push({
-            codice: equipment.codice,
-            data: new Date().toISOString(),
-            utente: userName,
-            azione: 'Spostamento Ubicazione',
-            tabella: 'attrezzatura',
-            da: oldLocation,
-            a: newLocation
-        });
-        
-        hideLoading();
-        closeDetailModal(); // Chiude la scheda di dettaglio
-        alert('✅ Attrezzatura ' + equipment.codice + ' spostata da ' + oldLocation + ' a ' + newLocation);
-        
+        // Mostra messaggio di successo
+        showMessage(`✅ Attrezzatura ${equipment.codice} spostata ${isNewLocation ? 'nella nuova ubicazione' : ''} da ${oldLocation} a ${newLocation}`);
+
+        // Aggiorna la vista
         renderCurrentView();
+        
     } catch (error) {
-        hideLoading();
         console.error('Errore durante lo spostamento:', error);
-        alert('❌ Errore durante lo spostamento: ' + error.message);
+        showError('❌ ' + (error.message || 'Errore durante lo spostamento'));
+    } finally {
+        hideLoading();
     }
 }
 
