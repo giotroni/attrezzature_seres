@@ -1,5 +1,10 @@
 function doPost(e) {
+  // Log dei dati ricevuti per debug
+  Logger.log('Received POST data: ' + JSON.stringify(e.postData.contents));
+  
   const data = JSON.parse(e.postData.contents);
+  Logger.log('Parsed data: ' + JSON.stringify(data));
+  
   const sheet = SpreadsheetApp.getActiveSpreadsheet();
   
   let response = {
@@ -30,8 +35,18 @@ function doPost(e) {
 }
 
 function handleMoveEquipment(data, sheet) {
+  Logger.log('handleMoveEquipment called with data: ' + JSON.stringify(data));
+  
   const attrezzaturaSheet = sheet.getSheetByName('attrezzatura');
   const logSheet = sheet.getSheetByName('log');
+  
+  // Verifica che i fogli esistano
+  if (!attrezzaturaSheet) {
+    throw new Error('Foglio attrezzatura non trovato');
+  }
+  if (!logSheet) {
+    throw new Error('Foglio log non trovato');
+  }
   
   // Trova la riga dell'attrezzatura
   const values = attrezzaturaSheet.getDataRange().getValues();
@@ -50,7 +65,7 @@ function handleMoveEquipment(data, sheet) {
     // Determina se è una nuova ubicazione
     const azione = data.isNewLocation ? 
       'Spostamento attrezzatura e inserimento nuova ubicazione' : 
-      'Spostamento Ubicazione';
+      'Spostamento attrezzatura';
     
     // Aggiungi il log
     logSheet.appendRow([

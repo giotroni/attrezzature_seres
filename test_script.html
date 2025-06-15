@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Script Google</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; max-width: 800px; margin: 20px auto; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; }
+        input, select { width: 100%; padding: 8px; margin-bottom: 10px; }
+        .checkbox-group { display: flex; align-items: center; }
+        .checkbox-group input[type="checkbox"] { width: auto; margin-right: 10px; }
+        .button-group { margin-top: 20px; }
+        button { padding: 10px 20px; margin-right: 10px; border: none; cursor: pointer; border-radius: 4px; }
+        .primary { background: #4CAF50; color: white; }
+        .secondary { background: #f0f0f0; color: #333; }
+        #result { margin-top: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 4px; }
+        .debug-info { margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 4px; font-family: monospace; white-space: pre-wrap; }
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+    </style>
+</head>
+<body>
+    <h2>Test Script Google</h2>
+    <form id="testForm">
+        <div class="form-group">
+            <label>Codice Attrezzatura:</label>
+            <input type="text" id="codice" value="ATTR0093">
+        </div>
+        <div class="form-group">
+            <label>Ubicazione Attuale:</label>
+            <input type="text" id="oldLocation" value="MAGAZZINO">
+        </div>
+        <div class="form-group">
+            <label>Nuova Ubicazione:</label>
+            <input type="text" id="newLocation" value="TEST_UBICAZIONE">
+        </div>
+        <div class="form-group">
+            <label>Nome Utente:</label>
+            <input type="text" id="userName" value="Test User">
+        </div>
+        <div class="form-group checkbox-group">
+            <label>
+                <input type="checkbox" id="isNewLocation" checked>
+                Nuova Ubicazione
+            </label>
+        </div>
+        <div class="button-group">
+            <button type="button" onclick="testScript()" class="primary">Esegui Test</button>
+            <button type="button" onclick="resetForm()" class="secondary">Reset Form</button>
+        </div>
+    </form>
+    <div id="result"></div>
+
+    <script>
+        function resetForm() {
+            document.getElementById('testForm').reset();
+            document.getElementById('result').innerHTML = '';
+        }
+
+        function showDebugInfo(data, response) {
+            return `
+                <div class="debug-info">
+                    <strong>Debug Info:</strong>
+                    Codice: ${data.codice}
+                    Vecchia Ubicazione: ${data.oldLocation}
+                    Nuova Ubicazione: ${data.newLocation}
+                    Utente: ${data.userName}
+                    Nuova Ubicazione Flag: ${data.isNewLocation}
+                    Timestamp: ${data.timestamp}
+                    
+                    <strong>Dati inviati:</strong>
+                    ${JSON.stringify(data, null, 2)}
+                    
+                    <strong>Risposta:</strong>
+                    ${response || 'In attesa...'}
+                </div>
+            `;
+        }
+
+        function testScript() {
+            const formData = {
+                codice: document.getElementById('codice').value,
+                oldLocation: document.getElementById('oldLocation').value,
+                newLocation: document.getElementById('newLocation').value,
+                userName: document.getElementById('userName').value,
+                isNewLocation: document.getElementById('isNewLocation').checked,
+                timestamp: new Date().toISOString()
+            };
+
+            const data = {
+                action: 'moveEquipment',
+                data: formData
+            };
+
+            const url = 'https://script.google.com/macros/s/AKfycbxwxGZQtlPsy7S2bzDkzs4GYvbzVqXu7BKP-RLvMnRDbEnH-nvkwvm4wQmn8HP9mRp8sQ/exec';
+            
+            document.getElementById('result').innerHTML = showDebugInfo(formData, '');
+
+            fetch(url, {
+                method: 'POST',
+                mode: 'no-cors', // Importante per evitare errori CORS
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => {
+                document.getElementById('result').innerHTML = `
+                    <p class="success">✅ Richiesta inviata con successo</p>
+                    <p>Verifica il foglio di log per vedere se l'azione è stata registrata correttamente come:
+                    "${formData.isNewLocation ? 'Spostamento attrezzatura e inserimento nuova ubicazione' : 'Spostamento attrezzatura'}"</p>
+                    ${showDebugInfo(formData, 'Richiesta completata')}
+                `;
+            })
+            .catch(error => {
+                document.getElementById('result').innerHTML = `
+                    <p class="error">⚠️ La richiesta è stata inviata ma non è possibile vedere la risposta a causa delle restrizioni CORS</p>
+                    <p>Verifica il foglio di log per confermare se i dati sono stati registrati.</p>
+                    ${showDebugInfo(formData, error.message)}
+                `;
+                console.log('Dettagli errore:', error);
+            });
+
+            // Log dei dati inviati per debug
+            console.log('URL:', url);
+            console.log('Dati inviati:', data);
+        }
+    </script>
+</body>
+</html>
