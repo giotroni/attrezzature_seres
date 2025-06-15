@@ -692,10 +692,17 @@ async function moveEquipment() {
             oldLocation: oldLocation,
             timestamp: new Date().toISOString(),
             isNewLocation: isNewLocation // Aggiunto flag per nuova ubicazione
-        });
-
-        // Aggiorna i dati locali
+        });        // Aggiorna i dati locali
         equipment.ubicazione = newLocation;
+        
+        // Reset form e chiudi il modal
+        document.getElementById('isNewLocationCheckbox').checked = false;
+        handleNewLocationCheckbox(); // Resetta lo stato del form e ricrea il select
+        closeDetailModal(); // Chiude il modal
+        
+        // Mostra messaggio di successo
+        alert('✅ Attrezzatura spostata con successo');
+        
         movementLog.push({
             codice: equipment.codice,
             data: new Date().toISOString(),
