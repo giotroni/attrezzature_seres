@@ -1,4 +1,4 @@
-        * {
+* {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
@@ -684,4 +684,22 @@
 
         .about-close:hover {
             color: #333;
+        }
+
+        /* Stili per il gruppo di input ubicazione */
+        .location-input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .new-location-checkbox {
+            display: flex;
+            align-items: center;
+            margin-top: 5px;
+        }
+
+        /* Stile per il campo input quando è checkato */
+        #newLocation.new-location {
+            text-transform: uppercase;
         }

@@ -33,6 +33,9 @@ function showError(message) {
 document.addEventListener('DOMContentLoaded', function() {
     console.log('App SERES caricata correttamente');
     
+    // Aggiungi event listener per il checkbox nuova ubicazione
+    document.getElementById('isNewLocationCheckbox')?.addEventListener('change', handleNewLocationCheckbox);
+    
     // Avvia automaticamente il caricamento da Google Sheets
     loadFromGoogleSheets();
     
@@ -490,6 +493,16 @@ function showEquipmentDetail(id) {
     
     document.getElementById('modalTitle').textContent = equipment.tipo;
     
+    // Aggiorna la lista delle ubicazioni
+    const locationSelect = document.getElementById('newLocation');
+    locationSelect.innerHTML = '';
+    locationsData.sort().forEach(location => {
+        const option = document.createElement('option');
+        option.value = location;
+        option.textContent = location;
+        locationSelect.appendChild(option);
+    });
+    
     const detailsHtml = 
         '<div class="detail-item">' +
             '<div class="detail-label">Codice</div>' +
@@ -656,11 +669,28 @@ async function updateGoogleSheetViaWebApp(action, data) {
 }
 
 async function moveEquipment() {
-    const newLocation = document.getElementById('newLocation').value;
+    let newLocation = document.getElementById('newLocation').value;
     const userName = document.getElementById('userName').value.trim();
+    const isNewLocation = document.getElementById('isNewLocationCheckbox').checked;
     
-    if (!newLocation || !userName) {
-        alert('⚠️ Seleziona una ubicazione e inserisci il tuo nome');
+    if (!userName) {
+        alert('⚠️ Inserisci il tuo nome');
+        return;
+    }
+    
+    if (isNewLocation) {
+        // Valida e formatta la nuova ubicazione
+        const validation = validateNewLocation(newLocation);
+        if (!validation.valid) {
+            alert('⚠️ ' + validation.message);
+            return;
+        }
+        newLocation = validation.formatted;
+        
+        // Aggiungi la nuova ubicazione alla lista
+        locationsData.push(newLocation);
+    } else if (!newLocation) {
+        alert('⚠️ Seleziona una ubicazione');
         return;
     }
     
@@ -727,4 +757,45 @@ function showLoading(message) {
 
 function hideLoading() {
     document.getElementById('loadingOverlay').classList.remove('show');
+}
+
+// Funzione per validare e formattare una nuova ubicazione
+function validateNewLocation(location) {
+    if (!location) return { valid: false, message: 'L\'ubicazione non può essere vuota' };
+    if (location.length > 20) return { valid: false, message: 'L\'ubicazione non può superare i 20 caratteri' };
+    
+    // Converti in maiuscolo e rimuovi spazi iniziali/finali
+    const formattedLocation = location.trim().toUpperCase();
+    
+    // Verifica se l'ubicazione esiste già
+    if (locationsData.includes(formattedLocation)) {
+        return { valid: false, message: 'Questa ubicazione esiste già' };
+    }
+    
+    return { valid: true, formatted: formattedLocation };
+}
+
+// Funzione per gestire il cambio tra select esistente e input nuova ubicazione
+function handleNewLocationCheckbox() {
+    const isNewLocation = document.getElementById('isNewLocationCheckbox').checked;
+    const locationDiv = document.getElementById('existingLocationDiv');
+    const select = document.getElementById('newLocation');
+    
+    if (isNewLocation) {
+        // Converti il select in un input text
+        locationDiv.innerHTML = '<input type="text" class="form-input new-location" id="newLocation" placeholder="Inserisci nuova ubicazione (max 20 caratteri)" maxlength="20">';
+        document.getElementById('newLocation').addEventListener('input', function(e) {
+            this.value = this.value.toUpperCase();
+        });
+    } else {
+        // Ripristina il select con le ubicazioni esistenti
+        locationDiv.innerHTML = '<select class="form-select" id="newLocation"><option value="">Seleziona ubicazione...</option></select>';
+        const select = document.getElementById('newLocation');
+        locationsData.sort().forEach(location => {
+            const option = document.createElement('option');
+            option.value = location;
+            option.textContent = location;
+            select.appendChild(option);
+        });
+    }
 }

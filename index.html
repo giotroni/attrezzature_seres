@@ -123,12 +123,19 @@
                 <div id="equipmentDetails"></div>
                 
                 <div class="move-section">
-                    <h3 style="margin-bottom: 15px;">🚚 Sposta Attrezzatura</h3>
-                    <div class="form-group">
+                    <h3 style="margin-bottom: 15px;">🚚 Sposta Attrezzatura</h3>                    <div class="form-group">
                         <label class="form-label">Nuova Ubicazione</label>
-                        <select class="form-select" id="newLocation">
-                            <option value="">Seleziona ubicazione...</option>
-                        </select>
+                        <div class="location-input-group">
+                            <div id="existingLocationDiv">
+                                <select class="form-select" id="newLocation">
+                                    <option value="">Seleziona ubicazione...</option>
+                                </select>
+                            </div>
+                            <div class="new-location-checkbox">
+                                <input type="checkbox" id="isNewLocationCheckbox" style="margin-right: 5px;">
+                                <label for="isNewLocationCheckbox">Nuova ubicazione</label>
+                            </div>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Il tuo Nome</label>
