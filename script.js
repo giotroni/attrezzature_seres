@@ -700,8 +700,8 @@ async function moveEquipment() {
         handleNewLocationCheckbox(); // Resetta lo stato del form e ricrea il select
         closeDetailModal(); // Chiude il modal
         
-        // Mostra messaggio di successo
-        alert('✅ Attrezzatura spostata con successo');
+        // Mostra messaggio di successo una sola volta usando la funzione showMessage
+        showMessage(`✅ Attrezzatura ${equipment.codice} spostata da ${oldLocation} a ${newLocation}`);
         
         movementLog.push({
             codice: equipment.codice,
