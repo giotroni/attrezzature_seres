@@ -103,6 +103,9 @@ document.addEventListener('DOMContentLoaded', function() {
             menuOverlay.style.display = 'none';
         }
     });
+
+    // Inizializza il modal per la nuova attrezzatura
+    setupNewEquipmentModal();
 });
 
 async function loadData() {
@@ -814,4 +817,119 @@ function updateLocationSelect(equipment) {
             option.textContent = loc;
             select.appendChild(option);
         });
+}
+
+// Gestione nuova attrezzatura
+let categorie = new Set();
+let tipi = new Set();
+let ubicazioni = new Set();
+
+function setupNewEquipmentModal() {
+    const modal = document.getElementById('newEquipmentModal');
+    const closeBtn = document.getElementById('newEquipmentClose');
+    const cancelBtn = document.getElementById('newEquipmentCancel');
+    const form = document.getElementById('newEquipmentForm');
+    const addButtons = document.querySelectorAll('.add-option');
+
+    // Event listener per il pulsante "Nuova Attrezzatura" nel menu
+    document.getElementById('btnAddEquipment').addEventListener('click', () => {
+        modal.style.display = 'block';
+        closeMenu();
+        updateSelectOptions();
+    });
+
+    // Chiusura del modal
+    closeBtn.addEventListener('click', () => modal.style.display = 'none');
+    cancelBtn.addEventListener('click', () => modal.style.display = 'none');
+    window.addEventListener('click', (e) => {
+        if (e.target === modal) modal.style.display = 'none';
+    });
+
+    // Gestione pulsanti "+" per aggiungere nuove opzioni
+    addButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const target = this.dataset.target;
+            const newValue = prompt(`Inserisci nuova ${target}:`);
+            
+            if (newValue && newValue.trim()) {
+                const select = document.getElementById(target);
+                const option = new Option(newValue.trim(), newValue.trim());
+                select.add(option);
+                select.value = newValue.trim();
+
+                // Aggiorna il set corrispondente
+                switch(target) {
+                    case 'categoria':
+                        categorie.add(newValue.trim());
+                        break;
+                    case 'tipo':
+                        tipi.add(newValue.trim());
+                        break;
+                    case 'ubicazione':
+                        ubicazioni.add(newValue.trim());
+                        break;
+                }
+            }
+        });
+    });
+
+    // Gestione submit del form
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const formData = {
+            categoria: document.getElementById('categoria').value,
+            tipo: document.getElementById('tipo').value,
+            marca: document.getElementById('marca').value,
+            ubicazione: document.getElementById('ubicazione').value,
+            note: document.getElementById('note').value
+        };
+
+        try {
+            const response = await fetch(WEBAPP_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'addEquipment',
+                    data: formData
+                })
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                showMessage('Attrezzatura aggiunta con successo');
+                modal.style.display = 'none';
+                form.reset();
+                loadFromGoogleSheets(); // Ricarica i dati
+            } else {
+                throw new Error(result.message || 'Errore durante il salvataggio');
+            }
+        } catch (error) {
+            showError('Errore: ' + error.message);
+        }
+    });
+}
+
+function updateSelectOptions() {
+    // Aggiorna le opzioni dei select con i dati attuali
+    const updateSelect = (selectId, options) => {
+        const select = document.getElementById(selectId);
+        select.innerHTML = '<option value="">Seleziona...</option>';
+        Array.from(options).sort().forEach(value => {
+            select.add(new Option(value, value));
+        });
+    };
+
+    // Estrai le opzioni uniche dai dati esistenti
+    attrezzature.forEach(item => {
+        if (item.categoria) categorie.add(item.categoria);
+        if (item.tipo) tipi.add(item.tipo);
+        if (item.ubicazione) ubicazioni.add(item.ubicazione);
+    });
+
+    updateSelect('categoria', categorie);
+    updateSelect('tipo', tipi);
+    updateSelect('ubicazione', ubicazioni);
 }
