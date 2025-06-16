@@ -154,595 +154,124 @@ function loadDemoData() {
 async function loadFromGoogleSheets() {
     try {
         showLoadingOverlay('Caricamento dati...');
-        const response = await fetch(WEBAPP_URL + '?action=getData');
-        const data = await response.json();
+        console.log('Inizio caricamento dati da Google Sheets...');
         
-        if (data.success) {
-            attrezzature = data.data;
-            updateSelectOptions(); // Aggiorna le liste quando i dati vengono caricati
-            filteredData = attrezzature;
-            renderContent();
-            hideLoadingOverlay();
-            showMessage('Dati aggiornati con successo');
-        } else {
-            throw new Error(data.message || 'Errore nel caricamento dei dati');
-        }
+        const response = await fetch(WEBAPP_URL + '?action=getData', {
+            method: 'GET',
+            mode: 'no-cors' // Aggiunto per gestire CORS
+        });
+
+        // Poiché stiamo usando no-cors, dovremo caricare i dati in un altro modo
+        // Facciamo una richiesta JSONP utilizzando uno script tag
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            const callbackName = 'googleSheetsCallback_' + Math.random().toString(36).substr(2, 9);
+            
+            window[callbackName] = function(data) {
+                console.log('Dati ricevuti:', data);
+                if (data && Array.isArray(data.data)) {
+                    attrezzature = data.data;
+                    updateSelectOptions();
+                    filteredData = attrezzature;
+                    renderContent();
+                    hideLoadingOverlay();
+                    showMessage('Dati aggiornati con successo');
+                } else {
+                    console.error('Formato dati non valido:', data);
+                    hideLoadingOverlay();
+                    showError('Errore nel formato dei dati ricevuti');
+                }
+                
+                // Pulizia
+                delete window[callbackName];
+                document.body.removeChild(script);
+                resolve();
+            };
+
+            script.onerror = function() {
+                console.error('Errore nel caricamento dello script');
+                hideLoadingOverlay();
+                showError('Errore nel caricamento dei dati');
+                delete window[callbackName];
+                document.body.removeChild(script);
+                reject(new Error('Script loading failed'));
+            };
+
+            script.src = `${WEBAPP_URL}?action=getData&callback=${callbackName}`;
+            document.body.appendChild(script);
+        });
     } catch (error) {
+        console.error('Errore nel caricamento:', error);
         hideLoadingOverlay();
         showError('Errore: ' + error.message);
     }
 }
 
+// Dati iniziali per le liste
+const defaultData = {
+    categorie: ['SICUREZZA', 'UTENSILI', 'MISURA'],
+    tipi: ['IMBRAGATURA', 'CHIAVE', 'METRO'],
+    ubicazioni: ['MAGAZZINO', 'OFFICINA', 'CASA']
+};
+
+// Inizializza le liste con dati di default
+function initializeLists() {
+    console.log('Inizializzazione liste...');
+    
+    // Usa i dati di default come fallback
+    if (!categorie.size) {
+        categorie = new Set(defaultData.categoria);
+    }
+    if (!tipi.size) {
+        tipi = new Set(defaultData.tipi);
+    }
+    if (!ubicazioni.size) {
+        ubicazioni = new Set(defaultData.ubicazioni);
+    }
+
+    updateSelectOptions();
+}
+
 function updateSelectOptions() {
     console.log('Aggiornamento opzioni select...');
     
-    // Pulisci i set esistenti
-    categorie.clear();
-    tipi.clear();
-    ubicazioni.clear();
-
-    // Estrai le opzioni uniche dai dati esistenti
-    attrezzature.forEach(item => {
-        if (item.categoria) categorie.add(item.categoria);
-        if (item.tipo) tipi.add(item.tipo);
-        if (item.ubicazione) ubicazioni.add(item.ubicazione);
-    });
-
-    console.log('Categorie trovate:', Array.from(categorie));
-    console.log('Tipi trovati:', Array.from(tipi));
-    console.log('Ubicazioni trovate:', Array.from(ubicazioni));
-
-    // Funzione helper per aggiornare un select
-    const updateSelect = (selectId, options) => {
+    const updateSelect = (selectId, options, defaultValue = '') => {
         const select = document.getElementById(selectId);
-        if (!select) return;
+        if (!select) {
+            console.error(`Select ${selectId} non trovato`);
+            return;
+        }
         
-        select.innerHTML = '<option value="">Seleziona...</option>';
+        // Salva il valore corrente
+        const currentValue = select.value;
+        
+        // Pulisci e aggiungi le opzioni
+        select.innerHTML = `<option value="">${defaultValue || 'Seleziona...'}</option>`;
         Array.from(options).sort().forEach(value => {
             const option = new Option(value, value);
             select.add(option);
         });
+        
+        // Ripristina il valore selezionato se esisteva
+        if (currentValue && Array.from(options).includes(currentValue)) {
+            select.value = currentValue;
+        }
+
+        console.log(`Aggiornato select ${selectId} con ${Array.from(options).length} opzioni`);
     };
 
-    // Aggiorna i select
-    updateSelect('categoria', categorie);
-    updateSelect('tipo', tipi);
-    updateSelect('ubicazione', ubicazioni);
+    // Aggiorna i select con messaggi appropriati
+    updateSelect('categoria', categorie, 'Seleziona categoria...');
+    updateSelect('tipo', tipi, 'Seleziona tipo...');
+    updateSelect('ubicazione', ubicazioni, 'Seleziona ubicazione...');
 }
 
-function renderContent() {
-    const container = document.getElementById('viewContent');
-    
-    if (currentView === 'ubicazione') {
-        renderLocationView(container);
-    } else if (currentView === 'categoria') {
-        renderCategoryView(container);
-    } else if (currentView === 'tipo') {
-        renderTypeView(container);
-    }
-}
-
-function renderLocationView(container) {
-    const locations = getLocationGroups();
-    
-    if (locations.length === 0) {
-        container.innerHTML = '<div class="loading"><p>Nessuna ubicazione trovata</p></div>';
-        return;
-    }
-
-    container.innerHTML = locations.map(function(location) {
-        return '<div class="location-card" onclick="showLocationEquipment(\'' + location.name + '\')">' +
-            '<div class="card-header">' +
-                '<div class="card-title">📍 ' + location.name + '</div>' +
-                '<div class="card-count">' + location.count + '</div>' +
-            '</div>' +
-            '<div class="card-items">' + location.types.slice(0, 3).join(', ') + (location.types.length > 3 ? '...' : '') + '</div>' +
-        '</div>';
-    }).join('');
-}
-
-function renderCategoryView(container) {
-    const categories = getCategoryGroups();
-    
-    if (categories.length === 0) {
-        container.innerHTML = '<div class="loading"><p>Nessuna categoria trovata</p></div>';
-        return;
-    }
-
-    container.innerHTML = categories.map(function(category) {
-        return '<div class="category-card" onclick="showCategoryEquipment(\'' + category.name + '\')">' +
-            '<div class="card-header">' +
-                '<div class="card-title">📂 ' + category.name + '</div>' +
-                '<div class="card-count">' + category.count + '</div>' +
-            '</div>' +
-            '<div class="card-items">' + category.types.slice(0, 3).join(', ') + (category.types.length > 3 ? '...' : '') + '</div>' +
-        '</div>';
-    }).join('');
-}
-
-function renderTypeView(container) {
-    const types = getTypeGroups();
-    
-    if (types.length === 0) {
-        container.innerHTML = '<div class="loading"><p>Nessun tipo trovato</p></div>';
-        return;
-    }
-
-    container.innerHTML = types.map(function(type) {
-        return '<div class="type-card" onclick="showTypeEquipment(\'' + type.name + '\')">' +
-            '<div class="card-header">' +
-                '<div class="card-title">🔧 ' + type.name + '</div>' +
-                '<div class="card-count">' + type.count + '</div>' +
-            '</div>' +
-            '<div class="card-items">' + type.locations.slice(0, 3).join(', ') + (type.locations.length > 3 ? '...' : '') + '</div>' +
-        '</div>';
-    }).join('');
-}
-
-function getLocationGroups() {
-    const filtered = getFilteredEquipment();
-    const groups = {};
-    
-    filtered.forEach(function(item) {
-        if (!groups[item.ubicazione]) {
-            groups[item.ubicazione] = {
-                name: item.ubicazione,
-                count: 0,
-                types: []
-            };
-        }
-        groups[item.ubicazione].count++;
-        if (groups[item.ubicazione].types.indexOf(item.tipo) === -1) {
-            groups[item.ubicazione].types.push(item.tipo);
-        }
-    });
-
-    return Object.values(groups).sort(function(a, b) {
-        return a.name.localeCompare(b.name);
-    });
-}
-
-function getCategoryGroups() {
-    const filtered = getFilteredEquipment();
-    const groups = {};
-    
-    filtered.forEach(function(item) {
-        if (!groups[item.categoria]) {
-            groups[item.categoria] = {
-                name: item.categoria,
-                count: 0,
-                types: []
-            };
-        }
-        groups[item.categoria].count++;
-        if (groups[item.categoria].types.indexOf(item.tipo) === -1) {
-            groups[item.categoria].types.push(item.tipo);
-        }
-    });
-
-    return Object.values(groups).sort(function(a, b) {
-        return a.name.localeCompare(b.name);
-    });
-}
-
-function getTypeGroups() {
-    const filtered = getFilteredEquipment();
-    const groups = {};
-    
-    filtered.forEach(function(item) {
-        if (!groups[item.tipo]) {
-            groups[item.tipo] = {
-                name: item.tipo,
-                count: 0,
-                locations: []
-            };
-        }
-        groups[item.tipo].count++;
-        if (groups[item.tipo].locations.indexOf(item.ubicazione) === -1) {
-            groups[item.tipo].locations.push(item.ubicazione);
-        }
-    });
-
-    return Object.values(groups).sort(function(a, b) {
-        return a.name.localeCompare(b.name);
-    });
-}
-
-function getFilteredEquipment() {
-    if (!currentFilter) return equipmentData;
-    
-    return equipmentData.filter(function(item) {
-        return item.codice.toLowerCase().indexOf(currentFilter) !== -1 ||
-                item.tipo.toLowerCase().indexOf(currentFilter) !== -1 ||
-                item.marcaModello.toLowerCase().indexOf(currentFilter) !== -1 ||
-                item.ubicazione.toLowerCase().indexOf(currentFilter) !== -1 ||
-                item.categoria.toLowerCase().indexOf(currentFilter) !== -1;
-    });
-}
-
-function showLocationEquipment(location) {
-    showEquipmentList('ubicazione', location);
-}
-
-function showCategoryEquipment(category) {
-    showEquipmentList('categoria', category);
-}
-
-function showTypeEquipment(type) {
-    showEquipmentList('tipo', type);
-}
-
-function showEquipmentList(filterType, filterValue) {
-    const container = document.getElementById('viewContent');
-    let filteredEquipment = equipmentData;
-    
-    if (filterType === 'ubicazione') {
-        filteredEquipment = equipmentData.filter(function(item) {
-            return item.ubicazione === filterValue;
-        });
-    } else if (filterType === 'categoria') {
-        filteredEquipment = equipmentData.filter(function(item) {
-            return item.categoria === filterValue;
-        });
-    } else if (filterType === 'tipo') {
-        filteredEquipment = equipmentData.filter(function(item) {
-            return item.tipo === filterValue;
-        });
-    }
-    
-    const backButton = '<button class="back-button" onclick="renderCurrentView()">← Torna alla vista ' + currentView + '</button>';
-    
-    if (filteredEquipment.length === 0) {
-        container.innerHTML = backButton + '<div class="loading"><p>Nessuna attrezzatura trovata</p></div>';
-        return;
-    }
-
-    const equipmentCards = filteredEquipment.map(function(item) {
-        return '<div class="equipment-card" onclick="showEquipmentDetail(' + item.id + ')">' +
-            '<div class="equipment-header">' +
-                '<span class="equipment-code">' + item.codice + '</span>' +
-                '<span class="equipment-category">' + item.categoria + '</span>' +
-            '</div>' +
-            '<div class="equipment-title">' + item.tipo + '</div>' +
-            '<div class="equipment-brand">' + item.marcaModello + '</div>' +
-            '<div class="equipment-location">' +
-                '<span class="location-icon"></span>' +
-                item.ubicazione +
-            '</div>' +
-        '</div>';
-    }).join('');
-
-    container.innerHTML = backButton + equipmentCards;
-}
-
-function showEquipmentDetail(id) {
-    const equipment = equipmentData.find(function(item) {
-        return item.id === id;
-    });
-    if (!equipment) return;
-
-    currentEquipmentId = id;
-    
-    document.getElementById('modalTitle').textContent = equipment.tipo;
-    
-    const detailsHtml = 
-        '<div class="detail-item">' +
-            '<div class="detail-label">Codice</div>' +
-            '<div class="detail-value">' + equipment.codice + '</div>' +
-        '</div>' +
-        '<div class="detail-item">' +
-            '<div class="detail-label">Categoria</div>' +
-            '<div class="detail-value">' + equipment.categoria + '</div>' +
-        '</div>' +
-        '<div class="detail-item">' +
-            '<div class="detail-label">Tipo</div>' +
-            '<div class="detail-value">' + equipment.tipo + '</div>' +
-        '</div>' +
-        '<div class="detail-item">' +
-            '<div class="detail-label">Marca/Modello</div>' +
-            '<div class="detail-value">' + equipment.marcaModello + '</div>' +
-        '</div>' +
-        '<div class="detail-item">' +
-            '<div class="detail-label">Ubicazione Attuale</div>' +
-            '<div class="detail-value">📍 ' + equipment.ubicazione + '</div>' +
-        '</div>';
-    
-    document.getElementById('equipmentDetails').innerHTML = detailsHtml;
-      // Aggiorna la lista delle ubicazioni disponibili
-    updateLocationSelect(equipment);
-    
-    showMovementHistory(equipment.codice);
-    
-    document.getElementById('detailModal').style.display = 'block';
-}
-
-function closeDetailModal() {
-    document.getElementById('detailModal').style.display = 'none';
-    document.getElementById('newLocation').value = '';
-    document.getElementById('userName').value = '';
-}
-
-function showMovementHistory(codice) {
-    const movements = movementLog.filter(function(log) {
-        return log.codice === codice;
-    });
-    const historyContainer = document.getElementById('movementHistory');
-    
-    if (movements.length === 0) {
-        historyContainer.innerHTML = '<p style="color: #666; font-style: italic;">Nessuno spostamento registrato</p>';
-        return;
-    }
-    
-    historyContainer.innerHTML = movements
-        .sort(function(a, b) {
-            return new Date(b.data) - new Date(a.data);
-        })
-        .map(function(movement) {
-            const date = new Date(movement.data);
-            return '<div class="history-item">' +
-                '<div class="history-date">' + date.toLocaleDateString('it-IT') + ' ' + date.toLocaleTimeString('it-IT', {hour: '2-digit', minute: '2-digit'}) + '</div>' +
-                '<div class="history-action">' +
-                    '<strong>' + movement.utente + '</strong> ha spostato da ' +
-                    '<strong>' + movement.da + '</strong> a <strong>' + movement.a + '</strong>' +
-                '</div>' +
-            '</div>';
-        }).join('');
-}
-
-async function updateGoogleSheet(range, values) {
-    const API_KEY = 'AIzaSyCc8HZz0QCZ-OtQF_wu4GuBhmeAdTceUWE';
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}?valueInputOption=RAW&key=${API_KEY}`;
-    
-    try {
-        const response = await fetch(url, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                values: values
-            })
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        return await response.json();
-    } catch (error) {
-        console.error('Errore durante l\'aggiornamento del foglio Google:', error);
-        throw error;
-    }
-}
-
-async function appendToGoogleSheet(range, values) {
-    const API_KEY = 'AIzaSyCc8HZz0QCZ-OtQF_wu4GuBhmeAdTceUWE';
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS&key=${API_KEY}`;
-    
-    try {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                values: values
-            })
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        return await response.json();
-    } catch (error) {
-        console.error('Errore durante l\'aggiunta al foglio Google:', error);
-        throw error;
-    }
-}
-
-async function findRowInSheet(codice) {
-    try {
-        const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/attrezzatura!A:E?key=AIzaSyCc8HZz0QCZ-OtQF_wu4GuBhmeAdTceUWE`);
-        const data = await response.json();
-        const values = data.values || [];
-        
-        // Trova l'indice della riga con il codice specificato
-        for (let i = 0; i < values.length; i++) {
-            if (values[i][4] === codice) { // La colonna E (indice 4) contiene il codice
-                return i + 1; // +1 perché le righe in Google Sheets iniziano da 1
-            }
-        }
-        return null;
-    } catch (error) {
-        console.error('Errore durante la ricerca nel foglio Google:', error);
-        throw error;
-    }
-}
-
-async function updateGoogleSheetViaWebApp(action, data) {
-    const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxwxGZQtlPsy7S2bzDkzs4GYvbzVqXu7BKP-RLvMnRDbEnH-nvkwvm4wQmn8HP9mRp8sQ/exec';
-      try {
-        const response = await fetch(WEBAPP_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                action: action,
-                data: data
-            })
-        });
-
-        // Con mode: 'no-cors' non possiamo leggere la risposta
-        // Assumiamo che sia andata a buon fine se non ci sono errori
-        return true;
-    } catch (error) {
-        console.error('Errore durante l\'aggiornamento del foglio Google:', error);
-        throw error;
-    }
-}
-
-async function moveEquipment() {
-    let newLocation = document.getElementById('newLocation').value;
-    const userName = document.getElementById('userName').value.trim();
-    const isNewLocation = document.getElementById('isNewLocationCheckbox').checked;
-    
-    if (!userName) {
-        showError('⚠️ Inserisci il tuo nome');
-        return;
-    }
-
-    if (isNewLocation) {
-        // Valida e formatta la nuova ubicazione
-        const validation = validateNewLocation(newLocation);
-        if (!validation.valid) {
-            showError('⚠️ ' + validation.message);
-            return;
-        }
-        newLocation = validation.formatted;
-        
-        // Aggiungi la nuova ubicazione alla lista
-        locationsData.push(newLocation);
-    } else if (!newLocation) {
-        showError('⚠️ Seleziona una ubicazione');
-        return;
-    }
-    
-    const equipment = equipmentData.find(item => item.id === currentEquipmentId);
-    const oldLocation = equipment.ubicazione;
-      try {
-        showLoading('Spostamento attrezzatura in corso...');
-        
-        // Invia i dati all'Apps Script
-        await updateGoogleSheetViaWebApp('moveEquipment', {
-            codice: equipment.codice,
-            newLocation: newLocation,
-            userName: userName,
-            oldLocation: oldLocation,
-            isNewLocation: isNewLocation,    // Flag per nuova ubicazione
-            timestamp: new Date().toISOString()
-        });
-
-        // Aggiorna i dati locali
-        equipment.ubicazione = newLocation;
-        
-        // Reset form e chiudi il modal
-        document.getElementById('isNewLocationCheckbox').checked = false;
-        handleNewLocationCheckbox(); // Resetta lo stato del form e ricrea il select
-        closeDetailModal(); // Chiude il modal
-        
-        // Mostra messaggio di successo
-        showMessage(`✅ Attrezzatura ${equipment.codice} spostata ${isNewLocation ? 'nella nuova ubicazione' : ''} da ${oldLocation} a ${newLocation}`);
-
-        // Aggiorna la vista
-        renderCurrentView();
-        
-    } catch (error) {
-        console.error('Errore durante lo spostamento:', error);
-        showError('❌ ' + (error.message || 'Errore durante lo spostamento'));
-    } finally {
-        hideLoading();
-    }
-}
-
-function filterContent() {
-    currentFilter = document.getElementById('searchInput').value.toLowerCase();
-    const searchText = document.getElementById('searchText');
-    
-    if (currentFilter) {
-        searchText.textContent = currentFilter;
-        searchText.classList.add('active');
-    } else {
-        searchText.textContent = 'Ricerca';
-        searchText.classList.remove('active');
-    }
-    
-    renderCurrentView();
-}
-
-function showLoading(message) {
-    document.getElementById('loadingMessage').textContent = message;
-    document.getElementById('loadingOverlay').classList.add('show');
-}
-
-function hideLoading() {
-    document.getElementById('loadingOverlay').classList.remove('show');
-}
-
-// Funzione per validare e formattare una nuova ubicazione
-function validateNewLocation(location) {
-    if (!location) return { valid: false, message: 'L\'ubicazione non può essere vuota' };
-    if (location.length > 20) return { valid: false, message: 'L\'ubicazione non può superare i 20 caratteri' };
-    
-    // Converti in maiuscolo e rimuovi spazi iniziali/finali
-    const formattedLocation = location.trim().toUpperCase();
-    
-    // Verifica se l'ubicazione esiste già (case insensitive)
-    if (locationsData.some(existing => existing.toUpperCase() === formattedLocation)) {
-        return { valid: false, message: 'Questa ubicazione esiste già nel sistema' };
-    }
-    
-    // Verifica che non contenga caratteri speciali
-    if (!/^[A-Z0-9\s-]+$/.test(formattedLocation)) {
-        return { valid: false, message: 'L\'ubicazione può contenere solo lettere, numeri, spazi e trattini' };
-    }
-    
-    return { valid: true, formatted: formattedLocation };
-}
-
-// Funzione per gestire il cambio tra select esistente e input nuova ubicazione
-function handleNewLocationCheckbox() {
-    const isNewLocation = document.getElementById('isNewLocationCheckbox').checked;
-    const locationDiv = document.getElementById('existingLocationDiv');
-    const select = document.getElementById('newLocation');
-    
-    if (isNewLocation) {
-        // Converti il select in un input text
-        locationDiv.innerHTML = '<input type="text" class="form-input new-location" id="newLocation" placeholder="Inserisci nuova ubicazione (max 20 caratteri)" maxlength="20">';
-        document.getElementById('newLocation').addEventListener('input', function(e) {
-            this.value = this.value.toUpperCase();
-        });
-    } else {
-        // Ripristina il select con le ubicazioni esistenti
-        locationDiv.innerHTML = '<select class="form-select" id="newLocation"><option value="">Seleziona ubicazione...</option></select>';
-        const select = document.getElementById('newLocation');
-        locationsData.sort().forEach(location => {
-            const option = document.createElement('option');
-            option.value = location;
-            option.textContent = location;
-            select.appendChild(option);
-        });
-    }
-}
-
-// Funzione per aggiornare il select delle ubicazioni
-function updateLocationSelect(equipment) {
-    const select = document.getElementById('newLocation');
-    if (!select) return;
-
-    // Resetta il checkbox di nuova ubicazione
-    const checkbox = document.getElementById('isNewLocationCheckbox');
-    if (checkbox) checkbox.checked = false;
-
-    // Popola il select con le ubicazioni disponibili
-    select.innerHTML = '<option value="">Seleziona ubicazione...</option>';
-    locationsData
-        .sort()
-        .filter(loc => loc !== equipment.ubicazione)
-        .forEach(loc => {
-            const option = document.createElement('option');
-            option.value = loc;
-            option.textContent = loc;
-            select.appendChild(option);
-        });
-}
-
-// Gestione nuova attrezzatura
-let categorie = new Set();
-let tipi = new Set();
-let ubicazioni = new Set();
+// Aggiungi l'inizializzazione delle liste al caricamento della pagina
+document.addEventListener('DOMContentLoaded', function() {
+    // ... existing code ...
+    initializeLists(); // Inizializza le liste subito
+    setupNewEquipmentModal();
+});
 
 function setupNewEquipmentModal() {
     const modal = document.getElementById('newEquipmentModal');
@@ -754,7 +283,7 @@ function setupNewEquipmentModal() {
     // Event listener per il pulsante "Nuova Attrezzatura" nel menu
     document.getElementById('btnAddEquipment').addEventListener('click', () => {
         console.log('Apertura modal nuova attrezzatura');
-        updateSelectOptions(); // Aggiorna le opzioni prima di mostrare il modal
+        initializeLists(); // Inizializza le liste prima di aprire il modal
         modal.style.display = 'block';
         closeMenu();
     });
@@ -773,23 +302,27 @@ function setupNewEquipmentModal() {
             const newValue = prompt(`Inserisci nuova ${target}:`);
             
             if (newValue && newValue.trim()) {
+                const value = newValue.trim().toUpperCase(); // Converti in maiuscolo
                 const select = document.getElementById(target);
-                const option = new Option(newValue.trim(), newValue.trim());
-                select.add(option);
-                select.value = newValue.trim();
-
-                // Aggiorna il set corrispondente
+                
+                // Aggiungi al set appropriato
                 switch(target) {
                     case 'categoria':
-                        categorie.add(newValue.trim());
+                        categorie.add(value);
                         break;
                     case 'tipo':
-                        tipi.add(newValue.trim());
+                        tipi.add(value);
                         break;
                     case 'ubicazione':
-                        ubicazioni.add(newValue.trim());
+                        ubicazioni.add(value);
                         break;
                 }
+                
+                // Aggiorna le opzioni del select
+                updateSelectOptions();
+                
+                // Seleziona il nuovo valore
+                select.value = value;
             }
         });
     });
@@ -806,9 +339,15 @@ function setupNewEquipmentModal() {
             note: document.getElementById('note').value
         };
 
+        if (!formData.categoria || !formData.tipo || !formData.marca || !formData.ubicazione) {
+            showError('Compila tutti i campi obbligatori');
+            return;
+        }
+
         try {
             const response = await fetch(WEBAPP_URL, {
                 method: 'POST',
+                mode: 'no-cors',
                 headers: {
                     'Content-Type': 'application/json',
                 },
@@ -818,54 +357,18 @@ function setupNewEquipmentModal() {
                 })
             });
 
-            const result = await response.json();
-            if (result.success) {
-                showMessage('Attrezzatura aggiunta con successo');
-                modal.style.display = 'none';
-                form.reset();
-                loadFromGoogleSheets(); // Ricarica i dati
-            } else {
-                throw new Error(result.message || 'Errore durante il salvataggio');
-            }
+            showMessage('Richiesta inviata. Verifica nel foglio di Google Sheets.');
+            modal.style.display = 'none';
+            form.reset();
+            
+            // Ricarica i dati dopo qualche secondo
+            setTimeout(() => {
+                loadFromGoogleSheets();
+            }, 2000);
+            
         } catch (error) {
             showError('Errore: ' + error.message);
+            console.error('Errore invio dati:', error);
         }
     });
-}
-
-function updateSelectOptions() {
-    console.log('Aggiornamento opzioni select...');
-    
-    // Pulisci i set esistenti
-    categorie.clear();
-    tipi.clear();
-    ubicazioni.clear();
-
-    // Estrai le opzioni uniche dai dati esistenti
-    attrezzature.forEach(item => {
-        if (item.categoria) categorie.add(item.categoria);
-        if (item.tipo) tipi.add(item.tipo);
-        if (item.ubicazione) ubicazioni.add(item.ubicazione);
-    });
-
-    console.log('Categorie trovate:', Array.from(categorie));
-    console.log('Tipi trovati:', Array.from(tipi));
-    console.log('Ubicazioni trovate:', Array.from(ubicazioni));
-
-    // Funzione helper per aggiornare un select
-    const updateSelect = (selectId, options) => {
-        const select = document.getElementById(selectId);
-        if (!select) return;
-        
-        select.innerHTML = '<option value="">Seleziona...</option>';
-        Array.from(options).sort().forEach(value => {
-            const option = new Option(value, value);
-            select.add(option);
-        });
-    };
-
-    // Aggiorna i select
-    updateSelect('categoria', categorie);
-    updateSelect('tipo', tipi);
-    updateSelect('ubicazione', ubicazioni);
 }
