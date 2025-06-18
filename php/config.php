@@ -110,11 +110,23 @@ $GLOBALS['api_start_time'] = microtime(true);
 // Definizione URL base API
 define('API_BASE_URL', 'https://seres.it/tools/php/api.php');
 
-// Abilita CORS
-header('Access-Control-Allow-Origin: https://seres.it');
-header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
-header('Access-Control-Allow-Credentials: true');
+// Abilita CORS per Netlify
+$allowed_origins = [
+    'https://php-v1--seres-tools.netlify.app',
+    'http://localhost',
+    'http://127.0.0.1'
+];
+
+// Ottieni l'origine della richiesta
+$origin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '';
+
+// Verifica se l'origine è tra quelle consentite
+if (in_array($origin, $allowed_origins)) {
+    header('Access-Control-Allow-Origin: ' . $origin);
+    header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type, Authorization');
+    header('Access-Control-Allow-Credentials: true');
+}
 
 // Gestisci le richieste OPTIONS per il CORS
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {

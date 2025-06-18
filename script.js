@@ -1,5 +1,5 @@
 // Costanti e variabili globali
-const API_BASE_URL = 'https://seres.it/tools/php/api.php'; // URL base delle API PHP
+const API_BASE_URL = 'https://seres.it/tools/php/api.php'; // URL base delle API PHP su seres.it
 const USE_PHP_API = true; // Flag per switchare tra API PHP e Google Sheets
 const SHEET_ID = '1efHWyYHqsZpAbPXuUadz7Mg2ScsZ1iXX15Yv8daVhvg';
 const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbyWzNZ91kZBr9D3PhQNO7FLSXypRt1Ret0EvlBMuW_GgIAMKB9r4Ag4GHnvoHCVJCUvsA/exec';
@@ -8,6 +8,7 @@ let currentView = 'ubicazione'; // Inizializzazione della vista predefinita
 let currentFilter = ''; // Inizializzazione del filtro di ricerca
 let attrezzature = []; // Array per memorizzare i dati delle attrezzature
 let filteredData = []; // Array per i dati filtrati dalla ricerca
+let equipmentData = []; // Compatibilità con il vecchio codice
 
 // Funzioni di utilità per mostrare/nascondere l'overlay di caricamento
 function showLoadingOverlay(message) {
@@ -55,10 +56,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (e.key === 'Enter') {
             closeSearch();
         }
-    });
-    document.getElementById('closeDetailModal').addEventListener('click', closeDetailModal);
+    });    document.getElementById('closeDetailModal').addEventListener('click', closeDetailModal);
     document.getElementById('moveEquipmentBtn').addEventListener('click', moveEquipment);
-    document.getElementById('btnRefresh').addEventListener('click', loadFromGoogleSheets);
+    document.getElementById('btnRefresh').addEventListener('click', loadData);
     
     // Navigation eventi
     document.getElementById('navUbicazione').addEventListener('click', function() { switchView('ubicazione'); });
@@ -149,12 +149,15 @@ async function loadFromGoogleSheets() {
 async function loadData() {
     try {
         showLoadingOverlay('Caricamento dati dal database...');
+        console.log('Chiamata API a:', API_BASE_URL);
+        
         const response = await fetch(`${API_BASE_URL}?action=getData`, {
             method: 'GET',
-            credentials: 'include',
             headers: {
-                'Content-Type': 'application/json'
-            }
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            mode: 'cors'
         });
         
         if (!response.ok) {
@@ -168,6 +171,17 @@ async function loadData() {
         
         attrezzature = data.data || [];
         filteredData = [...attrezzature];
+        
+        // Popola anche equipmentData per compatibilità
+        equipmentData = attrezzature.map(item => ({
+            id: item.id,
+            categoria: item.categoria,
+            tipo: item.tipo,
+            marcaModello: item.marca,
+            ubicazione: item.ubicazione,
+            codice: item.codice
+        }));
+        
         console.log('Dati caricati dal database:', attrezzature.length, 'record');
         renderCurrentView();
     } catch (error) {
