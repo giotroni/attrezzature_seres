@@ -108,39 +108,91 @@
 
     <!-- Modal Dettaglio Attrezzatura -->
     <div id="detailModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content detail-modal">
             <div class="modal-header">
-                <span class="close-btn" id="closeDetailModal">&times;</span>
-                <h2 id="modalTitle">Dettaglio Attrezzatura</h2>
+                <h2>Dettaglio Attrezzatura</h2>
+                <button class="modal-close" id="closeDetailModal">✕</button>
             </div>
-            <div class="modal-body">
-                <div id="equipmentDetails"></div>
-                
-                <div class="move-section">
-                    <h3 style="margin-bottom: 15px;">🚚 Sposta Attrezzatura</h3>                    <div class="form-group">
-                        <label class="form-label">Nuova Ubicazione</label>
-                        <div class="location-input-group">
-                            <div id="existingLocationDiv">
-                                <select class="form-select" id="newLocation">
-                                    <option value="">Seleziona ubicazione...</option>
-                                </select>
-                            </div>
-                            <div class="new-location-checkbox">
-                                <input type="checkbox" id="isNewLocationCheckbox" style="margin-right: 5px;">
-                                <label for="isNewLocationCheckbox">Nuova ubicazione</label>
-                            </div>
-                        </div>
+            
+            <!-- Info Principali -->
+            <div class="detail-section">
+                <div class="detail-info">
+                    <div class="info-group">
+                        <label>Codice:</label>
+                        <span id="detailCodice"></span>
+                    </div>
+                    <div class="info-group">
+                        <label>Categoria:</label>
+                        <span id="detailCategoria"></span>
+                    </div>
+                    <div class="info-group">
+                        <label>Tipo:</label>
+                        <span id="detailTipo"></span>
+                    </div>
+                    <div class="info-group">
+                        <label>Marca/Modello:</label>
+                        <span id="detailMarca"></span>
+                    </div>
+                    <div class="info-group">
+                        <label>Ubicazione Attuale:</label>
+                        <span id="detailUbicazione"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Form Note e Link -->
+            <div class="detail-section edit-section">
+                <h3>Note e Documentazione</h3>
+                <form id="updateNotesForm" class="detail-form">
+                    <div class="form-group">
+                        <label for="detailNote">Note:</label>
+                        <textarea id="detailNote" rows="3" placeholder="Aggiungi note sull'attrezzatura..."></textarea>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Il tuo Nome</label>
-                        <input type="text" class="form-input" id="userName" placeholder="Inserisci il tuo nome">
+                        <label for="detailDoc">Link Documentazione:</label>
+                        <div class="doc-input-group">
+                            <input type="url" id="detailDoc" placeholder="https://...">
+                            <button type="button" id="openDocButton" class="secondary-button" title="Apri link">🔗</button>
+                        </div>
+                        <small class="form-hint">Link a manuali, schede tecniche o altra documentazione</small>
                     </div>
-                    <button class="btn" id="moveEquipmentBtn">Sposta Attrezzatura</button>
-                </div>
+                    <div class="form-actions">
+                        <button type="submit" class="primary-button">💾 Salva Modifiche</button>
+                    </div>
+                </form>
+            </div>
 
-                <div class="history-section">
-                    <h3 style="margin-bottom: 15px;">📋 Storico Spostamenti</h3>
-                    <div id="movementHistory"></div>
+            <!-- Sezione Spostamento -->
+            <div class="detail-section move-section">
+                <h3>Sposta Attrezzatura</h3>
+                <form id="moveForm" class="detail-form">
+                    <input type="hidden" id="currentLocation">
+                    <div class="form-group">
+                        <label for="newLocation">Nuova Ubicazione:</label>
+                        <div class="select-with-add">
+                            <select id="newLocation" required>
+                                <option value="">Seleziona ubicazione...</option>
+                            </select>
+                            <button type="button" class="add-option" data-target="newLocation">+</button>
+                        </div>
+                    </div>
+                    <div class="form-group checkbox-group">
+                        <label>
+                            <input type="checkbox" id="isNewLocationCheckbox">
+                            Nuova Ubicazione
+                        </label>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" id="moveEquipmentBtn" class="primary-button">📦 Sposta</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Storico Movimenti -->
+            <div class="detail-section history-section">
+                <h3>Storico Movimenti</h3>
+                <div id="movementHistory" class="movement-list">
+                    <!-- Lo storico verrà popolato dinamicamente -->
                 </div>
             </div>
         </div>

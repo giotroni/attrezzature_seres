@@ -1,4 +1,6 @@
 // Costanti e variabili globali
+const API_BASE_URL = 'https://seres.it/tools/php/api.php'; // URL base delle API PHP
+const USE_PHP_API = true; // Flag per switchare tra API PHP e Google Sheets
 const SHEET_ID = '1efHWyYHqsZpAbPXuUadz7Mg2ScsZ1iXX15Yv8daVhvg';
 const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbyWzNZ91kZBr9D3PhQNO7FLSXypRt1Ret0EvlBMuW_GgIAMKB9r4Ag4GHnvoHCVJCUvsA/exec';
 
@@ -95,6 +97,54 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+
+// Funzione per chiamare le API
+async function callApi(action, data = null) {
+    try {
+        const url = `${API_BASE_URL}?action=${action}`;
+        const options = {
+            method: data ? 'POST' : 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        };
+        
+        if (data) {
+            options.body = JSON.stringify(data);
+        }
+
+        const response = await fetch(url, options);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return await response.json();
+    } catch (error) {
+        console.error(`API Error (${action}):`, error);
+        throw error;
+    }
+}
+
+// Funzione per caricare i dati
+async function loadFromGoogleSheets() {
+    try {
+        showLoadingOverlay('Caricamento dati...');
+        const response = await callApi('getData');
+        
+        if (response.success) {
+            attrezzature = response.data;
+            updateSelectOptions();
+            filteredData = attrezzature;
+            renderContent();
+            hideLoadingOverlay();
+            showMessage('Dati aggiornati con successo');
+        } else {
+            throw new Error(response.message || 'Errore nel caricamento dei dati');
+        }
+    } catch (error) {
+        hideLoadingOverlay();
+        showError('Errore: ' + error.message);
+    }
+}
 
 async function loadData() {
     try {
@@ -809,4 +859,104 @@ function updateLocationSelect(equipment) {
             option.textContent = loc;
             select.appendChild(option);
         });
+}
+
+// Funzione per mostrare il modal dei dettagli
+function showDetailModal(item) {
+    const modal = document.getElementById('detailModal');
+    
+    // Popola i campi info
+    document.getElementById('detailCodice').textContent = item.codice;
+    document.getElementById('detailCategoria').textContent = item.categoria;
+    document.getElementById('detailTipo').textContent = item.tipo;
+    document.getElementById('detailMarca').textContent = item.marca;
+    document.getElementById('detailUbicazione').textContent = item.ubicazione;
+    
+    // Popola i campi editabili
+    document.getElementById('detailNote').value = item.note || '';
+    document.getElementById('detailDoc').value = item.doc || '';
+    document.getElementById('currentLocation').value = item.ubicazione;
+
+    // Setup del pulsante per aprire il link
+    const openDocButton = document.getElementById('openDocButton');
+    openDocButton.style.display = item.doc ? 'block' : 'none';
+    openDocButton.onclick = () => {
+        if (item.doc) {
+            window.open(item.doc, '_blank');
+        }
+    };
+
+    // Event listener per il form di aggiornamento note e doc
+    document.getElementById('updateNotesForm').onsubmit = async (e) => {
+        e.preventDefault();
+        const noteText = document.getElementById('detailNote').value;
+        const docLink = document.getElementById('detailDoc').value;
+
+        try {
+            const response = await fetch(API_BASE_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'updateEquipmentDetails',
+                    data: {
+                        codice: item.codice,
+                        note: noteText,
+                        doc: docLink,
+                        userName: 'Sistema' // TODO: Implementare gestione utente
+                    }
+                })
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                showMessage('Dettagli aggiornati con successo');
+                // Aggiorna i dati in memoria
+                const index = attrezzature.findIndex(a => a.codice === item.codice);
+                if (index !== -1) {
+                    attrezzature[index].note = noteText;
+                    attrezzature[index].doc = docLink;
+                }
+                // Aggiorna la visualizzazione del pulsante doc
+                openDocButton.style.display = docLink ? 'block' : 'none';
+            } else {
+                throw new Error(result.message);
+            }
+        } catch (error) {
+            showError('Errore nell\'aggiornamento: ' + error.message);
+        }
+    };
+
+    // Mostra il modal
+    modal.style.display = 'block';
+
+    // Carica lo storico movimenti
+    loadMovementHistory(item.codice);
+}
+
+// Funzione per caricare lo storico movimenti
+async function loadMovementHistory(codice) {
+    try {
+        const response = await fetch(`${API_BASE_URL}?action=getMovementHistory&codice=${codice}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            const historyContainer = document.getElementById('movementHistory');
+            historyContainer.innerHTML = data.data.map(movement => `
+                <div class="movement-item">
+                    <div class="movement-date">${new Date(movement.timestamp).toLocaleString()}</div>
+                    <div class="movement-details">
+                        <strong>${movement.azione}</strong><br>
+                        ${movement.vecchia_ubicazione ? `Da: ${movement.vecchia_ubicazione}<br>` : ''}
+                        ${movement.nuova_ubicazione ? `A: ${movement.nuova_ubicazione}` : ''}
+                    </div>
+                </div>
+            `).join('') || '<p>Nessun movimento registrato</p>';
+        }
+    } catch (error) {
+        console.error('Errore nel caricamento dello storico:', error);
+        document.getElementById('movementHistory').innerHTML = 
+            '<p class="error-message">Errore nel caricamento dello storico</p>';
+    }
 }
