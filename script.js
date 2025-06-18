@@ -38,8 +38,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Aggiungi event listener per il checkbox nuova ubicazione
     document.getElementById('isNewLocationCheckbox')?.addEventListener('change', handleNewLocationCheckbox);
     
-    // Avvia automaticamente il caricamento da Google Sheets
-    loadFromGoogleSheets();
+    // Avvia automaticamente il caricamento dei dati dal database
+    loadData();
     
     // Event listeners
     document.getElementById('menuToggle').addEventListener('click', toggleMenu);
@@ -148,17 +148,27 @@ async function loadFromGoogleSheets() {
 
 async function loadData() {
     try {
-        showLoadingOverlay('Caricamento dati in corso...');
-        const response = await fetch(WEBAPP_URL + '?action=getData');
+        showLoadingOverlay('Caricamento dati dal database...');
+        const response = await fetch(`${API_BASE_URL}?action=getData`, {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
         if (!response.ok) {
-            throw new Error('Errore nel caricamento dei dati');
+            throw new Error(`Errore nella richiesta: ${response.status} ${response.statusText}`);
         }
+        
         const data = await response.json();
-        if (!data || !data.success) {
-            throw new Error(data.error || 'Errore nel formato dei dati');
+        if (!data.success) {
+            throw new Error(data.message || 'Errore nel caricamento dei dati');
         }
+        
         attrezzature = data.data || [];
         filteredData = [...attrezzature];
+        console.log('Dati caricati dal database:', attrezzature.length, 'record');
         renderCurrentView();
     } catch (error) {
         console.error('Errore nel caricamento:', error);
@@ -533,21 +543,48 @@ function showEquipmentList(filterType, filterValue) {
     container.innerHTML = backButton + equipmentCards;
 }
 
-function showEquipmentDetail(id) {
-    const equipment = equipmentData.find(function(item) {
-        return item.id === id;
-    });
-    if (!equipment) return;
+function showEquipmentDetail(codice) {
+    // Cerca l'attrezzatura nell'array delle attrezzature usando il codice
+    const equipment = attrezzature.find(item => item.codice === codice);
+    if (!equipment) {
+        showError('Attrezzatura non trovata');
+        return;
+    }
 
-    currentEquipmentId = id;
+    currentEquipmentId = equipment.codice; // Usa il codice come ID
     
     document.getElementById('modalTitle').textContent = equipment.tipo;
     
-    const detailsHtml = 
-        '<div class="detail-item">' +
-            '<div class="detail-label">Codice</div>' +
-            '<div class="detail-value">' + equipment.codice + '</div>' +
-        '</div>' +
+    // Costruisci l'HTML per i dettagli
+    const detailsHtml = `
+        <div class="detail-item">
+            <div class="detail-label">Codice</div>
+            <div class="detail-value">${equipment.codice}</div>
+        </div>
+        <div class="detail-item">
+            <div class="detail-label">Categoria</div>
+            <div class="detail-value">${equipment.categoria}</div>
+        </div>
+        <div class="detail-item">
+            <div class="detail-label">Marca/Modello</div>
+            <div class="detail-value">${equipment.marca}</div>
+        </div>
+        <div class="detail-item">
+            <div class="detail-label">Ubicazione</div>
+            <div class="detail-value">${equipment.ubicazione}</div>
+        </div>
+        ${equipment.note ? `
+        <div class="detail-item">
+            <div class="detail-label">Note</div>
+            <div class="detail-value">${equipment.note}</div>
+        </div>` : ''}
+        ${equipment.doc ? `
+        <div class="detail-item">
+            <div class="detail-label">Documentazione</div>
+            <div class="detail-value">
+                <a href="${equipment.doc}" target="_blank">Apri documentazione</a>
+            </div>
+        </div>` : ''}`;+
         '<div class="detail-item">' +
             '<div class="detail-label">Categoria</div>' +
             '<div class="detail-value">' + equipment.categoria + '</div>' +
