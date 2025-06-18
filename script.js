@@ -149,7 +149,7 @@ async function loadFromGoogleSheets() {
 async function loadData() {
     try {
         showLoadingOverlay('Caricamento dati dal database...');
-        console.log('Chiamata API a:', API_BASE_URL);
+        console.log('[DEBUG] Chiamata API a:', `${API_BASE_URL}?action=getData`);
         
         const response = await fetch(`${API_BASE_URL}?action=getData`, {
             method: 'GET',
@@ -160,12 +160,16 @@ async function loadData() {
             mode: 'cors'
         });
         
+        console.log('[DEBUG] Response fetch:', response);
         if (!response.ok) {
+            console.error('[DEBUG] Response non ok:', response.status, response.statusText);
             throw new Error(`Errore nella richiesta: ${response.status} ${response.statusText}`);
         }
         
         const data = await response.json();
+        console.log('[DEBUG] Dati ricevuti:', data);
         if (!data.success) {
+            console.error('[DEBUG] Dati non success:', data);
             throw new Error(data.message || 'Errore nel caricamento dei dati');
         }
         
@@ -182,10 +186,10 @@ async function loadData() {
             codice: item.codice
         }));
         
-        console.log('Dati caricati dal database:', attrezzature.length, 'record');
+        console.log('[DEBUG] Dati caricati dal database:', attrezzature.length, 'record');
         renderCurrentView();
     } catch (error) {
-        console.error('Errore nel caricamento:', error);
+        console.error('[DEBUG] Errore nel caricamento:', error);
         showError('Errore nel caricamento dei dati. Carico i dati demo come fallback...');
         // Carica i dati demo come fallback
         loadDemoData();
