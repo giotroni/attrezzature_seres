@@ -1,3 +1,39 @@
+<?php
+// --- CORS ROBUSTO: deve essere la PRIMA cosa eseguita, prima di qualunque output o require ---
+$allowed_origins = [
+    'http://seres.it',
+    'http://www.seres.it',
+    'http://seres.it/tools/test',
+    'http://www.seres.it/tools/test',
+    'http://localhost',
+    'http://127.0.0.1'
+];
+$origin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '';
+if (in_array($origin, $allowed_origins)) {
+    header('Access-Control-Allow-Origin: ' . $origin);
+    header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type, Authorization');
+    header('Access-Control-Allow-Credentials: true');
+} else {
+    // Per debugging: consenti sempre localhost se non in elenco
+    if (strpos($origin, 'localhost') !== false || strpos($origin, '127.0.0.1') !== false) {
+        header('Access-Control-Allow-Origin: ' . $origin);
+        header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+        header('Access-Control-Allow-Headers: Content-Type, Authorization');
+        header('Access-Control-Allow-Credentials: true');
+    }
+}
+// Rispondi subito alle richieste OPTIONS (preflight) con header CORS
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    header('Content-Type: application/json');
+    http_response_code(200);
+    echo json_encode(['success' => true, 'message' => 'CORS preflight OK']);
+    exit;
+}
+
+// --- FINE CORS ---
+
+// Configurazione Database
 define('DB_HOST', 'localhost');     // Il tuo host MySQL
 define('DB_USER', 'jseresxg_tools_materials');         // Il tuo username MySQL
 define('DB_PASS', '^2xs!r][7WwO');             // La tua password MySQL

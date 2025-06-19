@@ -1,6 +1,6 @@
 // Costanti e variabili globali
 // Se la webapp è su Netlify e i PHP sono nella stessa repo (cartella ./php), usa percorso relativo
-const API_BASE_URL = 'https://seres.it/tools/test/php/api.php'; // URL base delle API PHP su seres.it/tools/test/php
+const API_BASE_URL = 'http://seres.it/tools/test/php/api.php'; // URL base delle API PHP su seres.it/tools/test/php
 const USE_PHP_API = true; // Flag per switchare tra API PHP e Google Sheets
 const SHEET_ID = '1efHWyYHqsZpAbPXuUadz7Mg2ScsZ1iXX15Yv8daVhvg';
 const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbyWzNZ91kZBr9D3PhQNO7FLSXypRt1Ret0EvlBMuW_GgIAMKB9r4Ag4GHnvoHCVJCUvsA/exec';
