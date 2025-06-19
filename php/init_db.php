@@ -120,6 +120,8 @@ try {
         codice VARCHAR(50) NOT NULL,
         vecchia_ubicazione VARCHAR(100),
         nuova_ubicazione VARCHAR(100),
+        note_precedenti TEXT,
+        note_nuove TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (codice) REFERENCES attrezzature(codice) ON DELETE CASCADE
     )";

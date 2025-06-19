@@ -429,9 +429,13 @@ body {
 }
 
 .equipment-code {
-    font-weight: 600;
+    font-size: 1rem;
+    font-weight: bold;
     color: #8B2E1A;
-    font-size: 0.95em;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .equipment-name {
@@ -936,6 +940,124 @@ textarea.form-input {
 .error-message[style*="background: #4CAF50"], 
 .error-message[style*="background:#4CAF50"] {
     background: #4CAF50 !important;
+}
+
+/* Modal Nuova Attrezzatura */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+    z-index: 1000;
+}
+
+.modal-content {
+    position: relative;
+    background-color: #fefefe;
+    margin: 15% auto;
+    padding: 0;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 500px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    animation: modalSlideIn 0.3s ease;
+}
+
+.modal-header {
+    padding: 15px 20px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: #333;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: #666;
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    color: #555;
+    font-weight: bold;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+.form-group input:focus {
+    border-color: #8B2E1A;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(139, 46, 26, 0.1);
+}
+
+.form-actions {
+    margin-top: 20px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.btn-primary {
+    background-color: #8B2E1A;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.btn-secondary {
+    background-color: #eee;
+    color: #333;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.btn-primary:hover {
+    background-color: #702517;
+}
+
+.btn-secondary:hover {
+    background-color: #ddd;
+}
+
+@keyframes modalSlideIn {
+    from {
+        transform: translateY(-10%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
 }
 
 /* Responsive Design */

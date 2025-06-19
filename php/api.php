@@ -338,8 +338,8 @@ try {
                     vecchia_ubicazione,
                     nuova_ubicazione
                 ) VALUES (NOW(), ?, 'spostamento', 'attrezzatura', ?, ?, ?)
-            ");
-            if (!$stmt->execute([                strtoupper($_POST['userName']), // MAIUSCOLO
+            ");            if (!$stmt->execute([
+                strtoupper($_POST['userName']), // MAIUSCOLO
                 $_POST['codice'],
                 $oldLocation,
                 strtoupper($_POST['newLocation']) // MAIUSCOLO

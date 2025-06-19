@@ -199,6 +199,74 @@ function initializeEventListeners() {
 
     // About Modal
     initializeAboutModal();
+
+    // Gestione Modal Nuova Attrezzatura
+    const newEquipmentModal = document.getElementById('newEquipmentModal');
+    const btnAddEquipment = document.getElementById('btnAddEquipment');
+    const newEquipmentClose = document.getElementById('newEquipmentClose');
+    const newEquipmentCancel = document.getElementById('newEquipmentCancel');
+    const newEquipmentForm = document.getElementById('newEquipmentForm');
+
+    // Apri il modal
+    if (btnAddEquipment) {
+        btnAddEquipment.addEventListener('click', () => {
+            newEquipmentModal.style.display = 'block';
+            document.getElementById('categoria').focus();
+        });
+    }
+
+    // Chiudi il modal
+    function closeNewEquipmentModal() {
+        newEquipmentModal.style.display = 'none';
+        newEquipmentForm.reset();
+    }
+
+    if (newEquipmentClose) newEquipmentClose.addEventListener('click', closeNewEquipmentModal);
+    if (newEquipmentCancel) newEquipmentCancel.addEventListener('click', closeNewEquipmentModal);
+
+    // Chiudi il modal se si clicca fuori
+    window.addEventListener('click', (event) => {
+        if (event.target === newEquipmentModal) {
+            closeNewEquipmentModal();
+        }
+    });
+
+    // Gestione del form
+    if (newEquipmentForm) {
+        newEquipmentForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const formData = new FormData(newEquipmentForm);
+            const data = Object.fromEntries(formData.entries());
+
+            // Converti in maiuscolo i campi richiesti
+            data.categoria = data.categoria.toUpperCase();
+            data.tipo = data.tipo.toUpperCase();
+            data.ubicazione = data.ubicazione.toUpperCase();
+            data.userName = data.userName.toUpperCase();
+
+            try {
+                // Costruisci l'URL con i parametri
+                const params = new URLSearchParams(data);
+                const response = await fetch(`php/api.php?action=createEquipment&${params.toString()}`);
+                const result = await response.json();
+
+                if (result.success) {
+                    // Mostra un messaggio di successo
+                    alert(`Attrezzatura creata con successo!\nCodice assegnato: ${result.codice}`);
+                    closeNewEquipmentModal();
+                    // Aggiorna la vista
+                    if (typeof loadData === 'function') {
+                        loadData();
+                    }
+                } else {
+                    throw new Error(result.message || 'Errore durante la creazione dell\'attrezzatura');
+                }
+            } catch (error) {
+                alert(error.message);
+            }
+        });
+    }
 }
 
 function initializeAboutModal() {
@@ -647,7 +715,7 @@ function showEquipmentList(filterType, filterValue) {
     const equipmentCards = filteredEquipment.map(function(item) {
         return '<div class="equipment-card" data-codice="' + escapeHtml(item.codice) + '">' +
             '<div class="equipment-header">' +
-                '<div class="equipment-code">📦 ' + escapeHtml(item.codice) + '</div>' +
+                '<div class="equipment-code">📦 ' + escapeHtml(item.codice) + ' - ' + escapeHtml(item.categoria) + '</div>' +
             '</div>' +
             '<div class="equipment-name">' + escapeHtml(item.tipo) + '</div>' +
             '<div class="equipment-brand">' + escapeHtml(item.marca || '-') + '</div>' +
