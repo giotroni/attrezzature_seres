@@ -27,6 +27,24 @@ try {
     );
     error_log("Connessione DB riuscita");
 
+    // Funzione per generare il prossimo codice ATTR
+    function getNextProgressiveCode($conn) {
+        try {
+            // Trova il massimo codice numerico esistente
+            $stmt = $conn->query("SELECT MAX(CAST(SUBSTRING(codice, 5) AS UNSIGNED)) as max_num FROM attrezzature WHERE codice LIKE 'ATTR%'");
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            // Se non ci sono codici, parti da 1, altrimenti incrementa
+            $nextNum = ($result['max_num'] === null) ? 1 : $result['max_num'] + 1;
+            
+            // Formatta il codice con padding di zeri
+            return 'ATTR' . str_pad($nextNum, 4, '0', STR_PAD_LEFT);
+        } catch(PDOException $e) {
+            error_log("Errore nella generazione del codice: " . $e->getMessage());
+            throw new Exception("Errore nella generazione del codice progressivo");
+        }
+    }
+
     // Determina l'azione richiesta
     $action = isset($_GET['action']) ? $_GET['action'] : (isset($_POST['action']) ? $_POST['action'] : 'getData');
 
@@ -91,9 +109,9 @@ try {
             // Inizia la transazione per garantire la consistenza
             $conn->beginTransaction();
 
-            // 1. Aggiorna le note nella tabella attrezzature
-            $stmt = $conn->prepare("UPDATE attrezzature SET note = ? WHERE codice = ?");
-            $stmt->execute([$_POST['note'], $_POST['codice']]);
+            // 1. Aggiorna le note e l'utente che ha fatto la modifica nella tabella attrezzature
+            $stmt = $conn->prepare("UPDATE attrezzature SET note = ?, utente_modifica = ? WHERE codice = ?");
+            $stmt->execute([$_POST['note'], strtoupper($_POST['userName']), $_POST['codice']]);
 
             if ($stmt->rowCount() === 0) {
                 // Verifica se l'attrezzatura esiste
@@ -228,9 +246,8 @@ try {
                     tipo_oggetto,
                     codice,
                     vecchia_ubicazione,
-                    nuova_ubicazione
-                FROM log 
-                WHERE azione IN ('spostamento', 'modifica_note')
+                    nuova_ubicazione                FROM logMovement 
+                WHERE azione IN ('spostamento')
             ";
             $params = [];
 
@@ -302,10 +319,9 @@ try {
             if ($oldLocation === false) {
                 throw new Exception("Attrezzatura non trovata");
             }
-
-            // 2. Aggiorna l'ubicazione
-            $stmt = $conn->prepare("UPDATE attrezzature SET ubicazione = ? WHERE codice = ?");
-            $stmt->execute([$_POST['newLocation'], $_POST['codice']]);
+              // 2. Aggiorna l'ubicazione e l'utente che ha fatto la modifica
+            $stmt = $conn->prepare("UPDATE attrezzature SET ubicazione = ?, utente_modifica = ? WHERE codice = ?");
+            $stmt->execute([strtoupper($_POST['newLocation']), strtoupper($_POST['userName']), $_POST['codice']]);
 
             if ($stmt->rowCount() === 0) {
                 throw new Exception("Errore nell'aggiornamento dell'ubicazione");
@@ -313,7 +329,7 @@ try {
 
             // 3. Inserisci il log del movimento
             $stmt = $conn->prepare("
-                INSERT INTO log (
+                INSERT INTO logMovement (
                     timestamp,
                     user_name,
                     azione,
@@ -323,11 +339,10 @@ try {
                     nuova_ubicazione
                 ) VALUES (NOW(), ?, 'spostamento', 'attrezzatura', ?, ?, ?)
             ");
-            if (!$stmt->execute([
-                strtoupper($_POST['userName']), // MAIUSCOLO
+            if (!$stmt->execute([                strtoupper($_POST['userName']), // MAIUSCOLO
                 $_POST['codice'],
                 $oldLocation,
-                $_POST['newLocation']
+                strtoupper($_POST['newLocation']) // MAIUSCOLO
             ])) {
                 throw new Exception("Errore durante l'inserimento del log");
             }
@@ -361,7 +376,119 @@ try {
                 'message' => 'Errore durante lo spostamento: ' . $e->getMessage()
             ]);
         }
-        
+          } else if ($action === 'createEquipment') {
+        try {
+            // Ottieni i dati dalla query string
+            $inputData = [
+                'categoria' => $_GET['categoria'] ?? '',
+                'tipo' => $_GET['tipo'] ?? '',
+                'marca' => $_GET['marca'] ?? '',
+                'ubicazione' => $_GET['ubicazione'] ?? '',
+                'userName' => $_GET['userName'] ?? '',
+                'note' => $_GET['note'] ?? '',
+                'doc' => $_GET['doc'] ?? ''
+            ];
+            
+            // Verifica i campi obbligatori
+            $requiredFields = ['categoria', 'tipo', 'marca', 'ubicazione', 'userName'];
+            foreach ($requiredFields as $field) {
+                if (empty($inputData[$field])) {
+                    throw new Exception("Campo obbligatorio mancante: $field");
+                }
+            }
+
+            // Log inizio operazione
+            if (function_exists('logApiEvent')) {
+                logApiEvent($conn, 'createEquipment', $inputData, 100, null, 'Inizio creazione nuova attrezzatura');
+            }
+
+            // Genera il nuovo codice progressivo
+            $newCode = getNextProgressiveCode($conn);
+
+            // Inizia la transazione
+            $conn->beginTransaction();
+
+            // Prepara l'insert
+            $stmt = $conn->prepare("
+                INSERT INTO attrezzature (
+                    codice,
+                    categoria,
+                    tipo,
+                    marca,
+                    ubicazione,
+                    note,
+                    doc,
+                    utente_creazione,
+                    utente_modifica
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ");            // Esegui l'insert
+            $result = $stmt->execute([
+                $newCode,
+                strtoupper($inputData['categoria']),  // MAIUSCOLO
+                strtoupper($inputData['tipo']),      // MAIUSCOLO
+                $inputData['marca'],
+                strtoupper($inputData['ubicazione']), // MAIUSCOLO
+                $inputData['note'] ?? '',
+                $inputData['doc'] ?? '',
+                strtoupper($inputData['userName']),  // MAIUSCOLO
+                strtoupper($inputData['userName'])  // MAIUSCOLO - Al momento della creazione, l'utente che modifica è lo stesso che crea
+            ]);
+
+            if (!$result) {
+                throw new Exception("Errore nell'inserimento dell'attrezzatura");
+            }
+
+            // Registra nel log
+            $stmt = $conn->prepare("                INSERT INTO logMovement (
+                    user_name,
+                    azione,
+                    tipo_oggetto,
+                    codice,
+                    nuova_ubicazione
+                ) VALUES (?, 'creazione', 'attrezzatura', ?, ?)
+            ");
+              $stmt->execute([
+                strtoupper($inputData['userName']), // MAIUSCOLO
+                $newCode,
+                strtoupper($inputData['ubicazione']) // MAIUSCOLO
+            ]);
+
+            // Commit della transazione
+            $conn->commit();
+
+            // Log successo operazione
+            if (function_exists('logApiEvent')) {
+                logApiEvent($conn, 'createEquipment', $inputData, 200, [
+                    'codice' => $newCode,
+                    'categoria' => $inputData['categoria'],
+                    'tipo' => $inputData['tipo']
+                ], null);
+            }
+
+            // Risposta di successo
+            echo json_encode([
+                'success' => true,
+                'message' => 'Attrezzatura creata con successo',
+                'codice' => $newCode
+            ]);
+
+        } catch (Exception $e) {
+            // Rollback in caso di errore
+            if ($conn->inTransaction()) {
+                $conn->rollBack();
+            }
+
+            // Log errore
+            if (function_exists('logApiEvent')) {
+                logApiEvent($conn, 'createEquipment', $inputData ?? [], 500, null, $e->getMessage());
+            }
+
+            // Risposta di errore
+            echo json_encode([
+                'success' => false,
+                'message' => 'Errore durante la creazione dell\'attrezzatura: ' . $e->getMessage()
+            ]);
+        }
     } else {
         if (function_exists('logApiEvent')) {
             logApiEvent($conn, $action ?: 'unknown', $_GET, 400, null, 'Azione non specificata');

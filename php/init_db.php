@@ -95,6 +95,8 @@ try {
         ubicazione VARCHAR(100) NOT NULL,
         doc VARCHAR(500),
         note TEXT,
+        utente_creazione VARCHAR(100),
+        utente_modifica VARCHAR(100),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     )";
@@ -108,20 +110,16 @@ try {
         if($e->getCode() != '42S21') { // Ignora errore se la colonna esiste già
             throw $e;
         }
-    }
-
-    // Crea tabella log per gli spostamenti e le modifiche
-    $sql = "CREATE TABLE IF NOT EXISTS log (
+    }    // Crea tabella logMovement per gli spostamenti e le modifiche
+    $sql = "CREATE TABLE IF NOT EXISTS logMovement (
         id INT AUTO_INCREMENT PRIMARY KEY,
         timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         user_name VARCHAR(100) NOT NULL,
-        azione ENUM('spostamento', 'modifica_note') NOT NULL,
+        azione VARCHAR(50) NOT NULL,
         tipo_oggetto VARCHAR(50) NOT NULL,
         codice VARCHAR(50) NOT NULL,
         vecchia_ubicazione VARCHAR(100),
         nuova_ubicazione VARCHAR(100),
-        note_precedenti TEXT,
-        note_nuove TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (codice) REFERENCES attrezzature(codice) ON DELETE CASCADE
     )";
@@ -161,6 +159,24 @@ try {
 
     echo "Database e tabelle create con successo!\n";
     echo "Tabella logNote creata per lo storico delle note (versione semplificata)!\n";
+
+    // Migrazione dati dalla vecchia tabella log alla nuova logMovement
+    try {
+        // Prima verifica se la vecchia tabella esiste
+        $stmt = $conn->query("SHOW TABLES LIKE 'log'");
+        if ($stmt->rowCount() > 0) {
+            // Copia i dati dalla vecchia alla nuova tabella
+            $conn->exec("INSERT INTO logMovement (timestamp, user_name, azione, tipo_oggetto, codice, vecchia_ubicazione, nuova_ubicazione, note_precedenti, note_nuove, created_at)
+                        SELECT timestamp, user_name, azione, tipo_oggetto, codice, vecchia_ubicazione, nuova_ubicazione, note_precedenti, note_nuove, created_at 
+                        FROM log");
+            
+            // Elimina la vecchia tabella
+            $conn->exec("DROP TABLE log");
+            echo "Migrazione dati da log a logMovement completata con successo!\n";
+        }
+    } catch(PDOException $e) {
+        echo "Nota: nessuna migrazione necessaria dalla tabella log\n";
+    }
 
     // Importa dati dal CSV se il file esiste
     $csvFile = __DIR__ . '/../INVENTARIO_SERES_copia.CSV';
