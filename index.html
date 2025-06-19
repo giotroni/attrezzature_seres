@@ -33,7 +33,8 @@
         <div class="menu-header">
             <h3>Menu</h3>
             <button class="menu-close" id="menuClose">✕</button>
-        </div>        <div class="menu-content">
+        </div>
+        <div class="menu-content">
             <h4 style="margin: 25px 0 15px; color: #333;">⚙️ Azioni</h4>
             <button class="menu-item" id="btnAddEquipment">
                 🛠️ Nuova Attrezzatura
@@ -62,11 +63,13 @@
             <li><strong>Ricerca:</strong> Usa la barra di ricerca per trovare rapidamente un'attrezzatura specifica. La ricerca funziona su codice, tipo, marca/modello, ubicazione e categoria.</li>
             <li><strong>Dettagli:</strong> Clicca su un'attrezzatura per vedere tutti i dettagli e lo storico dei movimenti.</li>
             <li><strong>Spostamenti:</strong> Nella vista dettaglio, puoi registrare lo spostamento di un'attrezzatura in una nuova ubicazione.</li>
-        </ul>        <h3>➕ Gestione dati</h3>
+        </ul>
+        
+        <h3>➕ Gestione dati</h3>
         <ul>
             <li><strong>Nuova Ubicazione:</strong> Puoi aggiungere una nuova ubicazione durante lo spostamento di un'attrezzatura.</li>
             <li><strong>Nuova Attrezzatura:</strong> Registra una nuova attrezzatura nel sistema.</li>
-            <li><strong>Aggiorna Dati:</strong> Sincronizza i dati con il foglio Google Sheets.</li>
+            <li><strong>Aggiorna Dati:</strong> Sincronizza i dati con il database.</li>
         </ul>
 
         <h3>💡 Suggerimenti</h3>
@@ -80,7 +83,7 @@
     <div class="container">
         <div class="view-content" id="viewContent">
             <div class="loading">
-                <p>🔄 Caricamento dati da Google Sheets...</p>
+                <p>🔄 Caricamento dati dal database...</p>
                 <div style="margin-top: 20px;">
                     <div style="width: 100%; background: #e0e0e0; border-radius: 10px; overflow: hidden;">
                         <div id="loadingBar" style="width: 0%; height: 4px; background: #8B2E1A; transition: width 0.3s ease;"></div>
@@ -140,40 +143,41 @@
                 </div>
             </div>
 
-            <!-- Form Note e Link -->
+            <!-- Form Note -->
             <div class="detail-section edit-section">
-                <h3>Note e Documentazione</h3>
-                <form id="updateNotesForm" class="detail-form">
+                <h3>Aggiungi Nota</h3>                <form id="updateNotesForm" class="detail-form">
                     <div class="form-group">
-                        <label for="detailNote">Note:</label>
-                        <textarea id="detailNote" rows="3" placeholder="Aggiungi note sull'attrezzatura..."></textarea>
+                        <label for="detailNote">Nuova Nota:</label>
+                        <textarea id="detailNote" class="form-input note-textarea" rows="2" placeholder="Scrivi una nuova nota..."></textarea>
                     </div>
                     <div class="form-group">
-                        <label for="detailDoc">Link Documentazione:</label>
-                        <div class="doc-input-group">
-                            <input type="url" id="detailDoc" placeholder="https://...">
-                            <button type="button" id="openDocButton" class="secondary-button" title="Apri link">🔗</button>
-                        </div>
-                        <small class="form-hint">Link a manuali, schede tecniche o altra documentazione</small>
+                        <label for="noteUserName">Il tuo nome:</label>
+                        <input type="text" id="noteUserName" class="form-input" required placeholder="INSERISCI IL TUO NOME" style="text-transform: uppercase;">
                     </div>
                     <div class="form-actions">
-                        <button type="submit" class="primary-button">💾 Salva Modifiche</button>
+                        <button type="submit" class="primary-button">💾 Salva Nota</button>
                     </div>
                 </form>
             </div>
 
+            <!-- Storico Note -->
+            <div class="detail-section history-section">
+                <h3>Storico Note</h3>
+                <div id="notesHistory" class="notes-list">
+                    <p style="color: #666; font-style: italic;">Caricamento storico note...</p>
+                </div>
+            </div>
+
             <!-- Sezione Spostamento -->
             <div class="detail-section move-section">
-                <h3>Sposta Attrezzatura</h3>
-                <form id="moveForm" class="detail-form">
+                <h3>Sposta Attrezzatura</h3>                <form id="moveForm" class="detail-form">
                     <input type="hidden" id="currentLocation">
                     <div class="form-group">
                         <label for="newLocation">Nuova Ubicazione:</label>
-                        <div class="select-with-add">
-                            <select id="newLocation" required>
+                        <div class="select-with-add" id="existingLocationDiv">
+                            <select id="newLocation" class="form-select" required>
                                 <option value="">Seleziona ubicazione...</option>
                             </select>
-                            <button type="button" class="add-option" data-target="newLocation">+</button>
                         </div>
                     </div>
                     <div class="form-group checkbox-group">
@@ -182,8 +186,12 @@
                             Nuova Ubicazione
                         </label>
                     </div>
+                    <div class="form-group">
+                        <label for="userName">Il tuo nome:</label>
+                        <input type="text" id="userName" class="form-input" required placeholder="INSERISCI IL TUO NOME" style="text-transform: uppercase;">
+                    </div>
                     <div class="form-actions">
-                        <button type="submit" id="moveEquipmentBtn" class="primary-button">📦 Sposta</button>
+                        <button type="submit" class="primary-button">📦 Sposta</button>
                     </div>
                 </form>
             </div>
@@ -192,19 +200,18 @@
             <div class="detail-section history-section">
                 <h3>Storico Movimenti</h3>
                 <div id="movementHistory" class="movement-list">
-                    <!-- Lo storico verrà popolato dinamicamente -->
+                    <p style="color: #666; font-style: italic;">Caricamento storico...</p>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Loading Overlay -->
     <div id="loadingOverlay" class="loading-overlay">
         <div class="loading-content">
             <div class="loading-spinner"></div>
-            <p id="loadingMessage">Spostamento in corso...</p>
+            <p id="loadingMessage">Caricamento in corso...</p>
         </div>
-    </div>
-    <!-- All content divs -->
     </div>
 
     <script src="script.js"></script>

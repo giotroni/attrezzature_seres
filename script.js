@@ -1,17 +1,23 @@
 // Costanti e variabili globali
-// Se la webapp è su Netlify e i PHP sono nella stessa repo (cartella ./php), usa percorso relativo
-const API_BASE_URL = 'http://seres.it/tools/test/php/api.php'; // URL base delle API PHP su seres.it/tools/test/php
-const USE_PHP_API = true; // Flag per switchare tra API PHP e Google Sheets
+const API_BASE_URL = './php/api.php';
+const USE_PHP_API = true;
 const SHEET_ID = '1efHWyYHqsZpAbPXuUadz7Mg2ScsZ1iXX15Yv8daVhvg';
 const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbyWzNZ91kZBr9D3PhQNO7FLSXypRt1Ret0EvlBMuW_GgIAMKB9r4Ag4GHnvoHCVJCUvsA/exec';
 
-let currentView = 'ubicazione'; // Inizializzazione della vista predefinita
-let currentFilter = ''; // Inizializzazione del filtro di ricerca
-let attrezzature = []; // Array per memorizzare i dati delle attrezzature
-let filteredData = []; // Array per i dati filtrati dalla ricerca
-let equipmentData = []; // Compatibilità con il vecchio codice
+let currentView = 'ubicazione';
+let currentFilter = '';
+let attrezzature = [];
+let filteredData = [];
+let equipmentData = [];
+let locationsData = [];
+let movementLog = [];
+let notesLog = [];
+let currentEquipmentId = null; // Variabile per tracciare l'attrezzatura corrente
 
-// Funzioni di utilità per mostrare/nascondere l'overlay di caricamento
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
 function showLoadingOverlay(message) {
     const overlay = document.getElementById('loadingOverlay');
     const messageElement = document.getElementById('loadingMessage');
@@ -28,45 +34,162 @@ function showError(message) {
     const errorElement = document.createElement('div');
     errorElement.className = 'error-message';
     errorElement.textContent = message;
-    errorElement.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #ff4444; color: white; padding: 15px; border-radius: 5px; z-index: 9999;';
+    
+    // Determina il colore in base al tipo di messaggio
+    let backgroundColor = '#f44336'; // Rosso per errori
+    if (message.includes('✅') || message.includes('successo')) {
+        backgroundColor = '#4CAF50'; // Verde per successo
+    } else if (message.includes('⚠️') || message.includes('attenzione')) {
+        backgroundColor = '#FF9800'; // Arancione per warning
+    }
+    
+    errorElement.style.cssText = `
+        position: fixed; 
+        top: 20px; 
+        right: 20px; 
+        background: ${backgroundColor}; 
+        color: white; 
+        padding: 15px 20px; 
+        border-radius: 8px; 
+        z-index: 10000;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        max-width: 300px;
+        word-wrap: break-word;
+        font-weight: 500;
+        animation: slideInRight 0.3s ease;
+    `;
+    
     document.body.appendChild(errorElement);
-    setTimeout(() => errorElement.remove(), 5000);
+    setTimeout(() => {
+        if (errorElement.parentNode) {
+            errorElement.remove();
+        }
+    }, 5000);
 }
 
-// Funzioni di inizializzazione
+function validateNewLocation(location) {
+    if (!location) return { valid: false, message: 'L\'ubicazione non può essere vuota' };
+    if (location.length > 20) return { valid: false, message: 'L\'ubicazione non può superare i 20 caratteri' };
+    
+    // Converti in maiuscolo e rimuovi spazi iniziali/finali
+    const formattedLocation = location.trim().toUpperCase();
+    
+    // Verifica se l'ubicazione esiste già (case insensitive)
+    if (locationsData.some(existing => existing.toUpperCase() === formattedLocation)) {
+        return { valid: false, message: 'Questa ubicazione esiste già nel sistema' };
+    }
+    
+    // Verifica che non contenga caratteri speciali
+    if (!/^[A-Z0-9\s-]+$/.test(formattedLocation)) {
+        return { valid: false, message: 'L\'ubicazione può contenere solo lettere, numeri, spazi e trattini' };
+    }
+    
+    return { valid: true, formatted: formattedLocation };
+}
+
+// ============================================================================
+// INITIALIZATION
+// ============================================================================
+
 document.addEventListener('DOMContentLoaded', function() {
     console.log('App SERES caricata correttamente');
     
-    // Aggiungi event listener per il checkbox nuova ubicazione
-    document.getElementById('isNewLocationCheckbox')?.addEventListener('change', handleNewLocationCheckbox);
+    // Inizializza tutti gli event listeners
+    initializeEventListeners();
     
     // Avvia automaticamente il caricamento dei dati dal database
     loadData();
-    
-    // Event listeners
-    document.getElementById('menuToggle').addEventListener('click', toggleMenu);
-    document.getElementById('menuClose').addEventListener('click', closeMenu);
-    document.getElementById('menuOverlay').addEventListener('click', closeMenu);
-    document.getElementById('searchToggle').addEventListener('click', toggleSearch);
-    document.getElementById('searchClose').addEventListener('click', closeSearch);
-    document.getElementById('searchOverlay').addEventListener('click', function(e) {
-        if (e.target === this) closeSearch();
-    });
-    document.getElementById('searchInput').addEventListener('input', filterContent);
-    document.getElementById('searchInput').addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') {
-            closeSearch();
-        }
-    });    document.getElementById('closeDetailModal').addEventListener('click', closeDetailModal);
-    document.getElementById('moveEquipmentBtn').addEventListener('click', moveEquipment);
-    document.getElementById('btnRefresh').addEventListener('click', loadData);
-    
-    // Navigation eventi
-    document.getElementById('navUbicazione').addEventListener('click', function() { switchView('ubicazione'); });
-    document.getElementById('navCategoria').addEventListener('click', function() { switchView('categoria'); });
-    document.getElementById('navTipo').addEventListener('click', function() { switchView('tipo'); });
+});
 
-    // Chiudi modal cliccando fuori
+function initializeEventListeners() {
+    // Menu navigation
+    const menuToggle = document.getElementById('menuToggle');
+    const menuClose = document.getElementById('menuClose');
+    const menuOverlay = document.getElementById('menuOverlay');
+    
+    if (menuToggle) menuToggle.addEventListener('click', toggleMenu);
+    if (menuClose) menuClose.addEventListener('click', closeMenu);
+    if (menuOverlay) menuOverlay.addEventListener('click', closeMenu);
+    
+    // Search functionality
+    const searchToggle = document.getElementById('searchToggle');
+    const searchClose = document.getElementById('searchClose');
+    const searchOverlay = document.getElementById('searchOverlay');
+    const searchInput = document.getElementById('searchInput');
+    
+    if (searchToggle) searchToggle.addEventListener('click', toggleSearch);
+    if (searchClose) searchClose.addEventListener('click', closeSearch);
+    if (searchOverlay) {
+        searchOverlay.addEventListener('click', function(e) {
+            if (e.target === this) closeSearch();
+        });
+    }
+    if (searchInput) {
+        searchInput.addEventListener('input', filterContent);
+        searchInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                closeSearch();
+            }
+        });
+    }
+
+    // Modal functionality
+    const closeDetailModalBtn = document.getElementById('closeDetailModal');
+    if (closeDetailModalBtn) closeDetailModalBtn.addEventListener('click', closeDetailModal);
+
+    // Refresh button
+    const btnRefresh = document.getElementById('btnRefresh');
+    if (btnRefresh) btnRefresh.addEventListener('click', loadData);
+    
+    // Forms event listeners
+    const moveForm = document.getElementById('moveForm');
+    if (moveForm) {
+        moveForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            moveEquipment();
+        });
+    }
+
+    const notesForm = document.getElementById('updateNotesForm');
+    if (notesForm) {
+        notesForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            updateEquipmentNotes();
+        });
+    }
+
+    // Checkbox per nuova ubicazione
+    const checkbox = document.getElementById('isNewLocationCheckbox');
+    if (checkbox) {
+        checkbox.addEventListener('change', handleNewLocationCheckbox);
+    }
+
+    // Auto-maiuscolo per i campi nome utente
+    const userNameField = document.getElementById('userName');
+    const noteUserNameField = document.getElementById('noteUserName');
+    
+    if (userNameField) {
+        userNameField.addEventListener('input', function(e) {
+            this.value = this.value.toUpperCase();
+        });
+    }
+    
+    if (noteUserNameField) {
+        noteUserNameField.addEventListener('input', function(e) {
+            this.value = this.value.toUpperCase();
+        });
+    }
+    
+    // Bottom navigation
+    const navUbicazione = document.getElementById('navUbicazione');
+    const navCategoria = document.getElementById('navCategoria');
+    const navTipo = document.getElementById('navTipo');
+    
+    if (navUbicazione) navUbicazione.addEventListener('click', () => switchView('ubicazione'));
+    if (navCategoria) navCategoria.addEventListener('click', () => switchView('categoria'));
+    if (navTipo) navTipo.addEventListener('click', () => switchView('tipo'));
+
+    // Modal close on outside click
     window.addEventListener('click', function(event) {
         const modal = document.getElementById('detailModal');
         if (event.target === modal) {
@@ -75,77 +198,40 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // About Modal
+    initializeAboutModal();
+}
+
+function initializeAboutModal() {
     const btnAbout = document.getElementById('btnAbout');
     const aboutModal = document.getElementById('aboutModal');
     const aboutClose = document.getElementById('aboutClose');
     const menuOverlay = document.getElementById('menuOverlay');
 
-    btnAbout.addEventListener('click', function() {
-        aboutModal.style.display = 'block';
-        menuOverlay.style.display = 'block';
-        slideMenu.classList.remove('open');
-    });
+    if (btnAbout && aboutModal && aboutClose && menuOverlay) {
+        btnAbout.addEventListener('click', function() {
+            aboutModal.style.display = 'block';
+            menuOverlay.style.display = 'block';
+            const slideMenu = document.getElementById('slideMenu');
+            if (slideMenu) slideMenu.classList.remove('open');
+        });
 
-    aboutClose.addEventListener('click', function() {
-        aboutModal.style.display = 'none';
-        menuOverlay.style.display = 'none';
-    });
-
-    menuOverlay.addEventListener('click', function() {
-        if (aboutModal.style.display === 'block') {
+        aboutClose.addEventListener('click', function() {
             aboutModal.style.display = 'none';
             menuOverlay.style.display = 'none';
-        }
-    });
-});
+        });
 
-// Funzione per chiamare le API
-async function callApi(action, data = null) {
-    try {
-        const url = `${API_BASE_URL}?action=${action}`;
-        const options = {
-            method: data ? 'POST' : 'GET',
-            headers: {
-                'Content-Type': 'application/json',
+        menuOverlay.addEventListener('click', function() {
+            if (aboutModal.style.display === 'block') {
+                aboutModal.style.display = 'none';
+                menuOverlay.style.display = 'none';
             }
-        };
-        
-        if (data) {
-            options.body = JSON.stringify(data);
-        }
-
-        const response = await fetch(url, options);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return await response.json();
-    } catch (error) {
-        console.error(`API Error (${action}):`, error);
-        throw error;
+        });
     }
 }
 
-// Funzione per caricare i dati
-async function loadFromGoogleSheets() {
-    try {
-        showLoadingOverlay('Caricamento dati...');
-        const response = await callApi('getData');
-        
-        if (response.success) {
-            attrezzature = response.data;
-            updateSelectOptions();
-            filteredData = attrezzature;
-            renderContent();
-            hideLoadingOverlay();
-            showMessage('Dati aggiornati con successo');
-        } else {
-            throw new Error(response.message || 'Errore nel caricamento dei dati');
-        }
-    } catch (error) {
-        hideLoadingOverlay();
-        showError('Errore: ' + error.message);
-    }
-}
+// ============================================================================
+// DATA LOADING AND API CALLS
+// ============================================================================
 
 async function loadData() {
     try {
@@ -160,189 +246,164 @@ async function loadData() {
             }
         });
         
-        console.log('[DEBUG] Response fetch:', response);
         if (!response.ok) {
-            console.error('[DEBUG] Response non ok:', response.status, response.statusText);
             throw new Error(`Errore nella richiesta: ${response.status} ${response.statusText}`);
         }
         
         const data = await response.json();
-        console.log('[DEBUG] Dati ricevuti:', data);
         if (!data.success) {
-            console.error('[DEBUG] Dati non success:', data);
             throw new Error(data.message || 'Errore nel caricamento dei dati');
         }
         
+        // Aggiorna l'array attrezzature con i dati dal database
         attrezzature = data.data || [];
-        filteredData = [...attrezzature];
         
-        // Popola anche equipmentData per compatibilità
+        // Aggiorna anche equipmentData con il mapping corretto per retrocompatibilità
         equipmentData = attrezzature.map(item => ({
             id: item.id,
+            codice: item.codice,
             categoria: item.categoria,
             tipo: item.tipo,
+            marca: item.marca,
             marcaModello: item.marca,
             ubicazione: item.ubicazione,
-            codice: item.codice
+            note: item.note,
+            doc: item.doc
         }));
         
-        console.log('[DEBUG] Dati caricati dal database:', attrezzature.length, 'record');
+        // Estrai le ubicazioni uniche
+        const locations = new Set();
+        attrezzature.forEach(item => {
+            if (item.ubicazione) {
+                locations.add(item.ubicazione);
+            }
+        });
+        locationsData = Array.from(locations).sort();
+        
+        // Aggiorna filteredData
+        filteredData = [...attrezzature];
+        
+        // Aggiorna la vista corrente
         renderCurrentView();
+        
+        console.log('[DEBUG] Dati caricati:', {
+            attrezzature: attrezzature.length,
+            equipment: equipmentData.length,
+            ubicazioni: locationsData.length
+        });
+        
+        showError('✅ Dati aggiornati con successo');
+        
     } catch (error) {
         console.error('[DEBUG] Errore nel caricamento:', error);
-        showError('Errore nel caricamento dei dati. Carico i dati demo come fallback...');
-        // Carica i dati demo come fallback
-        loadDemoData();
+        showError('❌ Errore nel caricamento dei dati: ' + error.message);
     } finally {
         hideLoadingOverlay();
     }
 }
 
-function loadDemoData() {
-    // Dati demo di esempio
-    attrezzature = [
-        {
-            id: 'DEMO1',
-            nome: 'Attrezzatura Demo 1',
-            categoria: 'Test',
-            tipo: 'Demo',
-            ubicazione: 'Magazzino',
-            stato: 'Disponibile',
-            note: 'Attrezzatura di test',
-            movimenti: []
-        },
-        // Aggiungi altri dati demo se necessario
-    ];
-    filteredData = [...attrezzature];
-    renderCurrentView();
-}
-
-function loadFromGoogleSheets() {
-    showLoading('Caricamento da Google Sheets...');
-    
-    console.log('Tentativo di caricamento da Google Sheets...');
-    
-    const ranges = [
-        'attrezzatura!A:E',
-        'log!A:G', 
-        'elenchi!A:A'
-    ];
-
-    const promises = ranges.map(range => 
-        fetch('https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/' + range + '?key=AIzaSyCc8HZz0QCZ-OtQF_wu4GuBhmeAdTceUWE')
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('HTTP ' + response.status + ': ' + response.statusText);
+async function loadMovementHistory(codice) {
+    try {
+        console.log('[DEBUG] Chiamata API getMovementHistory per codice:', codice);
+        
+        const response = await fetch(`${API_BASE_URL}?action=getMovementHistory&codice=${encodeURIComponent(codice)}`, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json'
             }
-            return response.json();
-        })
-    );
-
-    Promise.all(promises)
-        .then(function(results) {
-            const attrezzaturaData = results[0];
-            const logData = results[1];
-            const elenchiData = results[2];
-
-            processAttrezzaturaData(attrezzaturaData.values || []);
-            processLogData(logData.values || []);
-            processElenchiData(elenchiData.values || []);
-
-            console.log('✅ Dati caricati da Google Sheets:', {
-                attrezzature: equipmentData.length,
-                ubicazioni: locationsData.length,
-                movimenti: movementLog.length
-            });
-
-            renderCurrentView();
-            hideLoading();
-        })
-        .catch(function(error) {
-            console.error('Errore nel caricamento da Google Sheets:', error);
-            alert('❌ Errore nel caricamento da Google Sheets:\n' + error.message + '\n\n📋 Verifica che il foglio sia pubblico e abbia le schede corrette\n\n🔄 Carico i dati demo come fallback...');
-            loadDemoData();
         });
-}
-
-function processAttrezzaturaData(data) {
-    if (data.length < 2) return;
-    
-    equipmentData = [];
-    
-    for (let i = 1; i < data.length; i++) {
-        const row = data[i];
-        if (row.length >= 5) {
-            equipmentData.push({
-                id: i,
-                categoria: row[0] || '',
-                tipo: row[1] || '',
-                marcaModello: row[2] || '',
-                ubicazione: row[3] || '',
-                codice: row[4] || ''
-            });
+        
+        if (!response.ok) {
+            throw new Error(`Errore HTTP: ${response.status}`);
         }
-    }
-    
-    categoriesData = [];
-    const cats = new Set();
-    equipmentData.forEach(function(item) {
-        if (item.categoria) cats.add(item.categoria);
-    });
-    categoriesData = Array.from(cats);
-}
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+            throw new Error(data.message || 'Errore nel caricamento dello storico');
+        }
 
-function processLogData(data) {
-    if (data.length < 2) return;
-    
-    movementLog = [];
-    
-    for (let i = 1; i < data.length; i++) {
-        const row = data[i];
-        if (row.length >= 7) {
-            movementLog.push({
-                data: row[0] || '',
-                utente: row[1] || '',
-                azione: row[2] || '',
-                tabella: row[3] || '',
-                codice: row[4] || '',
-                da: row[5] || '',
-                a: row[6] || ''
-            });
+        // Visualizza lo storico
+        displayMovementHistory(data.data || []);
+        
+    } catch (error) {
+        console.error('Errore nel caricamento dello storico:', error);
+        
+        // Mostra messaggio di errore nel container dello storico
+        const historyContainer = document.getElementById('movementHistory');
+        if (historyContainer) {
+            historyContainer.innerHTML = '<p style="color: #ff4444;">Errore nel caricamento dello storico: ' + error.message + '</p>';
         }
     }
 }
 
-function processElenchiData(data) {
-    if (data.length < 2) return;
-    
-    locationsData = [];
-    for (let i = 1; i < data.length; i++) {
-        if (data[i] && data[i][0]) {
-            locationsData.push(data[i][0]);
+async function loadNotesHistory(codice) {
+    try {
+        console.log('[DEBUG] Chiamata API getNotesHistory per codice:', codice);
+        
+        const response = await fetch(`${API_BASE_URL}?action=getNotesHistory&codice=${encodeURIComponent(codice)}`, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Errore HTTP: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+            throw new Error(data.message || 'Errore nel caricamento dello storico note');
+        }
+
+        // Visualizza lo storico delle note
+        displayNotesHistory(data.data || []);
+        
+    } catch (error) {
+        console.error('Errore nel caricamento dello storico note:', error);
+        
+        // Mostra messaggio di errore nel container dello storico note
+        const notesHistoryContainer = document.getElementById('notesHistory');
+        if (notesHistoryContainer) {
+            notesHistoryContainer.innerHTML = '<p style="color: #ff4444;">Errore nel caricamento dello storico note: ' + error.message + '</p>';
         }
     }
 }
 
-// Funzioni UI
+// ============================================================================
+// UI FUNCTIONS
+// ============================================================================
+
 function toggleMenu() {
-    document.getElementById('slideMenu').classList.add('open');
-    document.getElementById('menuOverlay').classList.add('show');
+    const slideMenu = document.getElementById('slideMenu');
+    const menuOverlay = document.getElementById('menuOverlay');
+    if (slideMenu) slideMenu.classList.add('open');
+    if (menuOverlay) menuOverlay.classList.add('show');
 }
 
 function closeMenu() {
-    document.getElementById('slideMenu').classList.remove('open');
-    document.getElementById('menuOverlay').classList.remove('show');
+    const slideMenu = document.getElementById('slideMenu');
+    const menuOverlay = document.getElementById('menuOverlay');
+    if (slideMenu) slideMenu.classList.remove('open');
+    if (menuOverlay) menuOverlay.classList.remove('show');
 }
 
 function toggleSearch() {
-    document.getElementById('searchOverlay').classList.add('show');
-    setTimeout(function() {
-        document.getElementById('searchInput').focus();
-    }, 300);
+    const searchOverlay = document.getElementById('searchOverlay');
+    if (searchOverlay) {
+        searchOverlay.classList.add('show');
+        setTimeout(function() {
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) searchInput.focus();
+        }, 300);
+    }
 }
 
 function closeSearch() {
-    document.getElementById('searchOverlay').classList.remove('show');
+    const searchOverlay = document.getElementById('searchOverlay');
+    if (searchOverlay) searchOverlay.classList.remove('show');
 }
 
 function switchView(view) {
@@ -351,13 +412,38 @@ function switchView(view) {
     document.querySelectorAll('.nav-item').forEach(function(item) {
         item.classList.remove('active');
     });
-    document.querySelector('[data-view="' + view + '"]').classList.add('active');
+    const activeNav = document.querySelector('[data-view="' + view + '"]');
+    if (activeNav) activeNav.classList.add('active');
     
     renderCurrentView();
 }
 
+function filterContent() {
+    const searchInput = document.getElementById('searchInput');
+    const searchText = document.getElementById('searchText');
+    
+    if (searchInput && searchText) {
+        currentFilter = searchInput.value.toLowerCase();
+        
+        if (currentFilter) {
+            searchText.textContent = currentFilter;
+            searchText.classList.add('active');
+        } else {
+            searchText.textContent = 'Ricerca';
+            searchText.classList.remove('active');
+        }
+        
+        renderCurrentView();
+    }
+}
+
+// ============================================================================
+// RENDERING FUNCTIONS
+// ============================================================================
+
 function renderCurrentView() {
     const container = document.getElementById('viewContent');
+    if (!container) return;
     
     if (currentView === 'ubicazione') {
         renderLocationView(container);
@@ -377,12 +463,12 @@ function renderLocationView(container) {
     }
 
     container.innerHTML = locations.map(function(location) {
-        return '<div class="location-card" onclick="showLocationEquipment(\'' + location.name + '\')">' +
+        return '<div class="location-card" onclick="showLocationEquipment(\'' + escapeHtml(location.name) + '\')">' +
             '<div class="card-header">' +
-                '<div class="card-title">📍 ' + location.name + '</div>' +
+                '<div class="card-title">📍 ' + escapeHtml(location.name) + '</div>' +
                 '<div class="card-count">' + location.count + '</div>' +
             '</div>' +
-            '<div class="card-items">' + location.types.slice(0, 3).join(', ') + (location.types.length > 3 ? '...' : '') + '</div>' +
+            '<div class="card-items">' + location.types.slice(0, 3).map(escapeHtml).join(', ') + (location.types.length > 3 ? '...' : '') + '</div>' +
         '</div>';
     }).join('');
 }
@@ -396,12 +482,12 @@ function renderCategoryView(container) {
     }
 
     container.innerHTML = categories.map(function(category) {
-        return '<div class="category-card" onclick="showCategoryEquipment(\'' + category.name + '\')">' +
+        return '<div class="category-card" onclick="showCategoryEquipment(\'' + escapeHtml(category.name) + '\')">' +
             '<div class="card-header">' +
-                '<div class="card-title">📂 ' + category.name + '</div>' +
+                '<div class="card-title">📂 ' + escapeHtml(category.name) + '</div>' +
                 '<div class="card-count">' + category.count + '</div>' +
             '</div>' +
-            '<div class="card-items">' + category.types.slice(0, 3).join(', ') + (category.types.length > 3 ? '...' : '') + '</div>' +
+            '<div class="card-items">' + category.types.slice(0, 3).map(escapeHtml).join(', ') + (category.types.length > 3 ? '...' : '') + '</div>' +
         '</div>';
     }).join('');
 }
@@ -415,15 +501,26 @@ function renderTypeView(container) {
     }
 
     container.innerHTML = types.map(function(type) {
-        return '<div class="type-card" onclick="showTypeEquipment(\'' + type.name + '\')">' +
+        return '<div class="type-card" onclick="showTypeEquipment(\'' + escapeHtml(type.name) + '\')">' +
             '<div class="card-header">' +
-                '<div class="card-title">🔧 ' + type.name + '</div>' +
+                '<div class="card-title">🔧 ' + escapeHtml(type.name) + '</div>' +
                 '<div class="card-count">' + type.count + '</div>' +
             '</div>' +
-            '<div class="card-items">' + type.locations.slice(0, 3).join(', ') + (type.locations.length > 3 ? '...' : '') + '</div>' +
+            '<div class="card-items">' + type.locations.slice(0, 3).map(escapeHtml).join(', ') + (type.locations.length > 3 ? '...' : '') + '</div>' +
         '</div>';
     }).join('');
 }
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// ============================================================================
+// DATA GROUPING FUNCTIONS
+// ============================================================================
 
 function getLocationGroups() {
     const filtered = getFilteredEquipment();
@@ -506,6 +603,10 @@ function getFilteredEquipment() {
     });
 }
 
+// ============================================================================
+// EQUIPMENT LIST AND DETAIL FUNCTIONS
+// ============================================================================
+
 function showLocationEquipment(location) {
     showEquipmentList('ubicazione', location);
 }
@@ -544,21 +645,29 @@ function showEquipmentList(filterType, filterValue) {
     }
 
     const equipmentCards = filteredEquipment.map(function(item) {
-        return '<div class="equipment-card" onclick="showEquipmentDetail(' + item.id + ')">' +
+        return '<div class="equipment-card" data-codice="' + escapeHtml(item.codice) + '">' +
             '<div class="equipment-header">' +
-                '<span class="equipment-code">' + item.codice + '</span>' +
-                '<span class="equipment-category">' + item.categoria + '</span>' +
+                '<div class="equipment-code">📦 ' + escapeHtml(item.codice) + '</div>' +
             '</div>' +
-            '<div class="equipment-title">' + item.tipo + '</div>' +
-            '<div class="equipment-brand">' + item.marcaModello + '</div>' +
-            '<div class="equipment-location">' +
-                '<span class="location-icon"></span>' +
-                item.ubicazione +
-            '</div>' +
+            '<div class="equipment-name">' + escapeHtml(item.tipo) + '</div>' +
+            '<div class="equipment-brand">' + escapeHtml(item.marca || '-') + '</div>' +
+            '<div class="equipment-location">📍 ' + escapeHtml(item.ubicazione) + '</div>' +
         '</div>';
     }).join('');
 
     container.innerHTML = backButton + equipmentCards;
+    attachEquipmentCardListeners();
+}
+
+function attachEquipmentCardListeners() {
+    document.querySelectorAll('.equipment-card').forEach(card => {
+        card.addEventListener('click', function() {
+            const codice = this.dataset.codice;
+            if (codice) {
+                showEquipmentDetail(codice);
+            }
+        });
+    });
 }
 
 function showEquipmentDetail(codice) {
@@ -569,343 +678,486 @@ function showEquipmentDetail(codice) {
         return;
     }
 
-    currentEquipmentId = equipment.codice; // Usa il codice come ID
+    // Imposta la variabile globale
+    currentEquipmentId = equipment.codice;
     
-    document.getElementById('modalTitle').textContent = equipment.tipo;
+    // Ottieni i riferimenti a tutti gli elementi DOM necessari
+    const elements = {
+        codice: document.getElementById('detailCodice'),
+        categoria: document.getElementById('detailCategoria'),
+        tipo: document.getElementById('detailTipo'),
+        marca: document.getElementById('detailMarca'),
+        ubicazione: document.getElementById('detailUbicazione'),
+        note: document.getElementById('detailNote'),
+        currentLocation: document.getElementById('currentLocation'),
+        modal: document.getElementById('detailModal')
+    };
+
+    // Controlla che tutti gli elementi essenziali esistano
+    const requiredElements = ['codice', 'categoria', 'tipo', 'marca', 'ubicazione', 'modal'];
+    const missingElements = requiredElements.filter(key => !elements[key]);
     
-    // Costruisci l'HTML per i dettagli
-    const detailsHtml = `
-        <div class="detail-item">
-            <div class="detail-label">Codice</div>
-            <div class="detail-value">${equipment.codice}</div>
-        </div>
-        <div class="detail-item">
-            <div class="detail-label">Categoria</div>
-            <div class="detail-value">${equipment.categoria}</div>
-        </div>
-        <div class="detail-item">
-            <div class="detail-label">Marca/Modello</div>
-            <div class="detail-value">${equipment.marca}</div>
-        </div>
-        <div class="detail-item">
-            <div class="detail-label">Ubicazione</div>
-            <div class="detail-value">${equipment.ubicazione}</div>
-        </div>
-        ${equipment.note ? `
-        <div class="detail-item">
-            <div class="detail-label">Note</div>
-            <div class="detail-value">${equipment.note}</div>
-        </div>` : ''}
-        ${equipment.doc ? `
-        <div class="detail-item">
-            <div class="detail-label">Documentazione</div>
-            <div class="detail-value">
-                <a href="${equipment.doc}" target="_blank">Apri documentazione</a>
-            </div>
-        </div>` : ''}`;+
-        '<div class="detail-item">' +
-            '<div class="detail-label">Categoria</div>' +
-            '<div class="detail-value">' + equipment.categoria + '</div>' +
-        '</div>' +
-        '<div class="detail-item">' +
-            '<div class="detail-label">Tipo</div>' +
-            '<div class="detail-value">' + equipment.tipo + '</div>' +
-        '</div>' +
-        '<div class="detail-item">' +
-            '<div class="detail-label">Marca/Modello</div>' +
-            '<div class="detail-value">' + equipment.marcaModello + '</div>' +
-        '</div>' +
-        '<div class="detail-item">' +
-            '<div class="detail-label">Ubicazione Attuale</div>' +
-            '<div class="detail-value">📍 ' + equipment.ubicazione + '</div>' +
-        '</div>';
+    if (missingElements.length > 0) {
+        showError(`Errore: elementi mancanti nel DOM: ${missingElements.join(', ')}`);
+        console.error('Missing DOM elements:', missingElements);
+        return;
+    }
+
+    // Popola i dettagli nel modal
+    elements.codice.textContent = equipment.codice;
+    elements.categoria.textContent = equipment.categoria;
+    elements.tipo.textContent = equipment.tipo;
+    elements.marca.textContent = equipment.marca;
+    elements.ubicazione.textContent = equipment.ubicazione;
     
-    document.getElementById('equipmentDetails').innerHTML = detailsHtml;
-      // Aggiorna la lista delle ubicazioni disponibili
+    // Aggiorna il titolo del modal con marca/modello
+    const modalTitle = document.querySelector('#detailModal .modal-header h2');
+    if (modalTitle) {
+        modalTitle.textContent = `Dettaglio Attrezzatura - ${equipment.codice}`;
+    }
+    
+    // Popola note se l'elemento esiste ma NON precompilare il campo
+    if (elements.note) {
+        elements.note.value = ''; // Campo sempre vuoto per nuove note
+    }
+    
+    // Gestione ubicazione attuale per il form di spostamento
+    if (elements.currentLocation) {
+        elements.currentLocation.value = equipment.ubicazione;
+    }
+    
+    // Aggiorna la lista delle ubicazioni disponibili per lo spostamento
     updateLocationSelect(equipment);
     
-    showMovementHistory(equipment.codice);
+    // Mostra il modal
+    elements.modal.style.display = 'block';
     
-    document.getElementById('detailModal').style.display = 'block';
+    // Carica lo storico movimenti e note con un piccolo delay per assicurarsi che il modal sia renderizzato
+    setTimeout(() => {
+        console.log('[DEBUG] Timeout - Chiamata loadMovementHistory per:', equipment.codice);
+        loadMovementHistory(equipment.codice);
+        
+        console.log('[DEBUG] Timeout - Chiamata FIXED loadNotesHistory per:', equipment.codice);
+        // USA LA VERSIONE CHE FUNZIONA
+        if (typeof window.fixedLoadNotesHistory === 'function') {
+            window.fixedLoadNotesHistory(equipment.codice);
+        } else {
+            console.error('fixedLoadNotesHistory non trovata!');
+        }
+    }, 100);
 }
 
 function closeDetailModal() {
-    document.getElementById('detailModal').style.display = 'none';
-    document.getElementById('newLocation').value = '';
-    document.getElementById('userName').value = '';
+    const modal = document.getElementById('detailModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+    
+    // Reset della variabile globale
+    currentEquipmentId = null;
+    
+    // Reset dei campi del form se esistono
+    const formElements = {
+        newLocation: document.getElementById('newLocation'),
+        detailNote: document.getElementById('detailNote'),
+        userName: document.getElementById('userName'),
+        noteUserName: document.getElementById('noteUserName')
+    };
+    
+    // Reset solo degli elementi che esistono
+    Object.values(formElements).forEach(element => {
+        if (element) {
+            element.value = '';
+        }
+    });
+
+    // Reset del checkbox
+    const checkbox = document.getElementById('isNewLocationCheckbox');
+    if (checkbox) checkbox.checked = false;
 }
 
-function showMovementHistory(codice) {
-    const movements = movementLog.filter(function(log) {
-        return log.codice === codice;
-    });
+// ============================================================================
+// HISTORY DISPLAY FUNCTIONS
+// ============================================================================
+
+function displayMovementHistory(history) {
     const historyContainer = document.getElementById('movementHistory');
-    
-    if (movements.length === 0) {
-        historyContainer.innerHTML = '<p style="color: #666; font-style: italic;">Nessuno spostamento registrato</p>';
+    if (!historyContainer) return;
+
+    if (!history || history.length === 0) {
+        historyContainer.innerHTML = '<p style="color: #666; font-style: italic;">Nessuno storico disponibile</p>';
         return;
     }
-    
-    historyContainer.innerHTML = movements
-        .sort(function(a, b) {
-            return new Date(b.data) - new Date(a.data);
-        })
-        .map(function(movement) {
-            const date = new Date(movement.data);
-            return '<div class="history-item">' +
-                '<div class="history-date">' + date.toLocaleDateString('it-IT') + ' ' + date.toLocaleTimeString('it-IT', {hour: '2-digit', minute: '2-digit'}) + '</div>' +
-                '<div class="history-action">' +
-                    '<strong>' + movement.utente + '</strong> ha spostato da ' +
-                    '<strong>' + movement.da + '</strong> a <strong>' + movement.a + '</strong>' +
-                '</div>' +
-            '</div>';
-        }).join('');
-}
 
-async function updateGoogleSheet(range, values) {
-    const API_KEY = 'AIzaSyCc8HZz0QCZ-OtQF_wu4GuBhmeAdTceUWE';
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}?valueInputOption=RAW&key=${API_KEY}`;
-    
-    try {
-        const response = await fetch(url, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                values: values
-            })
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
+    const rows = history.map(entry => {
+        const date = new Date(entry.timestamp).toLocaleString('it-IT');
+        let details = '';
         
-        return await response.json();
-    } catch (error) {
-        console.error('Errore durante l\'aggiornamento del foglio Google:', error);
-        throw error;
-    }
-}
-
-async function appendToGoogleSheet(range, values) {
-    const API_KEY = 'AIzaSyCc8HZz0QCZ-OtQF_wu4GuBhmeAdTceUWE';
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS&key=${API_KEY}`;
-    
-    try {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                values: values
-            })
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        return await response.json();
-    } catch (error) {
-        console.error('Errore durante l\'aggiunta al foglio Google:', error);
-        throw error;
-    }
-}
-
-async function findRowInSheet(codice) {
-    try {
-        const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/attrezzatura!A:E?key=AIzaSyCc8HZz0QCZ-OtQF_wu4GuBhmeAdTceUWE`);
-        const data = await response.json();
-        const values = data.values || [];
-        
-        // Trova l'indice della riga con il codice specificato
-        for (let i = 0; i < values.length; i++) {
-            if (values[i][4] === codice) { // La colonna E (indice 4) contiene il codice
-                return i + 1; // +1 perché le righe in Google Sheets iniziano da 1
+        if (entry.azione === 'spostamento') {
+            details = `Spostato da <strong>${escapeHtml(entry.vecchia_ubicazione || '?')}</strong> a <strong>${escapeHtml(entry.nuova_ubicazione)}</strong> da <strong>${escapeHtml(entry.user_name)}</strong>`;
+        } else if (entry.azione === 'modifica_note') {
+            details = `Note modificate da <strong>${escapeHtml(entry.user_name)}</strong>`;
+            if (entry.note_precedenti || entry.note_nuove) {
+                details += `<br>Da: "${escapeHtml(entry.note_precedenti || '')}"<br>A: "${escapeHtml(entry.note_nuove || '')}"`;
             }
         }
-        return null;
-    } catch (error) {
-        console.error('Errore durante la ricerca nel foglio Google:', error);
-        throw error;
-    }
+        
+        return `
+            <div class="history-entry">
+                <div class="history-date">${escapeHtml(date)}</div>
+                <div class="history-details">${details}</div>
+            </div>
+        `;
+    });
+
+    historyContainer.innerHTML = rows.join('');
 }
 
-async function updateGoogleSheetViaWebApp(action, data) {
-    const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbyWzNZ91kZBr9D3PhQNO7FLSXypRt1Ret0EvlBMuW_GgIAMKB9r4Ag4GHnvoHCVJCUvsA/exec';
-    
-    try {
-        const response = await fetch(WEBAPP_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                action: action,
-                data: data
-            })
-        });
+function displayNotesHistory(history) {
+    const notesHistoryContainer = document.getElementById('notesHistory');
+    if (!notesHistoryContainer) return;
 
-        // A causa di 'no-cors', non possiamo leggere la risposta
-        // Assumiamo che sia andata a buon fine se non ci sono errori
-        return true;
-    } catch (error) {
-        console.error('Errore durante l\'aggiornamento del foglio Google:', error);
-        throw error;
-    }
-}
-
-async function moveEquipment() {
-    let newLocation = document.getElementById('newLocation').value;
-    const userName = document.getElementById('userName').value.trim();
-    const isNewLocation = document.getElementById('isNewLocationCheckbox').checked;
-    
-    if (!userName) {
-        alert('⚠️ Inserisci il tuo nome');
+    if (!history || history.length === 0) {
+        notesHistoryContainer.innerHTML = '<p style="color: #666; font-style: italic;">Nessuno storico note disponibile</p>';
         return;
     }
-      if (isNewLocation) {
+
+    const rows = history.map(entry => {
+        const date = new Date(entry.timestamp).toLocaleString('it-IT');
+        let details = '';
+        let icon = '';
+        
+        switch(entry.azione) {
+            case 'creazione':
+                icon = '✏️';
+                details = `<strong>${escapeHtml(entry.user_name)}</strong> ha aggiunto una nota:<br>"${escapeHtml(entry.nota_nuova || '')}"`;
+                break;
+            case 'modifica':
+                icon = '📝';
+                details = `<strong>${escapeHtml(entry.user_name)}</strong> ha modificato una nota:<br>`;
+                if (entry.nota_precedente && entry.nota_nuova) {
+                    details += `Da: "${escapeHtml(entry.nota_precedente)}"<br>A: "${escapeHtml(entry.nota_nuova)}"`;
+                } else if (entry.nota_nuova) {
+                    details += `Nuova nota: "${escapeHtml(entry.nota_nuova)}"`;
+                }
+                break;
+            case 'cancellazione':
+                icon = '🗑️';
+                details = `<strong>${escapeHtml(entry.user_name)}</strong> ha rimosso la nota:<br>"${escapeHtml(entry.nota_precedente || '')}"`;
+                break;
+            default:
+                icon = '📄';
+                details = `<strong>${escapeHtml(entry.user_name)}</strong> - ${escapeHtml(entry.azione)}`;
+        }
+        
+        return `
+            <div class="history-entry" data-action="${escapeHtml(entry.azione)}">
+                <div class="history-date">${icon} ${escapeHtml(date)}</div>
+                <div class="history-details">${details}</div>
+            </div>
+        `;
+    });
+
+    notesHistoryContainer.innerHTML = rows.join('');
+}
+
+// ============================================================================
+// FORM HANDLING FUNCTIONS
+// ============================================================================
+
+async function moveEquipment() {
+    // Verifica che currentEquipmentId sia definito
+    if (!currentEquipmentId) {
+        showError('⚠️ Errore: nessuna attrezzatura selezionata');
+        return;
+    }
+
+    let newLocation = document.getElementById('newLocation')?.value?.trim();
+    const userName = document.getElementById('userName')?.value?.trim();
+    const isNewLocation = document.getElementById('isNewLocationCheckbox')?.checked || false;
+    
+    console.log('[DEBUG] Avvio spostamento - codice:', currentEquipmentId, 'nuova ubicazione:', newLocation);
+    console.log('[DEBUG] Verifica campi - userName:', userName, 'newLocation:', newLocation);
+    
+    if (!userName) {
+        showError('⚠️ Inserisci il tuo nome');
+        const userNameField = document.getElementById('userName');
+        if (userNameField) userNameField.focus();
+        return;
+    }
+
+    if (isNewLocation) {
         // Valida e formatta la nuova ubicazione
         const validation = validateNewLocation(newLocation);
         if (!validation.valid) {
-            alert('⚠️ ' + validation.message);
+            console.log('[DEBUG] Validazione ubicazione fallita:', validation.message);
+            showError('⚠️ ' + validation.message);
             return;
         }
         newLocation = validation.formatted;
         
         // Aggiungi la nuova ubicazione alla lista
-        locationsData.push(newLocation);
+        if (!locationsData.includes(newLocation)) {
+            locationsData.push(newLocation);
+            locationsData.sort();
+        }
     } else if (!newLocation) {
-        alert('⚠️ Seleziona una ubicazione');
+        showError('⚠️ Seleziona una ubicazione');
+        const locationField = document.getElementById('newLocation');
+        if (locationField) locationField.focus();
         return;
     }
     
-    const equipment = equipmentData.find(function(item) {
-        return item.id === currentEquipmentId;
-    });
-    const oldLocation = equipment.ubicazione;
+    try {
+        showLoadingOverlay('Spostamento attrezzatura in corso...');
+        console.log('[DEBUG] Inizio spostamento - codice:', currentEquipmentId, 'nuova ubicazione:', newLocation, 'utente:', userName);
+
+        const formData = new FormData();
+        formData.append('codice', currentEquipmentId);
+        formData.append('newLocation', newLocation);
+        formData.append('userName', userName);
+
+        console.log('[DEBUG] FormData creato, invio richiesta POST a:', API_BASE_URL + '?action=moveEquipment');
+
+        const response = await fetch(`${API_BASE_URL}?action=moveEquipment`, {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json'
+            },
+            body: formData
+        });
+
+        console.log('[DEBUG] Response status:', response.status);
+        
+        if (!response.ok) {
+            throw new Error(`Errore HTTP: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        console.log('[DEBUG] Response data:', result);
+
+        if (!result.success) {
+            throw new Error(result.message || 'Errore durante lo spostamento');
+        }
+
+        // Aggiorna i dati in memoria
+        const index = attrezzature.findIndex(a => a.codice === currentEquipmentId);
+        if (index !== -1) {
+            attrezzature[index].ubicazione = newLocation;
+            // Aggiorna anche equipmentData per consistenza
+            const equipIndex = equipmentData.findIndex(e => e.codice === currentEquipmentId);
+            if (equipIndex !== -1) {
+                equipmentData[equipIndex].ubicazione = newLocation;
+            }
+        }
+
+        // Aggiorna la visualizzazione dell'ubicazione attuale nel modal
+        const detailUbicazione = document.getElementById('detailUbicazione');
+        if (detailUbicazione) {
+            detailUbicazione.textContent = newLocation;
+        }
+
+        // Ricarica lo storico dei movimenti dopo lo spostamento
+        await loadMovementHistory(currentEquipmentId);
+        
+        // Reset del form spostamento
+        const formElements = {
+            newLocation: document.getElementById('newLocation'),
+            userName: document.getElementById('userName'),
+            checkbox: document.getElementById('isNewLocationCheckbox')
+        };
+        
+        if (formElements.newLocation) formElements.newLocation.value = '';
+        if (formElements.userName) formElements.userName.value = '';
+        if (formElements.checkbox) formElements.checkbox.checked = false;
+
+        // Aggiorna il select delle ubicazioni per riflettere la nuova ubicazione corrente
+        const equipment = attrezzature.find(item => item.codice === currentEquipmentId);
+        if (equipment) {
+            updateLocationSelect(equipment);
+        }
+        
+        showError('✅ Attrezzatura spostata con successo');
+        
+    } catch (error) {
+        console.error('[DEBUG] Errore durante lo spostamento:', error);
+        showError('❌ ' + error.message);
+    } finally {
+        hideLoadingOverlay();
+    }
+}
+
+async function updateEquipmentNotes() {
+    if (!currentEquipmentId) {
+        showError('⚠️ Errore: nessuna attrezzatura selezionata');
+        return;
+    }
+
+    const noteText = document.getElementById('detailNote')?.value || '';
+    const userName = document.getElementById('noteUserName')?.value?.trim();
+    
+    if (!userName) {
+        showError('⚠️ Inserisci il tuo nome');
+        const userNameField = document.getElementById('noteUserName');
+        if (userNameField) userNameField.focus();
+        return;
+    }
     
     try {
-        showLoading('Spostamento attrezzatura in corso...');
+        showLoadingOverlay('Salvataggio note...');
+        
+        console.log('[DEBUG] Inizio salvataggio note per codice:', currentEquipmentId);
+        
+        const formData = new FormData();
+        formData.append('codice', currentEquipmentId);
+        formData.append('note', noteText);
+        formData.append('userName', userName);
 
-        // Invia i dati all'Apps Script
-        await updateGoogleSheetViaWebApp('moveEquipment', {
-            codice: equipment.codice,
-            newLocation: newLocation,
-            userName: userName,
-            oldLocation: oldLocation,
-            timestamp: new Date().toISOString()
+        console.log('[DEBUG] FormData creato, invio richiesta POST a:', API_BASE_URL + '?action=updateNotes');
+
+        const response = await fetch(`${API_BASE_URL}?action=updateNotes`, {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json'
+            },
+            body: formData
         });
 
-        // Aggiorna i dati locali
-        equipment.ubicazione = newLocation;
-        movementLog.push({
-            codice: equipment.codice,
-            data: new Date().toISOString(),
-            utente: userName,
-            azione: 'Spostamento Ubicazione',
-            tabella: 'attrezzatura',
-            da: oldLocation,
-            a: newLocation
-        });
+        console.log('[DEBUG] Response status:', response.status);
         
-        hideLoading();
-        closeDetailModal(); // Chiude la scheda di dettaglio
-        alert('✅ Attrezzatura ' + equipment.codice + ' spostata da ' + oldLocation + ' a ' + newLocation);
+        if (!response.ok) {
+            throw new Error(`Errore HTTP: ${response.status}`);
+        }
         
-        renderCurrentView();
+        const result = await response.json();
+        console.log('[DEBUG] Response data:', result);
+
+        if (!result.success) {
+            throw new Error(result.message || 'Errore nel salvataggio delle note');
+        }
+
+        // Aggiorna i dati in memoria
+        const index = attrezzature.findIndex(a => a.codice === currentEquipmentId);
+        if (index !== -1) {
+            attrezzature[index].note = noteText;
+            // Aggiorna anche equipmentData per consistenza
+            const equipIndex = equipmentData.findIndex(e => e.codice === currentEquipmentId);
+            if (equipIndex !== -1) {
+                equipmentData[equipIndex].note = noteText;
+            }
+        }
+
+        // Ricarica lo storico note e movimenti per vedere le modifiche
+        if (typeof window.fixedLoadNotesHistory === 'function') {
+            await window.fixedLoadNotesHistory(currentEquipmentId);
+        }
+        await loadMovementHistory(currentEquipmentId);
+
+        // Reset del form note
+        const noteUserNameField = document.getElementById('noteUserName');
+        if (noteUserNameField) noteUserNameField.value = '';
+
+        showError('✅ Note salvate con successo');
+
     } catch (error) {
-        hideLoading();
-        console.error('Errore durante lo spostamento:', error);
-        alert('❌ Errore durante lo spostamento: ' + error.message);
+        console.error('[DEBUG] Errore nel salvataggio delle note:', error);
+        showError('❌ Errore nel salvataggio: ' + error.message);
+    } finally {
+        hideLoadingOverlay();
     }
 }
 
-function filterContent() {
-    currentFilter = document.getElementById('searchInput').value.toLowerCase();
-    const searchText = document.getElementById('searchText');
-    
-    if (currentFilter) {
-        searchText.textContent = currentFilter;
-        searchText.classList.add('active');
-    } else {
-        searchText.textContent = 'Ricerca';
-        searchText.classList.remove('active');
-    }
-    
-    renderCurrentView();
-}
+// ============================================================================
+// LOCATION MANAGEMENT FUNCTIONS
+// ============================================================================
 
-function showLoading(message) {
-    document.getElementById('loadingMessage').textContent = message;
-    document.getElementById('loadingOverlay').classList.add('show');
-}
-
-function hideLoading() {
-    document.getElementById('loadingOverlay').classList.remove('show');
-}
-
-// Funzione per validare e formattare una nuova ubicazione
-function validateNewLocation(location) {
-    if (!location) return { valid: false, message: 'L\'ubicazione non può essere vuota' };
-    if (location.length > 20) return { valid: false, message: 'L\'ubicazione non può superare i 20 caratteri' };
-    
-    // Converti in maiuscolo e rimuovi spazi iniziali/finali
-    const formattedLocation = location.trim().toUpperCase();
-    
-    // Verifica se l'ubicazione esiste già (case insensitive)
-    if (locationsData.some(existing => existing.toUpperCase() === formattedLocation)) {
-        return { valid: false, message: 'Questa ubicazione esiste già nel sistema' };
-    }
-    
-    // Verifica che non contenga caratteri speciali
-    if (!/^[A-Z0-9\s-]+$/.test(formattedLocation)) {
-        return { valid: false, message: 'L\'ubicazione può contenere solo lettere, numeri, spazi e trattini' };
-    }
-    
-    return { valid: true, formatted: formattedLocation };
-}
-
-// Funzione per gestire il cambio tra select esistente e input nuova ubicazione
 function handleNewLocationCheckbox() {
-    const isNewLocation = document.getElementById('isNewLocationCheckbox').checked;
-    const locationDiv = document.getElementById('existingLocationDiv');
-    const select = document.getElementById('newLocation');
+    const isNewLocation = document.getElementById('isNewLocationCheckbox')?.checked || false;
+    const newLocationSelect = document.getElementById('newLocation');
+    
+    if (!newLocationSelect) return;
     
     if (isNewLocation) {
         // Converti il select in un input text
-        locationDiv.innerHTML = '<input type="text" class="form-input new-location" id="newLocation" placeholder="Inserisci nuova ubicazione (max 20 caratteri)" maxlength="20">';
-        document.getElementById('newLocation').addEventListener('input', function(e) {
+        const parent = newLocationSelect.parentNode;
+        const newInput = document.createElement('input');
+        newInput.type = 'text';
+        newInput.id = 'newLocation';
+        newInput.className = 'form-input new-location';
+        newInput.placeholder = 'Inserisci nuova ubicazione (max 20 caratteri)';
+        newInput.maxLength = '20';
+        newInput.required = true;
+        
+        // Auto-uppercase per consistenza
+        newInput.addEventListener('input', function(e) {
             this.value = this.value.toUpperCase();
         });
+        
+        parent.replaceChild(newInput, newLocationSelect);
+        
+        // Focus sul nuovo input
+        setTimeout(() => newInput.focus(), 100);
     } else {
         // Ripristina il select con le ubicazioni esistenti
-        locationDiv.innerHTML = '<select class="form-select" id="newLocation"><option value="">Seleziona ubicazione...</option></select>';
-        const select = document.getElementById('newLocation');
-        locationsData.sort().forEach(location => {
-            const option = document.createElement('option');
-            option.value = location;
-            option.textContent = location;
-            select.appendChild(option);
-        });
+        const parent = newLocationSelect.parentNode;
+        const newSelect = document.createElement('select');
+        newSelect.id = 'newLocation';
+        newSelect.className = 'form-select';
+        newSelect.required = true;
+        
+        // Aggiungi opzione di default
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = 'Seleziona ubicazione...';
+        newSelect.appendChild(defaultOption);
+        
+        // Aggiungi ubicazioni esistenti (escludi quella corrente se presente)
+        const currentLocation = document.getElementById('currentLocation')?.value;
+        locationsData
+            .filter(location => location !== currentLocation)
+            .forEach(location => {
+                const option = document.createElement('option');
+                option.value = location;
+                option.textContent = location;
+                newSelect.appendChild(option);
+            });
+        
+        parent.replaceChild(newSelect, newLocationSelect);
     }
 }
 
-// Funzione per aggiornare il select delle ubicazioni
 function updateLocationSelect(equipment) {
     const select = document.getElementById('newLocation');
-    if (!select) return;
+    if (!select) {
+        console.error('Select ubicazione non trovato');
+        return;
+    }
 
     // Resetta il checkbox di nuova ubicazione
     const checkbox = document.getElementById('isNewLocationCheckbox');
     if (checkbox) checkbox.checked = false;
 
-    // Popola il select con le ubicazioni disponibili
+    // Se è un input (nuova ubicazione), riconvertilo in select
+    if (select.tagName.toLowerCase() === 'input') {
+        handleNewLocationCheckbox(); // Questo lo riconvertirà in select
+        // Richiama la funzione per popolare il select
+        setTimeout(() => updateLocationSelect(equipment), 100);
+        return;
+    }
+
+    // Pulisci il select
     select.innerHTML = '<option value="">Seleziona ubicazione...</option>';
-    locationsData
-        .sort()
+    
+    // Usa locationsData se disponibile, altrimenti usa le ubicazioni da attrezzature
+    const availableLocations = locationsData.length > 0 ? 
+        locationsData : 
+        Array.from(new Set(attrezzature.map(item => item.ubicazione))).filter(Boolean);
+
+    // Ordina le ubicazioni alfabeticamente
+    availableLocations.sort((a, b) => a.localeCompare(b));
+
+    // Aggiungi tutte le ubicazioni tranne quella corrente
+    availableLocations
         .filter(loc => loc !== equipment.ubicazione)
         .forEach(loc => {
             const option = document.createElement('option');
@@ -913,104 +1165,171 @@ function updateLocationSelect(equipment) {
             option.textContent = loc;
             select.appendChild(option);
         });
+
+    // Aggiorna il campo hidden con l'ubicazione corrente
+    const currentLocationField = document.getElementById('currentLocation');
+    if (currentLocationField) {
+        currentLocationField.value = equipment.ubicazione;
+    }
+
+    console.log('[DEBUG] Ubicazioni caricate nel select:', select.options.length - 1);
 }
 
-// Funzione per mostrare il modal dei dettagli
-function showDetailModal(item) {
-    const modal = document.getElementById('detailModal');
-    
-    // Popola i campi info
-    document.getElementById('detailCodice').textContent = item.codice;
-    document.getElementById('detailCategoria').textContent = item.categoria;
-    document.getElementById('detailTipo').textContent = item.tipo;
-    document.getElementById('detailMarca').textContent = item.marca;
-    document.getElementById('detailUbicazione').textContent = item.ubicazione;
-    
-    // Popola i campi editabili
-    document.getElementById('detailNote').value = item.note || '';
-    document.getElementById('detailDoc').value = item.doc || '';
-    document.getElementById('currentLocation').value = item.ubicazione;
+// ============================================================================
+// GLOBAL FUNCTIONS (per onclick negli HTML generati dinamicamente)
+// ============================================================================
 
-    // Setup del pulsante per aprire il link
-    const openDocButton = document.getElementById('openDocButton');
-    openDocButton.style.display = item.doc ? 'block' : 'none';
-    openDocButton.onclick = () => {
-        if (item.doc) {
-            window.open(item.doc, '_blank');
-        }
+// Queste funzioni devono essere globali per essere chiamate dagli onclick
+window.showLocationEquipment = showLocationEquipment;
+window.showCategoryEquipment = showCategoryEquipment;
+window.showTypeEquipment = showTypeEquipment;
+window.renderCurrentView = renderCurrentView;
+window.closeDetailModal = closeDetailModal;
+
+// ============================================================================
+// ADDITIONAL UTILITY FUNCTIONS
+// ============================================================================
+
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
     };
-
-    // Event listener per il form di aggiornamento note e doc
-    document.getElementById('updateNotesForm').onsubmit = async (e) => {
-        e.preventDefault();
-        const noteText = document.getElementById('detailNote').value;
-        const docLink = document.getElementById('detailDoc').value;
-
-        try {
-            const response = await fetch(API_BASE_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    action: 'updateEquipmentDetails',
-                    data: {
-                        codice: item.codice,
-                        note: noteText,
-                        doc: docLink,
-                        userName: 'Sistema' // TODO: Implementare gestione utente
-                    }
-                })
-            });
-
-            const result = await response.json();
-            if (result.success) {
-                showMessage('Dettagli aggiornati con successo');
-                // Aggiorna i dati in memoria
-                const index = attrezzature.findIndex(a => a.codice === item.codice);
-                if (index !== -1) {
-                    attrezzature[index].note = noteText;
-                    attrezzature[index].doc = docLink;
-                }
-                // Aggiorna la visualizzazione del pulsante doc
-                openDocButton.style.display = docLink ? 'block' : 'none';
-            } else {
-                throw new Error(result.message);
-            }
-        } catch (error) {
-            showError('Errore nell\'aggiornamento: ' + error.message);
-        }
-    };
-
-    // Mostra il modal
-    modal.style.display = 'block';
-
-    // Carica lo storico movimenti
-    loadMovementHistory(item.codice);
 }
 
-// Funzione per caricare lo storico movimenti
-async function loadMovementHistory(codice) {
+// Funzione di debug per verificare lo stato dell'applicazione
+function debugApp() {
+    console.log('=== DEBUG APP STATE ===');
+    console.log('Current View:', currentView);
+    console.log('Current Filter:', currentFilter);
+    console.log('Current Equipment ID:', currentEquipmentId);
+    console.log('Attrezzature loaded:', attrezzature.length);
+    console.log('Equipment Data:', equipmentData.length);
+    console.log('Locations Data:', locationsData.length);
+    console.log('API Base URL:', API_BASE_URL);
+    console.log('========================');
+}
+
+// Esponi la funzione di debug globalmente per test
+window.debugApp = debugApp;
+
+// ============================================================================
+// ERROR HANDLING E RECOVERY
+// ============================================================================
+
+// Gestione errori globale per promesse non catturate
+window.addEventListener('unhandledrejection', function(event) {
+    console.error('Unhandled promise rejection:', event.reason);
+    showError('Si è verificato un errore imprevisto. Prova a ricaricare la pagina.');
+    event.preventDefault();
+});
+
+// Gestione errori JavaScript globali
+window.addEventListener('error', function(event) {
+    console.error('Global error:', event.error);
+    showError('Si è verificato un errore. Alcune funzionalità potrebbero non funzionare correttamente.');
+});
+
+// ============================================================================
+// INITIALIZATION COMPLETE
+// ============================================================================
+
+console.log('Script SERES inizializzato correttamente');
+
+// Espone alcune funzioni utili per debugging
+window.SERES_DEBUG = {
+    loadData,
+    debugApp,
+    currentState: () => ({
+        currentView,
+        currentFilter,
+        currentEquipmentId,
+        attrezzature: attrezzature.length,
+        equipmentData: equipmentData.length,
+        locationsData: locationsData.length
+    })
+};
+
+// ============================================================================
+// FUNZIONI NOTE CHE FUNZIONANO
+// ============================================================================
+
+// Funzione semplificata e sicura per visualizzare le note
+window.simpleDisplayNotes = function(data) {
+    console.log('=== SIMPLE DISPLAY NOTES ===');
+    console.log('Data ricevuta:', data);
+    
+    const container = document.getElementById('notesHistory');
+    if (!container) {
+        console.error('Container non trovato!');
+        return;
+    }
+    
+    console.log('Container trovato:', container);
+    
+    if (!data || !data.length) {
+        container.innerHTML = '<p style="color: #666; font-style: italic;">Nessuna nota disponibile</p>';
+        return;
+    }
+    
+    let html = '';
+    data.forEach(note => {
+        const noteText = note.nota || 'Nota vuota';
+        const author = note.user_name || 'Utente sconosciuto';
+        const date = new Date(note.timestamp).toLocaleString('it-IT');
+        
+        html += `
+            <div style="background: white; border: 1px solid #e8e8e8; padding: 15px; margin-bottom: 12px; border-left: 4px solid #2196F3; border-radius: 6px;">
+                <div style="font-weight: 500; color: #333; font-size: 1em; line-height: 1.5; margin-bottom: 8px;">${escapeHtml(noteText)}</div>
+                <div style="font-size: 0.8em; color: #666; text-align: right; font-style: italic; border-top: 1px solid #f0f0f0; padding-top: 8px;">${escapeHtml(author)} - ${escapeHtml(date)}</div>
+            </div>
+        `;
+    });
+    
+    // Stili del container
+    container.style.maxHeight = '300px';
+    container.style.overflowY = 'auto';
+    container.style.border = '1px solid #e0e0e0';
+    container.style.borderRadius = '8px';
+    container.style.padding = '15px';
+    container.style.background = '#fafafa';
+    
+    container.innerHTML = html;
+    console.log('HTML inserito:', html.length, 'caratteri');
+};
+
+// Versione funzionante di loadNotesHistory
+window.fixedLoadNotesHistory = async function(codice) {
+    console.log('=== FIXED LOAD NOTES per codice:', codice, '===');
     try {
-        const response = await fetch(`${API_BASE_URL}?action=getMovementHistory&codice=${codice}`);
+        const response = await fetch(`${API_BASE_URL}?action=getNotesHistory&codice=${encodeURIComponent(codice)}`);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        
         const data = await response.json();
+        console.log('Dati API ricevuti:', data);
         
         if (data.success) {
-            const historyContainer = document.getElementById('movementHistory');
-            historyContainer.innerHTML = data.data.map(movement => `
-                <div class="movement-item">
-                    <div class="movement-date">${new Date(movement.timestamp).toLocaleString()}</div>
-                    <div class="movement-details">
-                        <strong>${movement.azione}</strong><br>
-                        ${movement.vecchia_ubicazione ? `Da: ${movement.vecchia_ubicazione}<br>` : ''}
-                        ${movement.nuova_ubicazione ? `A: ${movement.nuova_ubicazione}` : ''}
-                    </div>
-                </div>
-            `).join('') || '<p>Nessun movimento registrato</p>';
+            window.simpleDisplayNotes(data.data || []);
+        } else {
+            console.error('API error:', data.message);
+            const container = document.getElementById('notesHistory');
+            if (container) {
+                container.innerHTML = `<p style="color: #ff4444;">Errore: ${data.message}</p>`;
+            }
         }
     } catch (error) {
-        console.error('Errore nel caricamento dello storico:', error);
-        document.getElementById('movementHistory').innerHTML = 
-            '<p class="error-message">Errore nel caricamento dello storico</p>';
+        console.error('Errore caricamento note:', error);
+        const container = document.getElementById('notesHistory');
+        if (container) {
+            container.innerHTML = `<p style="color: #ff4444;">Errore di connessione: ${error.message}</p>`;
+        }
     }
-}
+};

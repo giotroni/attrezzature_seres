@@ -14,7 +14,9 @@ function importFromCSV($conn, $csvFile) {
         'skipped' => 0,
         'errors' => 0,
         'error_details' => array()
-    );    if (($handle = fopen($csvFile, "r")) !== FALSE) {
+    );
+    
+    if (($handle = fopen($csvFile, "r")) !== FALSE) {
         // Skip header row
         fgetcsv($handle, 0, ";");  // Specifica il punto e virgola come separatore
         
@@ -108,42 +110,57 @@ try {
         }
     }
 
-    // Crea tabella log
+    // Crea tabella log per gli spostamenti e le modifiche
     $sql = "CREATE TABLE IF NOT EXISTS log (
         id INT AUTO_INCREMENT PRIMARY KEY,
-        timestamp DATETIME NOT NULL,
+        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         user_name VARCHAR(100) NOT NULL,
-        azione VARCHAR(200) NOT NULL,
+        azione ENUM('spostamento', 'modifica_note') NOT NULL,
         tipo_oggetto VARCHAR(50) NOT NULL,
         codice VARCHAR(50) NOT NULL,
         vecchia_ubicazione VARCHAR(100),
         nuova_ubicazione VARCHAR(100),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        note_precedenti TEXT,
+        note_nuove TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (codice) REFERENCES attrezzature(codice) ON DELETE CASCADE
     )";
     $conn->exec($sql);
 
-    // Crea tabella LogEvent per il logging delle API
+    // NUOVA TABELLA: Crea tabella logNote per lo storico delle note (SEMPLIFICATA)
+    $sql = "CREATE TABLE IF NOT EXISTS logNote (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        user_name VARCHAR(100) NOT NULL,
+        codice VARCHAR(50) NOT NULL,
+        nota TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_codice (codice),
+        INDEX idx_timestamp (timestamp),
+        FOREIGN KEY (codice) REFERENCES attrezzature(codice) ON DELETE CASCADE
+    )";
+    $conn->exec($sql);
+
+    // Crea tabella LogEvent per log API
     $sql = "CREATE TABLE IF NOT EXISTS LogEvent (
         id INT AUTO_INCREMENT PRIMARY KEY,
-        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-        ip_address VARCHAR(45) NOT NULL,
-        request_method VARCHAR(10) NOT NULL,
-        api_endpoint VARCHAR(100) NOT NULL,
-        action VARCHAR(50) NOT NULL,
+        ip_address VARCHAR(45),
+        request_method VARCHAR(10),
+        api_endpoint VARCHAR(255),
+        action VARCHAR(50),
         request_data TEXT,
         response_code INT,
         response_data TEXT,
         error_message TEXT,
         execution_time FLOAT,
-        user_agent VARCHAR(255),
+        user_agent TEXT,
         status ENUM('success', 'error') NOT NULL,
-        INDEX idx_timestamp (timestamp),
-        INDEX idx_action (action),
-        INDEX idx_status (status)
-    ) ENGINE=InnoDB";
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )";
     $conn->exec($sql);
 
     echo "Database e tabelle create con successo!\n";
+    echo "Tabella logNote creata per lo storico delle note (versione semplificata)!\n";
 
     // Importa dati dal CSV se il file esiste
     $csvFile = __DIR__ . '/../INVENTARIO_SERES_copia.CSV';
