@@ -1,5 +1,3 @@
-<?php
-// Configurazione Database
 define('DB_HOST', 'localhost');     // Il tuo host MySQL
 define('DB_USER', 'jseresxg_tools_materials');         // Il tuo username MySQL
 define('DB_PASS', '^2xs!r][7WwO');             // La tua password MySQL
@@ -38,6 +36,76 @@ function logApiEvent($conn, $action, $requestData = null, $responseCode = null, 
             $needNewConnection = true;
         }
 
+<?php
+// --- CORS ROBUSTO: deve essere la PRIMA cosa eseguita, prima di qualunque output o require ---
+$allowed_origins = [
+    'https://php-v1--seres-tools.netlify.app',
+    'http://localhost',
+    'http://127.0.0.1'
+];
+$origin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '';
+if (in_array($origin, $allowed_origins)) {
+    header('Access-Control-Allow-Origin: ' . $origin);
+    header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type, Authorization');
+    header('Access-Control-Allow-Credentials: true');
+} else {
+    // Per debugging: consenti sempre localhost se non in elenco
+    if (strpos($origin, 'localhost') !== false || strpos($origin, '127.0.0.1') !== false) {
+        header('Access-Control-Allow-Origin: ' . $origin);
+        header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+        header('Access-Control-Allow-Headers: Content-Type, Authorization');
+        header('Access-Control-Allow-Credentials: true');
+    }
+}
+// Rispondi subito alle richieste OPTIONS (preflight) con header CORS
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    header('Content-Type: application/json');
+    http_response_code(200);
+    echo json_encode(['success' => true, 'message' => 'CORS preflight OK']);
+    exit;
+}
+
+// --- FINE CORS ---
+
+// Configurazione Database
+define('DB_HOST', 'localhost');     // Il tuo host MySQL
+define('DB_USER', 'jseresxg_tools_materials');         // Il tuo username MySQL
+define('DB_PASS', '^2xs!r][7WwO');             // La tua password MySQL
+define('DB_NAME', 'jseresxg_tools_materials');     // Il nome del database
+
+// Funzione per connessione al database
+function getConnection() {
+    try {
+        $conn = new PDO(
+            "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8",
+            DB_USER,
+            DB_PASS
+        );
+        $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        return $conn;
+    } catch(PDOException $e) {
+        logApiEvent(null, 'connection_error', null, 500, null, $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Errore di connessione: ' . $e->getMessage()]);
+        exit;
+    }
+}
+
+// Funzione per loggare gli eventi delle API
+function logApiEvent($conn, $action, $requestData = null, $responseCode = null, $responseData = null, $errorMessage = null) {
+    try {
+        // Se non abbiamo una connessione, creane una nuova
+        $needNewConnection = false;
+        if (!$conn) {
+            $conn = new PDO(
+                "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8",
+                DB_USER,
+                DB_PASS
+            );
+            $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            $needNewConnection = true;
+        }
         $stmt = $conn->prepare("
             INSERT INTO LogEvent (
                 ip_address,
@@ -110,27 +178,32 @@ $GLOBALS['api_start_time'] = microtime(true);
 // Definizione URL base API
 define('API_BASE_URL', 'https://seres.it/tools/php/api.php');
 
-// Abilita CORS per Netlify
+// --- CORS ROBUSTO PER API ESTERNE (NETLIFY) ---
 $allowed_origins = [
     'https://php-v1--seres-tools.netlify.app',
     'http://localhost',
     'http://127.0.0.1'
 ];
-
-// Ottieni l'origine della richiesta
 $origin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '';
-
-// Verifica se l'origine è tra quelle consentite
 if (in_array($origin, $allowed_origins)) {
     header('Access-Control-Allow-Origin: ' . $origin);
     header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
     header('Access-Control-Allow-Headers: Content-Type, Authorization');
     header('Access-Control-Allow-Credentials: true');
+} else {
+    // Per debugging: consenti sempre localhost se non in elenco
+    if (strpos($origin, 'localhost') !== false || strpos($origin, '127.0.0.1') !== false) {
+        header('Access-Control-Allow-Origin: ' . $origin);
+        header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+        header('Access-Control-Allow-Headers: Content-Type, Authorization');
+        header('Access-Control-Allow-Credentials: true');
+    }
 }
-
-// Gestisci le richieste OPTIONS per il CORS
+// Rispondi subito alle richieste OPTIONS (preflight) con header CORS
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    header('Content-Type: application/json');
     http_response_code(200);
+    echo json_encode(['success' => true, 'message' => 'CORS preflight OK']);
     exit;
 }
 ?>
