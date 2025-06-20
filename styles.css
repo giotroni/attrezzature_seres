@@ -1292,21 +1292,6 @@ textarea.form-input {
     }
 }
 
-/* Dark mode support (opzionale) */
-@media (prefers-color-scheme: dark) {
-    /* Uncomment if you want basic dark mode support
-    body {
-        background-color: #1a1a1a;
-        color: #e0e0e0;
-    }
-    
-    .modal-content {
-        background-color: #2d2d2d;
-        color: #e0e0e0;
-    }
-    */
-}
-
 /* Stampa */
 @media print {
     .header,
