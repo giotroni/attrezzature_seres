@@ -358,6 +358,13 @@ function initializeNewEquipmentForm() {
     const newEquipmentClose = document.getElementById('newEquipmentClose');
     const newEquipmentCancel = document.getElementById('newEquipmentCancel');
     const newEquipmentForm = document.getElementById('newEquipmentForm');
+    
+    // Gestione submit del form
+    if (newEquipmentForm) {
+        newEquipmentForm.addEventListener('submit', handleNewEquipmentSubmit);
+        console.log('[DEBUG] Event listener per submit del form nuova attrezzatura aggiunto');
+    }
+    
     const isNewCategoryCheckbox = document.getElementById('isNewCategoryCheckbox');
     const isNewTypeCheckbox = document.getElementById('isNewTypeCheckbox');
     const isNewLocationCheckboxForm = document.getElementById('isNewLocationCheckboxForm');
@@ -488,23 +495,52 @@ async function handleNewEquipmentSubmit(e) {
     formData.append('tipo', tipo.toUpperCase());
     formData.append('marca', marca);
     formData.append('ubicazione', ubicazione.toUpperCase());
-    formData.append('userName', userName);
-
-    try {
+    formData.append('userName', userName);    try {
         showLoadingOverlay('Creazione attrezzatura in corso...');
         
-        const params = new URLSearchParams(formData);
-        const response = await fetch(`php/api.php?action=createEquipment&${params.toString()}`);
+        console.log('[DEBUG] Dati form:', {
+            categoria: categoria.toUpperCase(),
+            tipo: tipo.toUpperCase(),
+            marca: marca,
+            ubicazione: ubicazione.toUpperCase(),
+            userName: userName
+        });
+
+        const params = {
+            action: 'createEquipment',
+            categoria: categoria.toUpperCase(),
+            tipo: tipo.toUpperCase(),
+            marca: marca,
+            ubicazione: ubicazione.toUpperCase(),
+            userName: userName
+        };
+
+        const queryString = new URLSearchParams(params).toString();
+        console.log('[DEBUG] URL API:', `${API_BASE_URL}?${queryString}`);
+        
+        const response = await fetch(`${API_BASE_URL}?${queryString}`, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Errore nella richiesta: ${response.status} ${response.statusText}`);
+        }
+
         const result = await response.json();
+        console.log('[DEBUG] Risposta API:', result);
 
         if (result.success) {
             showError(`✅ Attrezzatura creata con successo!\nCodice assegnato: ${result.codice}`);
             closeNewEquipmentModal();
-            loadData();
+            await loadData(); // Ricarica i dati dopo la creazione
         } else {
             throw new Error(result.message || 'Errore durante la creazione dell\'attrezzatura');
         }
     } catch (error) {
+        console.error('[ERROR] Creazione attrezzatura:', error);
         showError('❌ ' + error.message);
     } finally {
         hideLoadingOverlay();
