@@ -523,7 +523,7 @@ body {
     font-weight: 500;
 }
 
-/* Modal - VERSIONE AGGIORNATA PER MOBILE */
+/* MODAL - VERSIONE CORRETTA */
 .modal {
     position: fixed;
     top: 0;
@@ -532,11 +532,21 @@ body {
     bottom: 0;
     background: rgba(0,0,0,0.7);
     z-index: 1000;
-    display: none;
+    display: none; /* Nascosto di default */
     align-items: center;
     justify-content: center;
     padding: 20px;
-    overflow-y: auto; /* IMPORTANTE per mobile */
+    overflow-y: auto;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+/* Quando il modal è mostrato */
+.modal.show-modal {
+    display: flex !important;
+    opacity: 1 !important;
+    visibility: visible !important;
 }
 
 .modal-content {
@@ -547,7 +557,13 @@ body {
     max-height: 90vh;
     overflow-y: auto;
     position: relative;
-    margin: 20px auto; /* Ridotto margine per mobile */
+    margin: 20px auto;
+    transform: translateY(-20px);
+    transition: transform 0.3s ease;
+}
+
+.modal.show-modal .modal-content {
+    transform: translateY(0);
 }
 
 .detail-modal {
@@ -991,7 +1007,7 @@ textarea.form-input {
     }
 }
 
-/* RESPONSIVE DESIGN - VERSIONE AGGIORNATA CON FIX MOBILE */
+/* RESPONSIVE DESIGN */
 @media (max-width: 768px) {
     .header {
         padding: 12px 15px;
@@ -1021,11 +1037,11 @@ textarea.form-input {
         overflow: hidden;
     }
     
-    .modal {
-        padding: 10px !important;
+    .modal.show-modal {
+        display: flex !important;
         align-items: flex-start !important;
         justify-content: center !important;
-        display: flex !important;
+        padding: 10px !important;
     }
     
     .modal-content {
@@ -1158,6 +1174,10 @@ textarea.form-input {
     }
     
     /* MODAL PICCOLI SCHERMI */
+    .modal.show-modal {
+        display: flex !important;
+    }
+    
     .modal-content {
         width: 100% !important;
         margin: 5px !important;
@@ -1270,6 +1290,7 @@ textarea.form-input {
     }
     
     .form-input, .form-select {
+        appearance: none;
         -webkit-appearance: none;
         border-radius: 8px;
     }

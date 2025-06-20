@@ -118,6 +118,29 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+// DEBUG FUNCTIONS - AGGIUNTE PER RISOLUZIONE PROBLEMI
+function debugModalStatus() {
+    const modal = document.getElementById('detailModal');
+    console.log('[DEBUG MODAL]', {
+        exists: !!modal,
+        display: modal?.style.display,
+        className: modal?.className,
+        classList: modal?.classList.toString(),
+        visible: modal?.offsetHeight > 0,
+        computedStyle: modal ? window.getComputedStyle(modal).display : 'N/A'
+    });
+}
+
+function testModalOpen() {
+    console.log('[DEBUG] Test apertura modal...');
+    
+    if (attrezzature.length > 0) {
+        showEquipmentDetail(attrezzature[0].codice);
+    } else {
+        console.log('[DEBUG] Nessuna attrezzatura disponibile per test');
+    }
+}
+
 // ============================================================================
 // INITIALIZATION
 // ============================================================================
@@ -133,6 +156,10 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Avvia automaticamente il caricamento dei dati dal database
     loadData();
+    
+    // Esponi funzioni debug globalmente
+    window.debugModal = debugModalStatus;
+    window.testModal = testModalOpen;
 });
 
 function initializeEventListeners() {
@@ -167,7 +194,7 @@ function initializeEventListeners() {
         });
     }
 
-    // Modal functionality
+    // Modal functionality - FIX PRINCIPALE
     const closeDetailModalBtn = document.getElementById('closeDetailModal');
     if (closeDetailModalBtn) {
         closeDetailModalBtn.addEventListener('click', closeDetailModal);
@@ -223,10 +250,11 @@ function initializeEventListeners() {
     if (navCategoria) navCategoria.addEventListener('click', () => switchView('categoria'));
     if (navTipo) navTipo.addEventListener('click', () => switchView('tipo'));
 
-    // Modal close on outside click
+    // Modal close on outside click - FIX PRINCIPALE
     window.addEventListener('click', function(event) {
         const modal = document.getElementById('detailModal');
         if (event.target === modal) {
+            console.log('[DEBUG] Click esterno al modal, chiusura...');
             closeDetailModal();
         }
     });
@@ -333,12 +361,59 @@ function initializeNewEquipmentForm() {
     const isNewCategoryCheckbox = document.getElementById('isNewCategoryCheckbox');
     const isNewTypeCheckbox = document.getElementById('isNewTypeCheckbox');
     const isNewLocationCheckboxForm = document.getElementById('isNewLocationCheckboxForm');
+    const tipoSelect = document.getElementById('tipo');
+    const categoriaSelect = document.getElementById('categoria');
+
+    // Gestione click sul tipo senza categoria selezionata
+    if (tipoSelect) {
+        tipoSelect.addEventListener('click', () => {
+            if (!categoriaSelect.value && !isNewCategoryCheckbox.checked) {
+                showError('⚠️ Seleziona prima una categoria');
+                categoriaSelect.focus();
+            }
+        });
+    }
+
+    // Gestione checkbox categoria
+    if (isNewCategoryCheckbox) {
+        isNewCategoryCheckbox.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                // Se si seleziona nuova categoria, forza nuovo tipo
+                isNewTypeCheckbox.checked = true;
+                updateTypeSelect();
+            }
+            updateCategorySelect();
+        });
+    }
+    
+    // Gestione checkbox tipo
+    if (isNewTypeCheckbox) {
+        isNewTypeCheckbox.addEventListener('change', updateTypeSelect);
+    }
+    
+    // Gestione checkbox ubicazione
+    if (isNewLocationCheckboxForm) {
+        isNewLocationCheckboxForm.addEventListener('change', updateLocationSelectNewEquipment);
+    }
+
+    // Gestione cambio categoria
+    if (categoriaSelect) {
+        categoriaSelect.addEventListener('change', (e) => {
+            const selectedCategory = e.target.value;
+            if (selectedCategory && !isNewCategoryCheckbox.checked) {
+                updateTypesByCategory(selectedCategory);
+                // Reset tipo quando si cambia categoria
+                tipoSelect.value = '';
+            }
+        });
+    }
 
     // Apri il modal
     if (btnAddEquipment) {
         btnAddEquipment.addEventListener('click', () => {
-            newEquipmentModal.style.display = 'block';
-            // Aggiungi classe per mobile
+            console.log('[DEBUG] Apertura modal nuova attrezzatura');
+            newEquipmentModal.classList.add('show-modal');
+            newEquipmentModal.style.display = 'flex';
             document.body.classList.add('modal-open');
             updateCategorySelect();
             updateTypeSelect();
@@ -353,31 +428,6 @@ function initializeNewEquipmentForm() {
     
     if (newEquipmentCancel) {
         newEquipmentCancel.addEventListener('click', closeNewEquipmentModal);
-    }
-
-    // Gestione checkbox
-    if (isNewCategoryCheckbox) {
-        isNewCategoryCheckbox.addEventListener('change', updateCategorySelect);
-    }
-    
-    if (isNewTypeCheckbox) {
-        isNewTypeCheckbox.addEventListener('change', updateTypeSelect);
-    }
-    
-    if (isNewLocationCheckboxForm) {
-        isNewLocationCheckboxForm.addEventListener('change', updateLocationSelectNewEquipment);
-    }
-
-    // Chiudi il modal se si clicca fuori
-    window.addEventListener('click', (event) => {
-        if (event.target === newEquipmentModal) {
-            closeNewEquipmentModal();
-        }
-    });
-
-    // Gestione del form submission con validazione
-    if (newEquipmentForm) {
-        newEquipmentForm.addEventListener('submit', handleNewEquipmentSubmit);
     }
 }
 
@@ -512,6 +562,7 @@ function updateTypeSelect() {
     const newTypeInput = document.getElementById('newTypeInput');
     const existingTypeDiv = document.getElementById('existingTypeDiv');
     const tipoSelect = document.getElementById('tipo');
+    const categoriaSelect = document.getElementById('categoria');
 
     if (isNewType) {
         existingTypeDiv.style.display = 'none';
@@ -524,8 +575,14 @@ function updateTypeSelect() {
         newTypeInput.required = false;
         tipoSelect.required = true;
 
-        // Popola il select con i tipi esistenti
-        populateSelect('tipo', [...new Set(attrezzature.map(item => item.tipo))].sort());
+        // Aggiorna i tipi in base alla categoria selezionata
+        const selectedCategory = categoriaSelect.value;
+        if (selectedCategory) {
+            updateTypesByCategory(selectedCategory);
+        } else {
+            // Se nessuna categoria è selezionata, mostra tutti i tipi
+            populateSelect('tipo', [...new Set(attrezzature.map(item => item.tipo))].sort());
+        }
     }
 }
 
@@ -556,8 +613,10 @@ function closeNewEquipmentModal() {
     const newEquipmentModal = document.getElementById('newEquipmentModal');
     const newEquipmentForm = document.getElementById('newEquipmentForm');
     
+    console.log('[DEBUG] Chiusura modal nuova attrezzatura');
+    newEquipmentModal.classList.remove('show-modal');
     newEquipmentModal.style.display = 'none';
-    document.body.classList.remove('modal-open'); // Rimuovi classe mobile
+    document.body.classList.remove('modal-open');
     newEquipmentForm.reset();
 
     // Reset dei campi categoria
@@ -1010,20 +1069,34 @@ function showEquipmentList(filterType, filterValue) {
 }
 
 function attachEquipmentCardListeners() {
-    document.querySelectorAll('.equipment-card').forEach(card => {
-        card.addEventListener('click', function() {
-            const codice = this.dataset.codice;
-            if (codice) {
-                showEquipmentDetail(codice);
-            }
+    console.log('[DEBUG] Attaching equipment card listeners');
+    
+    document.querySelectorAll('.equipment-card').forEach((card, index) => {
+        const codice = card.dataset.codice;
+        console.log(`[DEBUG] Card ${index}: codice=${codice}`);
+        
+        if (!codice) {
+            console.warn(`[DEBUG] Card ${index} non ha attributo data-codice`);
+            return;
+        }
+        
+        card.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('[DEBUG] Click su card con codice:', codice);
+            showEquipmentDetail(codice);
         });
     });
 }
 
+// FUNZIONE PRINCIPALE CORRETTA - showEquipmentDetail
 function showEquipmentDetail(codice) {
+    console.log('[DEBUG] Apertura dettaglio per codice:', codice);
+    
     // Cerca l'attrezzatura nell'array delle attrezzature usando il codice
     const equipment = attrezzature.find(item => item.codice === codice);
     if (!equipment) {
+        console.error('[DEBUG] Attrezzatura non trovata per codice:', codice);
         showError('Attrezzatura non trovata');
         return;
     }
@@ -1043,13 +1116,23 @@ function showEquipmentDetail(codice) {
         modal: document.getElementById('detailModal')
     };
     
+    // Debug elementi
+    console.log('[DEBUG] Elementi DOM trovati:', {
+        codice: !!elements.codice,
+        categoria: !!elements.categoria,
+        tipo: !!elements.tipo,
+        marca: !!elements.marca,
+        ubicazione: !!elements.ubicazione,
+        modal: !!elements.modal
+    });
+    
     // Controlla che tutti gli elementi essenziali esistano
     const requiredElements = ['codice', 'categoria', 'tipo', 'marca', 'ubicazione', 'modal'];
     const missingElements = requiredElements.filter(key => !elements[key]);
     
     if (missingElements.length > 0) {
+        console.error('[DEBUG] Missing DOM elements:', missingElements);
         showError(`Errore: elementi mancanti nel DOM: ${missingElements.join(', ')}`);
-        console.error('Missing DOM elements:', missingElements);
         return;
     }
 
@@ -1079,9 +1162,20 @@ function showEquipmentDetail(codice) {
     // Aggiorna la lista delle ubicazioni disponibili per lo spostamento
     updateLocationSelect(equipment);
     
-    // Mostra il modal
-    elements.modal.style.display = 'block';
-    document.body.classList.add('modal-open'); // Aggiungi classe per mobile
+    // CORREZIONE PRINCIPALE: Usa le classi CSS invece di solo style.display
+    console.log('[DEBUG] Apertura modal...');
+    elements.modal.classList.add('show-modal');
+    elements.modal.style.display = 'flex';
+    elements.modal.style.opacity = '1';
+    elements.modal.style.visibility = 'visible';
+    document.body.classList.add('modal-open');
+    
+    // Debug stato modal dopo l'apertura
+    console.log('[DEBUG] Modal aperto:', {
+        display: elements.modal.style.display,
+        classes: elements.modal.className,
+        visible: elements.modal.offsetHeight > 0
+    });
     
     // Carica lo storico movimenti e note con un piccolo delay per assicurarsi che il modal sia renderizzato
     setTimeout(() => {
@@ -1090,11 +1184,18 @@ function showEquipmentDetail(codice) {
     }, 100);
 }
 
+// FUNZIONE CORRETTA - closeDetailModal
 function closeDetailModal() {
+    console.log('[DEBUG] Chiusura modal dettaglio');
+    
     const modal = document.getElementById('detailModal');
     if (modal) {
+        // CORREZIONE: Rimuovi classe e imposta display
+        modal.classList.remove('show-modal');
         modal.style.display = 'none';
-        document.body.classList.remove('modal-open'); // Rimuovi classe mobile
+        modal.style.opacity = '0';
+        modal.style.visibility = 'hidden';
+        document.body.classList.remove('modal-open');
     }
     
     // Reset della variabile globale
@@ -1213,7 +1314,7 @@ function handleNewLocationCheckbox() {
     const locationSelect = document.getElementById('newLocation');
     const locationInput = document.getElementById('newLocationInput');
     
-    console.log('Checkbox clicked, isNewLocation:', isNewLocation);
+    console.log('[DEBUG] Checkbox clicked, isNewLocation:', isNewLocation);
     
     if (isNewLocation) {
         // Mostra input, nascondi select
@@ -1509,4 +1610,46 @@ function updateLocationSelect(equipment) {
     }
 
     console.log('[DEBUG] Ubicazioni caricate nel select:', select.options.length - 1);
+}
+
+// Funzione per ottenere tutti i tipi di una specifica categoria
+function getTypesForCategory(category) {
+    return attrezzature
+        .filter(item => item.categoria === category)
+        .map(item => item.tipo)
+        .filter((value, index, self) => value && self.indexOf(value) === index)
+        .sort();
+}
+
+// Funzione per aggiornare i tipi in base alla categoria selezionata
+function updateTypesByCategory(category) {
+    const tipoSelect = document.getElementById('tipo');
+    const isNewTypeCheckbox = document.getElementById('isNewTypeCheckbox');
+    const newTypeInput = document.getElementById('newTypeInput');
+    const existingTypeDiv = document.getElementById('existingTypeDiv');
+
+    // Se è selezionato "nuovo tipo", non aggiorniamo la select
+    if (isNewTypeCheckbox.checked) {
+        return;
+    }
+
+    // Nascondi il campo input e mostra la select
+    newTypeInput.style.display = 'none';
+    existingTypeDiv.style.display = 'block';
+
+    // Svuota la select
+    tipoSelect.innerHTML = '<option value="">Seleziona tipo...</option>';
+
+    if (category) {
+        // Ottieni i tipi per la categoria selezionata
+        const tipi = getTypesForCategory(category);
+        
+        // Aggiungi le opzioni alla select
+        tipi.forEach(tipo => {
+            const option = document.createElement('option');
+            option.value = tipo;
+            option.textContent = tipo;
+            tipoSelect.appendChild(option);
+        });
+    }
 }
