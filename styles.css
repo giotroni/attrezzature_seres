@@ -523,7 +523,7 @@ body {
     font-weight: 500;
 }
 
-/* Modal */
+/* Modal - VERSIONE AGGIORNATA PER MOBILE */
 .modal {
     position: fixed;
     top: 0;
@@ -536,6 +536,7 @@ body {
     align-items: center;
     justify-content: center;
     padding: 20px;
+    overflow-y: auto; /* IMPORTANTE per mobile */
 }
 
 .modal-content {
@@ -546,6 +547,7 @@ body {
     max-height: 90vh;
     overflow-y: auto;
     position: relative;
+    margin: 20px auto; /* Ridotto margine per mobile */
 }
 
 .detail-modal {
@@ -553,41 +555,47 @@ body {
 }
 
 .modal-header {
-    background: linear-gradient(135deg, #8B2E1A 0%, #A53527 100%);
-    color: white;
-    padding: 20px;
-    border-radius: 15px 15px 0 0;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    position: sticky;
-    top: 0;
-    z-index: 10;
+    background: linear-gradient(135deg, #8B2E1A 0%, #A53527 100%) !important;
+    color: white !important;
+    padding: 20px !important;
+    border-radius: 15px 15px 0 0 !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 10 !important;
 }
 
-.modal-header h2 {
+.modal-header h2, .modal-header h3 {
     font-size: 1.3em;
     font-weight: 600;
     margin: 0;
+    color: white;
 }
 
 .modal-close {
-    background: none;
-    border: none;
-    color: white;
-    font-size: 1.5em;
-    cursor: pointer;
-    width: 30px;
-    height: 30px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    transition: all 0.3s ease;
+    background: none !important;
+    border: none !important;
+    color: white !important;
+    font-size: 1.5em !important;
+    cursor: pointer !important;
+    width: 30px !important;
+    height: 30px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 50% !important;
+    transition: all 0.3s ease !important;
 }
 
 .modal-close:hover {
-    background: rgba(255,255,255,0.2);
+    background: rgba(255,255,255,0.2) !important;
+    transform: scale(1.1) !important;
+}
+
+.modal-body {
+    padding: 20px;
 }
 
 /* Detail Sections */
@@ -731,7 +739,7 @@ textarea.form-input {
     margin-top: 20px;
 }
 
-.primary-button {
+.primary-button, .btn-primary {
     background: #8B2E1A;
     color: white;
     border: none;
@@ -746,14 +754,29 @@ textarea.form-input {
     gap: 8px;
 }
 
-.primary-button:hover {
+.primary-button:hover, .btn-primary:hover {
     background: #A53527;
     transform: translateY(-1px);
     box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
 
-.primary-button:active {
+.primary-button:active, .btn-primary:active {
     transform: translateY(0);
+}
+
+.btn-secondary {
+    background-color: #eee;
+    color: #333;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.95em;
+    transition: all 0.3s ease;
+}
+
+.btn-secondary:hover {
+    background-color: #ddd;
 }
 
 /* Movement History */
@@ -797,7 +820,7 @@ textarea.form-input {
     font-weight: 600;
 }
 
-/* Notes History - Stili aggiornati per il nuovo formato */
+/* Notes History - FIXED STYLES */
 .notes-list {
     max-height: 300px !important;
     overflow-y: auto !important;
@@ -807,49 +830,53 @@ textarea.form-input {
     background: #fafafa !important;
 }
 
-.notes-list .history-entry {
+.note-entry {
     background: white !important;
     border: 1px solid #e8e8e8 !important;
-    border-radius: 6px !important;
+    border-radius: 8px !important;
     padding: 15px !important;
     margin-bottom: 12px !important;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
-    border-left: 4px solid #2196F3 !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+    border-left: 4px solid #8B2E1A !important;
 }
 
-.notes-list .history-entry:last-child {
+.note-entry:last-child {
     margin-bottom: 0 !important;
 }
 
-/* Testo della nota - prominente */
-.notes-list .note-text {
-    display: block !important;
+.note-content {
+    margin-bottom: 10px !important;
+}
+
+.note-text {
     font-size: 1em !important;
     color: #333 !important;
     line-height: 1.5 !important;
-    margin-bottom: 8px !important;
     font-weight: 500 !important;
     word-wrap: break-word !important;
+    white-space: pre-wrap !important;
+    min-height: 20px !important;
 }
 
-/* Autore e data - più piccoli e discreti */
-.notes-list .note-author {
-    display: block !important;
+.note-metadata {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    border-top: 1px solid #f0f0f0 !important;
+    padding-top: 8px !important;
+    margin-top: 10px !important;
+}
+
+.note-author {
+    font-size: 0.85em !important;
+    color: #8B2E1A !important;
+    font-weight: 600 !important;
+}
+
+.note-date {
     font-size: 0.8em !important;
     color: #666 !important;
     font-style: italic !important;
-    border-top: 1px solid #f0f0f0 !important;
-    padding-top: 8px !important;
-    text-align: right !important;
-}
-
-/* Nascondi eventuali stili vecchi che potrebbero interferire */
-.notes-list .history-date {
-    display: none !important;
-}
-
-.notes-list .history-details {
-    display: none !important;
 }
 
 /* Migliore separazione tra sezioni */
@@ -863,6 +890,17 @@ textarea.form-input {
     color: #8B2E1A;
     margin-bottom: 15px;
     font-size: 1.1em;
+}
+
+/* VALIDAZIONE NOME UTENTE - Feedback visivo */
+.form-input.valid {
+    border-color: #4CAF50 !important;
+    box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2) !important;
+}
+
+.form-input.invalid {
+    border-color: #f44336 !important;
+    box-shadow: 0 0 0 2px rgba(244, 67, 54, 0.2) !important;
 }
 
 /* Loading Overlay */
@@ -942,113 +980,6 @@ textarea.form-input {
     background: #4CAF50 !important;
 }
 
-/* Modal Nuova Attrezzatura */
-.modal {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0,0,0,0.5);
-    z-index: 1000;
-}
-
-.modal-content {
-    position: relative;
-    background-color: #fefefe;
-    margin: 15% auto;
-    padding: 0;
-    border-radius: 8px;
-    width: 90%;
-    max-width: 500px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    animation: modalSlideIn 0.3s ease;
-}
-
-.modal-header {
-    padding: 15px 20px;
-    border-bottom: 1px solid #eee;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.modal-header h3 {
-    margin: 0;
-    color: #333;
-}
-
-.modal-close {
-    background: none;
-    border: none;
-    font-size: 20px;
-    cursor: pointer;
-    color: #666;
-}
-
-.modal-body {
-    padding: 20px;
-}
-
-.form-group {
-    margin-bottom: 15px;
-}
-
-.form-group label {
-    display: block;
-    margin-bottom: 5px;
-    color: #555;
-    font-weight: bold;
-}
-
-.form-group input {
-    width: 100%;
-    padding: 8px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    box-sizing: border-box;
-}
-
-.form-group input:focus {
-    border-color: #8B2E1A;
-    outline: none;
-    box-shadow: 0 0 0 2px rgba(139, 46, 26, 0.1);
-}
-
-.form-actions {
-    margin-top: 20px;
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-}
-
-.btn-primary {
-    background-color: #8B2E1A;
-    color: white;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 4px;
-    cursor: pointer;
-}
-
-.btn-secondary {
-    background-color: #eee;
-    color: #333;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 4px;
-    cursor: pointer;
-}
-
-.btn-primary:hover {
-    background-color: #702517;
-}
-
-.btn-secondary:hover {
-    background-color: #ddd;
-}
-
 @keyframes modalSlideIn {
     from {
         transform: translateY(-10%);
@@ -1060,7 +991,7 @@ textarea.form-input {
     }
 }
 
-/* Responsive Design */
+/* RESPONSIVE DESIGN - VERSIONE AGGIORNATA CON FIX MOBILE */
 @media (max-width: 768px) {
     .header {
         padding: 12px 15px;
@@ -1085,9 +1016,31 @@ textarea.form-input {
         margin-bottom: 70px;
     }
     
+    /* MODAL MOBILE FIX */
+    body.modal-open {
+        overflow: hidden;
+    }
+    
+    .modal {
+        padding: 10px !important;
+        align-items: flex-start !important;
+        justify-content: center !important;
+        display: flex !important;
+    }
+    
     .modal-content {
-        margin: 10px;
-        max-height: calc(100vh - 20px);
+        margin: 10px auto !important;
+        width: 98% !important;
+        max-width: none !important;
+        max-height: calc(100vh - 20px) !important;
+        overflow-y: auto !important;
+        border-radius: 8px !important;
+    }
+    
+    .modal-body {
+        padding: 15px !important;
+        max-height: calc(100vh - 120px) !important;
+        overflow-y: auto !important;
     }
     
     .detail-section {
@@ -1109,9 +1062,20 @@ textarea.form-input {
         justify-content: stretch;
     }
     
-    .primary-button {
+    .primary-button, .btn-primary {
         width: 100%;
         justify-content: center;
+    }
+    
+    .form-group {
+        margin-bottom: 15px;
+    }
+    
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        font-size: 16px !important; /* Previene zoom su iOS */
+        padding: 12px !important;
     }
     
     .nav-icon {
@@ -1134,15 +1098,21 @@ textarea.form-input {
         padding: 10px;
     }
     
-    .notes-list .history-entry, .movement-list .history-entry {
+    .note-entry, .history-entry {
         padding: 10px;
     }
     
-    .notes-list .history-date, .movement-list .history-date {
+    .note-metadata {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 4px !important;
+    }
+    
+    .history-date {
         font-size: 0.8em;
     }
     
-    .notes-list .history-details, .movement-list .history-details {
+    .history-details {
         font-size: 0.85em;
     }
     
@@ -1187,12 +1157,26 @@ textarea.form-input {
         font-size: 1em;
     }
     
-    .modal-header {
-        padding: 15px;
+    /* MODAL PICCOLI SCHERMI */
+    .modal-content {
+        width: 100% !important;
+        margin: 5px !important;
+        border-radius: 0 !important;
+        height: 100vh !important;
     }
     
-    .modal-header h2 {
-        font-size: 1.2em;
+    .modal-body {
+        padding: 10px !important;
+        height: calc(100vh - 80px) !important;
+        overflow-y: auto !important;
+    }
+    
+    .modal-header {
+        padding: 15px !important;
+    }
+    
+    .modal-header h2, .modal-header h3 {
+        font-size: 1.2em !important;
     }
     
     .about-modal h2 {
@@ -1201,6 +1185,42 @@ textarea.form-input {
     
     .slide-menu {
         width: 240px;
+    }
+    
+    .note-text {
+        font-size: 0.95em !important;
+    }
+    
+    .note-author {
+        font-size: 0.8em !important;
+    }
+    
+    .note-date {
+        font-size: 0.75em !important;
+    }
+    
+    /* Migliora la leggibilità sui piccoli schermi */
+    .form-group label {
+        font-size: 14px !important;
+        font-weight: 600 !important;
+    }
+    
+    .checkbox-group label {
+        font-size: 13px !important;
+    }
+    
+    .form-actions {
+        position: sticky !important;
+        bottom: 0 !important;
+        background: white !important;
+        padding: 15px 0 !important;
+        border-top: 1px solid #eee !important;
+        margin-top: 20px !important;
+    }
+    
+    .btn-secondary {
+        padding: 8px 16px !important;
+        font-size: 0.9em !important;
     }
 }
 
@@ -1235,5 +1255,84 @@ textarea.form-input {
     }
     to {
         opacity: 1;
+    }
+}
+
+/* Fix specifici per iOS e Android */
+@supports (-webkit-touch-callout: none) {
+    /* iOS Safari specific fixes */
+    .modal {
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .modal-content {
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .form-input, .form-select {
+        -webkit-appearance: none;
+        border-radius: 8px;
+    }
+    
+    .form-select {
+        background-image: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 5'%3E%3Cpath fill='%23666' d='M2 0L0 2h4zm0 5L0 3h4z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        background-size: 12px;
+        padding-right: 40px;
+    }
+}
+
+/* Accessibilità */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* Dark mode support (opzionale) */
+@media (prefers-color-scheme: dark) {
+    /* Uncomment if you want basic dark mode support
+    body {
+        background-color: #1a1a1a;
+        color: #e0e0e0;
+    }
+    
+    .modal-content {
+        background-color: #2d2d2d;
+        color: #e0e0e0;
+    }
+    */
+}
+
+/* Stampa */
+@media print {
+    .header,
+    .bottom-nav,
+    .menu-overlay,
+    .slide-menu,
+    .search-overlay,
+    .loading-overlay,
+    .error-message {
+        display: none !important;
+    }
+    
+    .container {
+        margin: 0;
+        padding: 0;
+    }
+    
+    .modal {
+        position: static !important;
+        background: none !important;
+        padding: 0 !important;
+    }
+    
+    .modal-content {
+        box-shadow: none !important;
+        border: 1px solid #ccc !important;
+        border-radius: 0 !important;
     }
 }

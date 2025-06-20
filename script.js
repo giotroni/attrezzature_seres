@@ -87,6 +87,37 @@ function validateNewLocation(location) {
     return { valid: true, formatted: formattedLocation };
 }
 
+// Funzione per validare il nome utente (minimo 4 caratteri)
+function validateUserName(userName, fieldName = "Nome utente") {
+    if (!userName || userName.trim().length === 0) {
+        return { valid: false, message: `${fieldName} è obbligatorio` };
+    }
+    
+    const cleanUserName = userName.trim();
+    
+    if (cleanUserName.length < 4) {
+        return { valid: false, message: `${fieldName} deve contenere almeno 4 caratteri` };
+    }
+    
+    if (cleanUserName.length > 50) {
+        return { valid: false, message: `${fieldName} non può superare i 50 caratteri` };
+    }
+    
+    // Verifica che contenga almeno una lettera (non solo numeri/simboli)
+    if (!/[a-zA-Z]/.test(cleanUserName)) {
+        return { valid: false, message: `${fieldName} deve contenere almeno una lettera` };
+    }
+    
+    return { valid: true, formatted: cleanUserName.toUpperCase() };
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 // ============================================================================
 // INITIALIZATION
 // ============================================================================
@@ -96,6 +127,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Inizializza tutti gli event listeners
     initializeEventListeners();
+    
+    // Applica il feedback visivo per la validazione
+    addRealTimeFeedback();
     
     // Avvia automaticamente il caricamento dei dati dal database
     loadData();
@@ -135,13 +169,18 @@ function initializeEventListeners() {
 
     // Modal functionality
     const closeDetailModalBtn = document.getElementById('closeDetailModal');
-    if (closeDetailModalBtn) closeDetailModalBtn.addEventListener('click', closeDetailModal);
+    if (closeDetailModalBtn) {
+        closeDetailModalBtn.addEventListener('click', closeDetailModal);
+        console.log('[DEBUG] Event listener per chiusura modal aggiunto');
+    } else {
+        console.error('[DEBUG] Bottone closeDetailModal non trovato!');
+    }
 
     // Refresh button
     const btnRefresh = document.getElementById('btnRefresh');
     if (btnRefresh) btnRefresh.addEventListener('click', loadData);
     
-    // Forms event listeners
+    // Forms event listeners con validazione
     const moveForm = document.getElementById('moveForm');
     if (moveForm) {
         moveForm.addEventListener('submit', function(e) {
@@ -165,20 +204,15 @@ function initializeEventListeners() {
     }
 
     // Auto-maiuscolo per i campi nome utente
-    const userNameField = document.getElementById('userName');
-    const noteUserNameField = document.getElementById('noteUserName');
-    
-    if (userNameField) {
-        userNameField.addEventListener('input', function(e) {
-            this.value = this.value.toUpperCase();
-        });
-    }
-    
-    if (noteUserNameField) {
-        noteUserNameField.addEventListener('input', function(e) {
-            this.value = this.value.toUpperCase();
-        });
-    }
+    const userNameFields = ['userName', 'noteUserName', 'userNameForm'];
+    userNameFields.forEach(fieldId => {
+        const field = document.getElementById(fieldId);
+        if (field) {
+            field.addEventListener('input', function(e) {
+                this.value = this.value.toUpperCase();
+            });
+        }
+    });
     
     // Bottom navigation
     const navUbicazione = document.getElementById('navUbicazione');
@@ -195,118 +229,64 @@ function initializeEventListeners() {
         if (event.target === modal) {
             closeDetailModal();
         }
-    });    // About Modal
+    });
+    
+    // About Modal
     initializeAboutModal();
 
     // Gestione Modal Nuova Attrezzatura
-    initializeNewEquipmentForm(); // Inizializza il form una volta che il DOM è caricato
+    initializeNewEquipmentForm();
+    
+    // Debug elementi modal
+    debugModalElements();
+    
+    console.log('✅ Validazione nome utente e fix mobile applicati');
+}
 
-    // Setup Modal Nuova Attrezzatura
-    const newEquipmentModal = document.getElementById('newEquipmentModal');
-    const btnAddEquipment = document.getElementById('btnAddEquipment');
-    const newEquipmentClose = document.getElementById('newEquipmentClose');
-    const newEquipmentCancel = document.getElementById('newEquipmentCancel');
-    const newEquipmentForm = document.getElementById('newEquipmentForm');
-    const isNewCategoryCheckbox = document.getElementById('isNewCategoryCheckbox');
-    const isNewTypeCheckbox = document.getElementById('isNewTypeCheckbox');    // Apri il modal
-    btnAddEquipment.addEventListener('click', () => {
-        newEquipmentModal.style.display = 'block';
-        updateCategorySelect(); // Popola le categorie esistenti
-        updateTypeSelect(); // Popola i tipi esistenti
-        updateLocationSelectNewEquipment(); // Popola le ubicazioni esistenti
-    });    // Gestione checkbox nuova categoria
-    isNewCategoryCheckbox.addEventListener('change', updateCategorySelect);    // Gestione checkbox nuovo tipo e nuova ubicazione
-    document.getElementById('isNewTypeCheckbox')?.addEventListener('change', updateTypeSelect);
-    document.getElementById('isNewLocationCheckbox')?.addEventListener('change', function() {
-        const isNewLocation = this.checked;
-        const newLocationInput = document.getElementById('newLocationInput');
-        const existingLocationDiv = document.getElementById('existingLocationDiv');
-        const ubicazioneSelect = document.getElementById('ubicazione');
-
-        if (isNewLocation) {
-            existingLocationDiv.style.display = 'none';
-            newLocationInput.style.display = 'block';
-            newLocationInput.required = true;
-            ubicazioneSelect.required = false;
+// Debug per verificare che gli elementi esistano
+function debugModalElements() {
+    const elements = {
+        modal: document.getElementById('detailModal'),
+        closeBtn: document.getElementById('closeDetailModal'),
+        notesHistory: document.getElementById('notesHistory')
+    };
+    
+    console.log('[DEBUG] Elementi modal:', elements);
+    
+    Object.entries(elements).forEach(([name, element]) => {
+        if (!element) {
+            console.error(`[DEBUG] Elemento ${name} non trovato!`);
         } else {
-            existingLocationDiv.style.display = 'block';
-            newLocationInput.style.display = 'none';
-            newLocationInput.required = false;
-            ubicazioneSelect.required = true;
-            
-            // Popola il select con le ubicazioni esistenti
-            ubicazioneSelect.innerHTML = '<option value="">Seleziona ubicazione...</option>' +
-                locationsData.sort().map(location => `<option value="${escapeHtml(location)}">${escapeHtml(location)}</option>`).join('');
+            console.log(`[DEBUG] Elemento ${name} trovato:`, element);
         }
     });
+}
 
-    // Chiudi il modal se si clicca fuori
-    window.addEventListener('click', (event) => {
-        if (event.target === newEquipmentModal) {
-            closeNewEquipmentModal();
-        }
-    });
-
-    // Gestione del form
-    newEquipmentForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-
-        const formData = new FormData();
-        
-        // Gestione categoria (esistente o nuova)
-        const isNewCategory = document.getElementById('isNewCategoryCheckbox').checked;
-        const categoria = isNewCategory 
-            ? document.getElementById('newCategoryInput').value.trim()
-            : document.getElementById('categoria').value.trim();
-        
-        if (!categoria) {
-            alert('La categoria è obbligatoria');
-            return;
-        }
-
-        // Gestione tipo (esistente o nuovo)
-        const isNewType = document.getElementById('isNewTypeCheckbox').checked;
-        const tipo = isNewType 
-            ? document.getElementById('newTypeInput').value.trim()
-            : document.getElementById('tipo').value.trim();
-        
-        if (!tipo) {
-            alert('Il tipo è obbligatorio');
-            return;
-        }        // Gestione ubicazione (esistente o nuova)
-        const isNewLocation = document.getElementById('isNewLocationCheckbox').checked;
-        const ubicazione = isNewLocation 
-            ? document.getElementById('newLocationInput').value.trim()
-            : document.getElementById('ubicazione').value.trim();
-        
-        if (!ubicazione) {
-            alert('L\'ubicazione è obbligatoria');
-            return;
-        }
-
-        formData.append('categoria', categoria.toUpperCase());
-        formData.append('tipo', tipo.toUpperCase());
-        formData.append('marca', document.getElementById('marca').value);
-        formData.append('ubicazione', ubicazione.toUpperCase());
-        formData.append('userName', document.getElementById('userName').value.toUpperCase());
-
-        try {
-            // Costruisci l'URL con i parametri
-            const params = new URLSearchParams(formData);
-            const response = await fetch(`php/api.php?action=createEquipment&${params.toString()}`);
-            const result = await response.json();
-
-            if (result.success) {
-                // Mostra un messaggio di successo
-                alert(`Attrezzatura creata con successo!\nCodice assegnato: ${result.codice}`);
-                closeNewEquipmentModal();
-                // Aggiorna la vista
-                loadData();
-            } else {
-                throw new Error(result.message || 'Errore durante la creazione dell\'attrezzatura');
-            }
-        } catch (error) {
-            alert(error.message);
+// Visual feedback in tempo reale per i campi nome utente
+function addRealTimeFeedback() {
+    const userNameFields = ['userName', 'noteUserName', 'userNameForm'];
+    
+    userNameFields.forEach(fieldId => {
+        const field = document.getElementById(fieldId);
+        if (field) {
+            field.addEventListener('input', function() {
+                const validation = validateUserName(this.value, 'Nome');
+                
+                // Rimuovi classi esistenti
+                this.classList.remove('valid', 'invalid');
+                
+                if (this.value.length > 0) {
+                    if (validation.valid) {
+                        this.classList.add('valid');
+                        this.style.borderColor = '#4CAF50';
+                    } else {
+                        this.classList.add('invalid');
+                        this.style.borderColor = '#f44336';
+                    }
+                } else {
+                    this.style.borderColor = '#e0e0e0';
+                }
+            });
         }
     });
 }
@@ -336,6 +316,148 @@ function initializeAboutModal() {
                 menuOverlay.style.display = 'none';
             }
         });
+    }
+}
+
+// ============================================================================
+// NEW EQUIPMENT FORM MANAGEMENT
+// ============================================================================
+
+function initializeNewEquipmentForm() {
+    // Setup Modal Nuova Attrezzatura
+    const newEquipmentModal = document.getElementById('newEquipmentModal');
+    const btnAddEquipment = document.getElementById('btnAddEquipment');
+    const newEquipmentClose = document.getElementById('newEquipmentClose');
+    const newEquipmentCancel = document.getElementById('newEquipmentCancel');
+    const newEquipmentForm = document.getElementById('newEquipmentForm');
+    const isNewCategoryCheckbox = document.getElementById('isNewCategoryCheckbox');
+    const isNewTypeCheckbox = document.getElementById('isNewTypeCheckbox');
+    const isNewLocationCheckboxForm = document.getElementById('isNewLocationCheckboxForm');
+
+    // Apri il modal
+    if (btnAddEquipment) {
+        btnAddEquipment.addEventListener('click', () => {
+            newEquipmentModal.style.display = 'block';
+            // Aggiungi classe per mobile
+            document.body.classList.add('modal-open');
+            updateCategorySelect();
+            updateTypeSelect();
+            updateLocationSelectNewEquipment();
+        });
+    }
+
+    // Chiudi il modal
+    if (newEquipmentClose) {
+        newEquipmentClose.addEventListener('click', closeNewEquipmentModal);
+    }
+    
+    if (newEquipmentCancel) {
+        newEquipmentCancel.addEventListener('click', closeNewEquipmentModal);
+    }
+
+    // Gestione checkbox
+    if (isNewCategoryCheckbox) {
+        isNewCategoryCheckbox.addEventListener('change', updateCategorySelect);
+    }
+    
+    if (isNewTypeCheckbox) {
+        isNewTypeCheckbox.addEventListener('change', updateTypeSelect);
+    }
+    
+    if (isNewLocationCheckboxForm) {
+        isNewLocationCheckboxForm.addEventListener('change', updateLocationSelectNewEquipment);
+    }
+
+    // Chiudi il modal se si clicca fuori
+    window.addEventListener('click', (event) => {
+        if (event.target === newEquipmentModal) {
+            closeNewEquipmentModal();
+        }
+    });
+
+    // Gestione del form submission con validazione
+    if (newEquipmentForm) {
+        newEquipmentForm.addEventListener('submit', handleNewEquipmentSubmit);
+    }
+}
+
+async function handleNewEquipmentSubmit(e) {
+    e.preventDefault();
+
+    // Validazione nome utente
+    const userNameRaw = document.getElementById('userNameForm').value;
+    const userNameValidation = validateUserName(userNameRaw);
+    
+    if (!userNameValidation.valid) {
+        showError('⚠️ ' + userNameValidation.message);
+        document.getElementById('userNameForm').focus();
+        return;
+    }
+    
+    const userName = userNameValidation.formatted;
+
+    // Resto della validazione...
+    const isNewCategory = document.getElementById('isNewCategoryCheckbox').checked;
+    const categoria = isNewCategory 
+        ? document.getElementById('newCategoryInput').value.trim()
+        : document.getElementById('categoria').value.trim();
+    
+    if (!categoria) {
+        showError('⚠️ La categoria è obbligatoria');
+        return;
+    }
+
+    const isNewType = document.getElementById('isNewTypeCheckbox').checked;
+    const tipo = isNewType 
+        ? document.getElementById('newTypeInput').value.trim()
+        : document.getElementById('tipo').value.trim();
+    
+    if (!tipo) {
+        showError('⚠️ Il tipo è obbligatorio');
+        return;
+    }
+
+    const isNewLocation = document.getElementById('isNewLocationCheckboxForm').checked;
+    const ubicazione = isNewLocation 
+        ? document.getElementById('newLocationInputForm').value.trim()
+        : document.getElementById('ubicazione').value.trim();
+    
+    if (!ubicazione) {
+        showError('⚠️ L\'ubicazione è obbligatoria');
+        return;
+    }
+
+    const marca = document.getElementById('marca').value.trim();
+    if (!marca) {
+        showError('⚠️ La marca/modello è obbligatoria');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('categoria', categoria.toUpperCase());
+    formData.append('tipo', tipo.toUpperCase());
+    formData.append('marca', marca);
+    formData.append('ubicazione', ubicazione.toUpperCase());
+    formData.append('userName', userName);
+
+    try {
+        showLoadingOverlay('Creazione attrezzatura in corso...');
+        
+        const params = new URLSearchParams(formData);
+        const response = await fetch(`php/api.php?action=createEquipment&${params.toString()}`);
+        const result = await response.json();
+
+        if (result.success) {
+            showError(`✅ Attrezzatura creata con successo!\nCodice assegnato: ${result.codice}`);
+            closeNewEquipmentModal();
+            loadData();
+        } else {
+            throw new Error(result.message || 'Errore durante la creazione dell\'attrezzatura');
+        }
+    } catch (error) {
+        showError('❌ ' + error.message);
+    } finally {
+        hideLoadingOverlay();
     }
 }
 
@@ -409,8 +531,8 @@ function updateTypeSelect() {
 
 // Funzione per aggiornare la select delle ubicazioni nel form nuova attrezzatura
 function updateLocationSelectNewEquipment() {
-    const isNewLocation = document.getElementById('isNewLocationCheckbox').checked;
-    const newLocationInput = document.getElementById('newLocationInput');
+    const isNewLocation = document.getElementById('isNewLocationCheckboxForm').checked;
+    const newLocationInput = document.getElementById('newLocationInputForm');
     const existingLocationDiv = document.getElementById('existingLocationDiv');
     const ubicazioneSelect = document.getElementById('ubicazione');
 
@@ -430,44 +552,28 @@ function updateLocationSelectNewEquipment() {
     }
 }
 
-// Funzione per inizializzare i campi del form nuova attrezzatura
-function initializeNewEquipmentForm() {
-    try {
-        console.log('Initializing new equipment form...');
-        
-        // Reset dei campi
-        const newInputs = ['newCategoryInput', 'newTypeInput', 'newLocationInput'];
-        const existingDivs = ['existingCategoryDiv', 'existingTypeDiv', 'existingLocationDiv'];
-        const checkboxes = ['isNewCategoryCheckbox', 'isNewTypeCheckbox', 'isNewLocationCheckbox'];
-        
-        newInputs.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.style.display = 'none';
-        });
-        
-        existingDivs.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.style.display = 'block';
-        });
-        
-        checkboxes.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.checked = false;
-        });
+function closeNewEquipmentModal() {
+    const newEquipmentModal = document.getElementById('newEquipmentModal');
+    const newEquipmentForm = document.getElementById('newEquipmentForm');
+    
+    newEquipmentModal.style.display = 'none';
+    document.body.classList.remove('modal-open'); // Rimuovi classe mobile
+    newEquipmentForm.reset();
 
-        // Popola i select solo se abbiamo i dati
-        if (attrezzature && attrezzature.length > 0) {
-            updateCategorySelect();
-            updateTypeSelect();
-            updateLocationSelectNewEquipment();
-        } else {
-            console.log('Warning: No data available to populate selects');
-        }
-        
-        console.log('Form initialized successfully');
-    } catch (error) {
-        console.error('Error initializing form:', error);
-    }
+    // Reset dei campi categoria
+    document.getElementById('newCategoryInput').style.display = 'none';
+    document.getElementById('existingCategoryDiv').style.display = 'block';
+    document.getElementById('isNewCategoryCheckbox').checked = false;
+
+    // Reset dei campi tipo
+    document.getElementById('newTypeInput').style.display = 'none';
+    document.getElementById('existingTypeDiv').style.display = 'block';
+    document.getElementById('isNewTypeCheckbox').checked = false;
+
+    // Reset dei campi ubicazione
+    document.getElementById('newLocationInputForm').style.display = 'none';
+    document.getElementById('existingLocationDiv').style.display = 'block';
+    document.getElementById('isNewLocationCheckboxForm').checked = false;
 }
 
 // ============================================================================
@@ -578,10 +684,6 @@ async function loadMovementHistory(codice) {
     }
 }
 
-// ============================================================================
-// HISTORY FUNCTIONS
-// ============================================================================
-
 async function loadNotesHistory(codice) {
     try {
         console.log('[DEBUG] Chiamata API loadNotesHistory per codice:', codice);
@@ -593,17 +695,22 @@ async function loadNotesHistory(codice) {
             }
         });
 
+        console.log('[DEBUG] Response status:', response.status);
+
         if (!response.ok) {
             throw new Error(`Errore nella richiesta: ${response.status} ${response.statusText}`);
         }
 
         const data = await response.json();
+        console.log('[DEBUG] Dati note ricevuti:', data);
+        
         if (!data.success) {
             throw new Error(data.message || 'Errore nel caricamento dello storico note');
         }
 
         // Aggiorna lo storico delle note
         notesLog = data.data || [];
+        console.log('[DEBUG] Note caricate:', notesLog);
         
         // Visualizza lo storico
         displayNotesHistory(notesLog);
@@ -611,24 +718,16 @@ async function loadNotesHistory(codice) {
         return true;
     } catch (error) {
         console.error('[DEBUG] Errore nel caricamento storico note:', error);
-        showError('❌ ' + error.message);
+        
+        // Mostra messaggio di errore nel container
+        const notesHistoryContainer = document.getElementById('notesHistory');
+        if (notesHistoryContainer) {
+            notesHistoryContainer.innerHTML = `<p style="color: #ff4444;">Errore nel caricamento delle note: ${error.message}</p>`;
+        }
+        
         return false;
     }
 }
-
-// Versione fixed della funzione loadNotesHistory
-async function fixedLoadNotesHistory(codice) {
-    try {
-        await loadNotesHistory(codice);
-        return true;
-    } catch (error) {
-        console.error('[DEBUG] Errore in fixedLoadNotesHistory:', error);
-        return false;
-    }
-}
-
-// Esponi la funzione fixed globalmente
-window.fixedLoadNotesHistory = fixedLoadNotesHistory;
 
 // ============================================================================
 // UI FUNCTIONS
@@ -767,13 +866,6 @@ function renderTypeView(container) {
             '<div class="card-items">' + type.locations.slice(0, 3).map(escapeHtml).join(', ') + (type.locations.length > 3 ? '...' : '') + '</div>' +
         '</div>';
     }).join('');
-}
-
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
 }
 
 // ============================================================================
@@ -928,7 +1020,8 @@ function attachEquipmentCardListeners() {
     });
 }
 
-function showEquipmentDetail(codice) {    // Cerca l'attrezzatura nell'array delle attrezzature usando il codice
+function showEquipmentDetail(codice) {
+    // Cerca l'attrezzatura nell'array delle attrezzature usando il codice
     const equipment = attrezzature.find(item => item.codice === codice);
     if (!equipment) {
         showError('Attrezzatura non trovata');
@@ -950,9 +1043,6 @@ function showEquipmentDetail(codice) {    // Cerca l'attrezzatura nell'array del
         modal: document.getElementById('detailModal')
     };
     
-    // Popola il select delle ubicazioni nel form di spostamento
-    updateLocationSelectMove(locationsData);
-
     // Controlla che tutti gli elementi essenziali esistano
     const requiredElements = ['codice', 'categoria', 'tipo', 'marca', 'ubicazione', 'modal'];
     const missingElements = requiredElements.filter(key => !elements[key]);
@@ -991,19 +1081,12 @@ function showEquipmentDetail(codice) {    // Cerca l'attrezzatura nell'array del
     
     // Mostra il modal
     elements.modal.style.display = 'block';
+    document.body.classList.add('modal-open'); // Aggiungi classe per mobile
     
     // Carica lo storico movimenti e note con un piccolo delay per assicurarsi che il modal sia renderizzato
     setTimeout(() => {
-        console.log('[DEBUG] Timeout - Chiamata loadMovementHistory per:', equipment.codice);
         loadMovementHistory(equipment.codice);
-        
-        console.log('[DEBUG] Timeout - Chiamata FIXED loadNotesHistory per:', equipment.codice);
-        // USA LA VERSIONE CHE FUNZIONA
-        if (typeof window.fixedLoadNotesHistory === 'function') {
-            window.fixedLoadNotesHistory(equipment.codice);
-        } else {
-            console.error('fixedLoadNotesHistory non trovata!');
-        }
+        loadNotesHistory(equipment.codice);
     }, 100);
 }
 
@@ -1011,6 +1094,7 @@ function closeDetailModal() {
     const modal = document.getElementById('detailModal');
     if (modal) {
         modal.style.display = 'none';
+        document.body.classList.remove('modal-open'); // Rimuovi classe mobile
     }
     
     // Reset della variabile globale
@@ -1019,6 +1103,7 @@ function closeDetailModal() {
     // Reset dei campi del form se esistono
     const formElements = {
         newLocation: document.getElementById('newLocation'),
+        newLocationInput: document.getElementById('newLocationInput'),
         detailNote: document.getElementById('detailNote'),
         userName: document.getElementById('userName'),
         noteUserName: document.getElementById('noteUserName')
@@ -1028,41 +1113,22 @@ function closeDetailModal() {
     Object.values(formElements).forEach(element => {
         if (element) {
             element.value = '';
+            // Reset anche delle classi di validazione
+            element.classList.remove('valid', 'invalid');
+            element.style.borderColor = '#e0e0e0';
         }
     });
 
-    // Reset del checkbox
+    // Reset del checkbox e ripristina visualizzazione
     const checkbox = document.getElementById('isNewLocationCheckbox');
-    if (checkbox) checkbox.checked = false;
-}
-
-function closeNewEquipmentModal() {
-    const newEquipmentModal = document.getElementById('newEquipmentModal');
-    const newEquipmentForm = document.getElementById('newEquipmentForm');
-    
-    newEquipmentModal.style.display = 'none';
-    newEquipmentForm.reset();
-
-    // Reset dei campi categoria
-    document.getElementById('newCategoryInput').style.display = 'none';
-    document.getElementById('existingCategoryDiv').style.display = 'block';
-
-    // Reset dei campi tipo
-    document.getElementById('newTypeInput').style.display = 'none';
-    document.getElementById('existingTypeDiv').style.display = 'block';
-
-    // Reset dei campi ubicazione
-    document.getElementById('newLocationInput').style.display = 'none';
-    document.getElementById('existingLocationDiv').style.display = 'block';
-
-    // Aggiorna i select con i dati esistenti
-    updateCategorySelect();
-    updateTypeSelect();
-    updateLocationSelectNewEquipment();
+    if (checkbox) {
+        checkbox.checked = false;
+        handleNewLocationCheckbox(); // Ripristina la visualizzazione corretta
+    }
 }
 
 // ============================================================================
-// HISTORY DISPLAY FUNCTIONS
+// HISTORY DISPLAY FUNCTIONS - FIXED
 // ============================================================================
 
 function displayMovementHistory(history) {
@@ -1100,45 +1166,36 @@ function displayMovementHistory(history) {
 
 function displayNotesHistory(history) {
     const notesHistoryContainer = document.getElementById('notesHistory');
-    if (!notesHistoryContainer) return;
+    if (!notesHistoryContainer) {
+        console.error('Container notesHistory non trovato!');
+        return;
+    }
+
+    console.log('[DEBUG] Visualizzazione storico note:', history);
 
     if (!history || history.length === 0) {
         notesHistoryContainer.innerHTML = '<p style="color: #666; font-style: italic;">Nessuno storico note disponibile</p>';
         return;
     }
 
-    const rows = history.map(entry => {
+    // Ordina le note per data (più recenti prima)
+    const sortedHistory = history.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    const rows = sortedHistory.map(entry => {
         const date = new Date(entry.timestamp).toLocaleString('it-IT');
-        let details = '';
-        let icon = '';
         
-        switch(entry.azione) {
-            case 'creazione':
-                icon = '✏️';
-                details = `<strong>${escapeHtml(entry.user_name)}</strong> ha aggiunto una nota:<br>"${escapeHtml(entry.nota_nuova || '')}"`;
-                break;
-            case 'modifica':
-                icon = '📝';
-                details = `<strong>${escapeHtml(entry.user_name)}</strong> ha modificato una nota:<br>`;
-                if (entry.nota_precedente && entry.nota_nuova) {
-                    details += `Da: "${escapeHtml(entry.nota_precedente)}"<br>A: "${escapeHtml(entry.nota_nuova)}"`;
-                } else if (entry.nota_nuova) {
-                    details += `Nuova nota: "${escapeHtml(entry.nota_nuova)}"`;
-                }
-                break;
-            case 'cancellazione':
-                icon = '🗑️';
-                details = `<strong>${escapeHtml(entry.user_name)}</strong> ha rimosso la nota:<br>"${escapeHtml(entry.nota_precedente || '')}"`;
-                break;
-            default:
-                icon = '📄';
-                details = `<strong>${escapeHtml(entry.user_name)}</strong> - ${escapeHtml(entry.azione)}`;
-        }
+        // Cerca il contenuto della nota in diversi campi possibili
+        const noteContent = entry.nota_nuova || entry.note || entry.nota || entry.contenuto || '';
         
         return `
-            <div class="history-entry" data-action="${escapeHtml(entry.azione)}">
-                <div class="history-date">${icon} ${escapeHtml(date)}</div>
-                <div class="history-details">${details}</div>
+            <div class="note-entry">
+                <div class="note-content">
+                    <div class="note-text">${escapeHtml(noteContent)}</div>
+                </div>
+                <div class="note-metadata">
+                    <span class="note-author">📝 ${escapeHtml(entry.user_name || 'Utente sconosciuto')}</span>
+                    <span class="note-date">${escapeHtml(date)}</span>
+                </div>
             </div>
         `;
     });
@@ -1147,8 +1204,33 @@ function displayNotesHistory(history) {
 }
 
 // ============================================================================
-// FORM HANDLING FUNCTIONS
+// FORM HANDLING FUNCTIONS - FIXED CON VALIDAZIONE
 // ============================================================================
+
+// Funzione FIXED per gestire il checkbox nuova ubicazione nel modal di dettaglio
+function handleNewLocationCheckbox() {
+    const isNewLocation = document.getElementById('isNewLocationCheckbox').checked;
+    const locationSelect = document.getElementById('newLocation');
+    const locationInput = document.getElementById('newLocationInput');
+    
+    console.log('Checkbox clicked, isNewLocation:', isNewLocation);
+    
+    if (isNewLocation) {
+        // Mostra input, nascondi select
+        locationSelect.style.display = 'none';
+        locationSelect.required = false;
+        locationInput.style.display = 'block';
+        locationInput.required = true;
+        locationInput.focus();
+    } else {
+        // Mostra select, nascondi input
+        locationSelect.style.display = 'block';
+        locationSelect.required = true;
+        locationInput.style.display = 'none';
+        locationInput.required = false;
+        locationInput.value = ''; // Reset dell'input
+    }
+}
 
 async function moveEquipment() {
     // Verifica che currentEquipmentId sia definito
@@ -1157,17 +1239,30 @@ async function moveEquipment() {
         return;
     }
 
-    let newLocation = document.getElementById('newLocation')?.value?.trim();
-    const userName = document.getElementById('userName')?.value?.trim();
     const isNewLocation = document.getElementById('isNewLocationCheckbox')?.checked || false;
+    let newLocation;
     
-    console.log('[DEBUG] Avvio spostamento - codice:', currentEquipmentId, 'nuova ubicazione:', newLocation);
-    console.log('[DEBUG] Verifica campi - userName:', userName, 'newLocation:', newLocation);
+    if (isNewLocation) {
+        newLocation = document.getElementById('newLocationInput')?.value?.trim();
+    } else {
+        newLocation = document.getElementById('newLocation')?.value?.trim();
+    }
     
-    if (!userName) {
-        showError('⚠️ Inserisci il tuo nome');
+    const userNameRaw = document.getElementById('userName')?.value;
+    
+    // Validazione nome utente
+    const userNameValidation = validateUserName(userNameRaw);
+    if (!userNameValidation.valid) {
+        showError('⚠️ ' + userNameValidation.message);
         const userNameField = document.getElementById('userName');
         if (userNameField) userNameField.focus();
+        return;
+    }
+    
+    const userName = userNameValidation.formatted;
+
+    if (!newLocation) {
+        showError('⚠️ ' + (isNewLocation ? 'Inserisci una nuova ubicazione' : 'Seleziona una ubicazione'));
         return;
     }
 
@@ -1186,11 +1281,6 @@ async function moveEquipment() {
             locationsData.push(newLocation);
             locationsData.sort();
         }
-    } else if (!newLocation) {
-        showError('⚠️ Seleziona una ubicazione');
-        const locationField = document.getElementById('newLocation');
-        if (locationField) locationField.focus();
-        return;
     }
     
     try {
@@ -1248,13 +1338,22 @@ async function moveEquipment() {
         // Reset del form spostamento
         const formElements = {
             newLocation: document.getElementById('newLocation'),
+            newLocationInput: document.getElementById('newLocationInput'),
             userName: document.getElementById('userName'),
             checkbox: document.getElementById('isNewLocationCheckbox')
         };
         
         if (formElements.newLocation) formElements.newLocation.value = '';
-        if (formElements.userName) formElements.userName.value = '';
-        if (formElements.checkbox) formElements.checkbox.checked = false;
+        if (formElements.newLocationInput) formElements.newLocationInput.value = '';
+        if (formElements.userName) {
+            formElements.userName.value = '';
+            formElements.userName.classList.remove('valid', 'invalid');
+            formElements.userName.style.borderColor = '#e0e0e0';
+        }
+        if (formElements.checkbox) {
+            formElements.checkbox.checked = false;
+            handleNewLocationCheckbox(); // Ripristina la visualizzazione corretta
+        }
 
         // Aggiorna il select delle ubicazioni per riflettere la nuova ubicazione corrente
         const equipment = attrezzature.find(item => item.codice === currentEquipmentId);
@@ -1279,14 +1378,18 @@ async function updateEquipmentNotes() {
     }
 
     const noteText = document.getElementById('detailNote')?.value || '';
-    const userName = document.getElementById('noteUserName')?.value?.trim();
+    const userNameRaw = document.getElementById('noteUserName')?.value;
     
-    if (!userName) {
-        showError('⚠️ Inserisci il tuo nome');
+    // Validazione nome utente
+    const userNameValidation = validateUserName(userNameRaw);
+    if (!userNameValidation.valid) {
+        showError('⚠️ ' + userNameValidation.message);
         const userNameField = document.getElementById('noteUserName');
         if (userNameField) userNameField.focus();
         return;
     }
+    
+    const userName = userNameValidation.formatted;
     
     try {
         showLoadingOverlay('Salvataggio note...');
@@ -1330,7 +1433,9 @@ async function updateEquipmentNotes() {
             if (equipIndex !== -1) {
                 equipmentData[equipIndex].note = noteText;
             }
-        }        // Ricarica lo storico note e movimenti per vedere le modifiche
+        }
+
+        // Ricarica lo storico note e movimenti per vedere le modifiche
         try {
             await Promise.all([
                 loadNotesHistory(currentEquipmentId),
@@ -1341,8 +1446,14 @@ async function updateEquipmentNotes() {
         }
 
         // Reset del form note
+        const detailNoteField = document.getElementById('detailNote');
         const noteUserNameField = document.getElementById('noteUserName');
-        if (noteUserNameField) noteUserNameField.value = '';
+        if (detailNoteField) detailNoteField.value = '';
+        if (noteUserNameField) {
+            noteUserNameField.value = '';
+            noteUserNameField.classList.remove('valid', 'invalid');
+            noteUserNameField.style.borderColor = '#e0e0e0';
+        }
 
         showError('✅ Note salvate con successo');
 
@@ -1358,91 +1469,16 @@ async function updateEquipmentNotes() {
 // LOCATION MANAGEMENT FUNCTIONS
 // ============================================================================
 
-function handleNewLocationCheckbox() {
-    const isNewLocation = document.getElementById('isNewLocationCheckbox').checked;
-    const locationContainer = document.getElementById('existingLocationDiv');
-    const select = document.getElementById('newLocation');
-    
-    if (isNewLocation) {
-        // Converti il select in input
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.id = 'newLocation';
-        input.className = 'form-input';
-        input.required = true;
-        input.placeholder = 'Inserisci nuova ubicazione';
-        input.style.textTransform = 'uppercase';
-        select.parentNode.replaceChild(input, select);
-    } else {
-        // Riconverti l'input in select
-        const select = document.createElement('select');
-        select.id = 'newLocation';
-        select.className = 'form-select';
-        select.required = true;
-        
-        const currentInput = document.getElementById('newLocation');
-        currentInput.parentNode.replaceChild(select, currentInput);
-        
-        // Aggiorna il select con le ubicazioni
-        updateLocationSelect(attrezzature.find(a => a.codice === currentEquipmentId));
-    }
-}
-
-// Gestione della selezione ubicazione nel form nuova attrezzatura
-function updateLocationSelectNewEquipment() {
-    const isNewLocation = document.getElementById('isNewLocationCheckbox').checked;
-    const newLocationInput = document.getElementById('newLocationInput');
-    const existingLocationDiv = document.getElementById('existingLocationDiv');
-    const ubicazioneSelect = document.getElementById('ubicazione');
-    
-    console.log('updateLocationSelectNewEquipment called, isNewLocation:', isNewLocation);
-    
-    if (isNewLocation) {
-        existingLocationDiv.style.display = 'none';
-        newLocationInput.style.display = 'block';
-        newLocationInput.required = true;
-        ubicazioneSelect.required = false;
-    } else {
-        existingLocationDiv.style.display = 'block';
-        newLocationInput.style.display = 'none';
-        newLocationInput.required = false;
-        ubicazioneSelect.required = true;
-        
-        // Popola il select con le ubicazioni esistenti
-        ubicazioneSelect.innerHTML = '<option value="">Seleziona ubicazione...</option>';
-        if (locationsData && locationsData.length > 0) {
-            const locations = locationsData.sort();
-            locations.forEach(location => {
-                ubicazioneSelect.innerHTML += `<option value="${escapeHtml(location)}">${escapeHtml(location)}</option>`;
-            });
-        } else {
-            // Fallback sulle ubicazioni delle attrezzature esistenti
-            const locations = [...new Set(attrezzature.map(item => item.ubicazione))].sort();
-            locations.forEach(location => {
-                if (location) {
-                    ubicazioneSelect.innerHTML += `<option value="${escapeHtml(location)}">${escapeHtml(location)}</option>`;
-                }
-            });
-        }
-    }
-}
-
-// Funzione per aggiornare la select delle ubicazioni nel form di dettaglio
+// Funzione per aggiornare il select delle ubicazioni nel modal di dettaglio
 function updateLocationSelect(equipment) {
     const select = document.getElementById('newLocation');
     if (!select) return;
 
     // Resetta il checkbox di nuova ubicazione
     const checkbox = document.getElementById('isNewLocationCheckbox');
-    if (checkbox) checkbox.checked = false;
-
-    // Se è un input (nuova ubicazione), riconvertilo in select
-    if (select.tagName.toLowerCase() === 'input') {
-        const newSelect = document.createElement('select');
-        newSelect.id = 'newLocation';
-        newSelect.className = 'form-select';
-        newSelect.required = true;
-        select.parentNode.replaceChild(newSelect, select);
+    if (checkbox) {
+        checkbox.checked = false;
+        handleNewLocationCheckbox(); // Assicura la visualizzazione corretta
     }
 
     // Pulisci il select
@@ -1473,20 +1509,4 @@ function updateLocationSelect(equipment) {
     }
 
     console.log('[DEBUG] Ubicazioni caricate nel select:', select.options.length - 1);
-}
-
-// Funzione per aggiornare la select delle ubicazioni nel form di spostamento
-function updateLocationSelectMove(existingLocations) {
-    const ubicazioneSelect = document.getElementById('moveLocation');
-    if (!ubicazioneSelect) return;
-
-    ubicazioneSelect.innerHTML = '<option value="">Seleziona ubicazione...</option>';
-    existingLocations.forEach(location => {
-        if (location) {
-            const option = document.createElement('option');
-            option.value = location;
-            option.textContent = location;
-            ubicazioneSelect.appendChild(option);
-        }
-    });
 }

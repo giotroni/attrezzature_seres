@@ -145,7 +145,8 @@
 
             <!-- Form Note -->
             <div class="detail-section edit-section">
-                <h3>Aggiungi Nota</h3>                <form id="updateNotesForm" class="detail-form">
+                <h3>Aggiungi Nota</h3>
+                <form id="updateNotesForm" class="detail-form">
                     <div class="form-group">
                         <label for="detailNote">Nuova Nota:</label>
                         <textarea id="detailNote" class="form-input note-textarea" rows="2" placeholder="Scrivi una nuova nota..."></textarea>
@@ -170,22 +171,29 @@
 
             <!-- Sezione Spostamento -->
             <div class="detail-section move-section">
-                <h3>Sposta Attrezzatura</h3>                <form id="moveForm" class="detail-form">
+                <h3>Sposta Attrezzatura</h3>
+                <form id="moveForm" class="detail-form">
                     <input type="hidden" id="currentLocation">
+                    
                     <div class="form-group">
                         <label for="newLocation">Nuova Ubicazione:</label>
-                        <div class="select-with-add" id="existingLocationDiv">
-                            <select id="newLocation" class="form-select" required>
-                                <option value="">Seleziona ubicazione...</option>
-                            </select>
-                        </div>
+                        <!-- Select per ubicazioni esistenti -->
+                        <select id="newLocation" class="form-select" required style="display: block;">
+                            <option value="">Seleziona ubicazione...</option>
+                        </select>
+                        <!-- Input per nuova ubicazione (inizialmente nascosto) -->
+                        <input type="text" id="newLocationInput" class="form-input" 
+                               style="display: none; text-transform: uppercase;" 
+                               placeholder="Inserisci nuova ubicazione">
                     </div>
+                    
                     <div class="form-group checkbox-group">
                         <label>
                             <input type="checkbox" id="isNewLocationCheckbox">
                             Nuova Ubicazione
                         </label>
                     </div>
+                    
                     <div class="form-group">
                         <label for="userName">Il tuo nome:</label>
                         <input type="text" id="userName" class="form-input" required placeholder="INSERISCI IL TUO NOME" style="text-transform: uppercase;">
@@ -266,21 +274,21 @@
                                 <option value="">Seleziona ubicazione...</option>
                             </select>
                         </div>
-                        <input type="text" id="newLocationInput" name="newLocation"
+                        <input type="text" id="newLocationInputForm" name="newLocation"
                                style="display: none; text-transform: uppercase;"
                                placeholder="Inserisci nuova ubicazione"
                                class="form-input">
                     </div>
                     <div class="form-group checkbox-group">
                         <label>
-                            <input type="checkbox" id="isNewLocationCheckbox">
+                            <input type="checkbox" id="isNewLocationCheckboxForm">
                             Nuova Ubicazione
                         </label>
                     </div>
 
                     <div class="form-group">
-                        <label for="userName">Nome Utente:</label>
-                        <input type="text" id="userName" name="userName" required 
+                        <label for="userNameForm">Nome Utente:</label>
+                        <input type="text" id="userNameForm" name="userName" required 
                                style="text-transform: uppercase;" 
                                placeholder="Es: MARIO ROSSI">
                     </div>
