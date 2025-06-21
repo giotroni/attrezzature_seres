@@ -33,7 +33,8 @@
         <div class="menu-header">
             <h3>Menu</h3>
             <button class="menu-close" id="menuClose">✕</button>
-        </div>        <div class="menu-content">
+        </div>
+        <div class="menu-content">
             <h4 style="margin: 25px 0 15px; color: #333;">⚙️ Azioni</h4>
             <button class="menu-item" id="btnAddEquipment">
                 🛠️ Nuova Attrezzatura
@@ -50,37 +51,90 @@
 
     <!-- About Modal -->
     <div class="about-modal" id="aboutModal">
-        <button class="about-close" id="aboutClose">✕</button>
-        <h2>📱 Gestione Attrezzature SERES</h2>
+        <button class="about-close" id="aboutClose">✕</button>        <h2>📱 Gestione Attrezzature SERES</h2>
         
         <h3>🎯 Scopo dell'applicazione</h3>
-        <p>Questa applicazione permette di gestire e tracciare tutte le attrezzature SERES, mantenendo uno storico dei movimenti e facilitando la ricerca degli strumenti.</p>
+        <p>Questa applicazione permette di gestire e tracciare tutte le attrezzature SERES, mantenendo uno storico dei movimenti e delle note, facilitando la ricerca e la gestione degli strumenti.</p>
 
-        <h3>🔍 Come utilizzare l'app</h3>
+        <h3>🔍 Visualizzazione e Ricerca</h3>
         <ul>
-            <li><strong>Visualizzazione:</strong> È possibile visualizzare le attrezzature per ubicazione, categoria o tipo utilizzando il menu in alto.</li>
-            <li><strong>Ricerca:</strong> Usa la barra di ricerca per trovare rapidamente un'attrezzatura specifica. La ricerca funziona su codice, tipo, marca/modello, ubicazione e categoria.</li>
-            <li><strong>Dettagli:</strong> Clicca su un'attrezzatura per vedere tutti i dettagli e lo storico dei movimenti.</li>
-            <li><strong>Spostamenti:</strong> Nella vista dettaglio, puoi registrare lo spostamento di un'attrezzatura in una nuova ubicazione.</li>
-        </ul>        <h3>➕ Gestione dati</h3>
+            <li><strong>Viste principali:</strong> Puoi visualizzare le attrezzature per:
+                <ul>
+                    <li>📍 <strong>Ubicazione</strong> - Dove si trovano gli strumenti</li>
+                    <li>📂 <strong>Categoria</strong> - Raggruppate per tipo di strumento</li>
+                    <li>🔧 <strong>Tipo</strong> - Organizzate per funzione</li>
+                </ul>
+            </li>
+            <li><strong>Ricerca avanzata:</strong> Usa la barra di ricerca (🔍) per trovare rapidamente attrezzature per:
+                <ul>
+                    <li>Codice identificativo</li>
+                    <li>Categoria o tipo</li>
+                    <li>Marca/modello</li>
+                    <li>Ubicazione attuale</li>
+                </ul>
+            </li>
+        </ul>
+        
+        <h3>➕ Gestione Attrezzature</h3>
         <ul>
-            <li><strong>Nuova Ubicazione:</strong> Puoi aggiungere una nuova ubicazione durante lo spostamento di un'attrezzatura.</li>
-            <li><strong>Nuova Attrezzatura:</strong> Registra una nuova attrezzatura nel sistema.</li>
-            <li><strong>Aggiorna Dati:</strong> Sincronizza i dati con il foglio Google Sheets.</li>
+            <li><strong>Nuova Attrezzatura:</strong>
+                <ul>
+                    <li>Seleziona una categoria esistente o creane una nuova</li>
+                    <li>Se selezioni una categoria esistente, visualizzerai solo i tipi associati</li>
+                    <li>Per una nuova categoria, dovrai inserire anche un nuovo tipo</li>
+                    <li>Specifica marca/modello e ubicazione</li>
+                    <li>Il codice viene generato automaticamente dal sistema</li>
+                </ul>
+            </li>
+            <li><strong>Scheda Dettaglio:</strong>
+                <ul>
+                    <li>Visualizza tutte le informazioni dell'attrezzatura</li>
+                    <li>Controlla lo storico completo dei movimenti</li>
+                    <li>Aggiungi e visualizza note tecniche o commenti</li>
+                    <li>Registra spostamenti tra ubicazioni</li>
+                </ul>
+            </li>
+            <li><strong>Gestione Ubicazioni:</strong>
+                <ul>
+                    <li>Scegli tra ubicazioni esistenti</li>
+                    <li>Aggiungi nuove ubicazioni durante spostamenti o inserimenti</li>
+                    <li>Tracciamento automatico di tutti i movimenti</li>
+                </ul>
+            </li>
         </ul>
 
-        <h3>💡 Suggerimenti</h3>
+        <h3>📝 Note e Movimenti</h3>
         <ul>
-            <li>Usa il pulsante di ricerca per filtrare rapidamente le attrezzature.</li>
-            <li>Controlla sempre l'ubicazione attuale prima di cercare un'attrezzatura.</li>
-            <li>Registra sempre i movimenti delle attrezzature per mantenere uno storico accurato.</li>
+            <li><strong>Sistema di Note:</strong>
+                <ul>
+                    <li>Aggiungi note tecniche o commenti a ogni attrezzatura</li>
+                    <li>Visualizza cronologia completa delle note</li>
+                    <li>Ogni nota registra autore e data</li>
+                </ul>
+            </li>
+            <li><strong>Tracciamento Movimenti:</strong>
+                <ul>
+                    <li>Storico completo di tutti gli spostamenti</li>
+                    <li>Registrazione automatica di data, utente e ubicazioni</li>
+                    <li>Verifica rapida dell'ubicazione attuale</li>
+                </ul>
+            </li>
+        </ul>
+
+        <h3>💡 Suggerimenti Utili</h3>
+        <ul>
+            <li><strong>Ricerca efficiente:</strong> Usa la funzione di ricerca per trovare rapidamente qualsiasi attrezzatura</li>
+            <li><strong>Validazione dati:</strong> Tutti i campi vengono controllati per garantire dati corretti e completi</li>
+            <li><strong>Aggiornamenti:</strong> Usa il pulsante 🔄 per sincronizzare i dati con il database</li>
+            <li><strong>Sicurezza:</strong> Inserisci sempre il tuo nome per tracciare le modifiche</li>
+            <li><strong>Note:</strong> Usa le note per segnalare stati, problemi o informazioni importanti</li>
         </ul>
     </div>
     
     <div class="container">
         <div class="view-content" id="viewContent">
             <div class="loading">
-                <p>🔄 Caricamento dati da Google Sheets...</p>
+                <p>🔄 Caricamento dati dal database...</p>
                 <div style="margin-top: 20px;">
                     <div style="width: 100%; background: #e0e0e0; border-radius: 10px; overflow: hidden;">
                         <div id="loadingBar" style="width: 0%; height: 4px; background: #8B2E1A; transition: width 0.3s ease;"></div>
@@ -108,51 +162,202 @@
 
     <!-- Modal Dettaglio Attrezzatura -->
     <div id="detailModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content detail-modal">
             <div class="modal-header">
-                <span class="close-btn" id="closeDetailModal">&times;</span>
-                <h2 id="modalTitle">Dettaglio Attrezzatura</h2>
+                <h2>Dettaglio Attrezzatura</h2>
+                <button class="modal-close" id="closeDetailModal">✕</button>
             </div>
-            <div class="modal-body">
-                <div id="equipmentDetails"></div>
-                
-                <div class="move-section">
-                    <h3 style="margin-bottom: 15px;">🚚 Sposta Attrezzatura</h3>                    <div class="form-group">
-                        <label class="form-label">Nuova Ubicazione</label>
-                        <div class="location-input-group">
-                            <div id="existingLocationDiv">
-                                <select class="form-select" id="newLocation">
-                                    <option value="">Seleziona ubicazione...</option>
-                                </select>
-                            </div>
-                            <div class="new-location-checkbox">
-                                <input type="checkbox" id="isNewLocationCheckbox" style="margin-right: 5px;">
-                                <label for="isNewLocationCheckbox">Nuova ubicazione</label>
-                            </div>
-                        </div>
+            
+            <!-- Info Principali -->
+            <div class="detail-section">
+                <div class="detail-info">
+                    <div class="info-group">
+                        <label>Codice:</label>
+                        <span id="detailCodice"></span>
+                    </div>
+                    <div class="info-group">
+                        <label>Categoria:</label>
+                        <span id="detailCategoria"></span>
+                    </div>
+                    <div class="info-group">
+                        <label>Tipo:</label>
+                        <span id="detailTipo"></span>
+                    </div>
+                    <div class="info-group">
+                        <label>Marca/Modello:</label>
+                        <span id="detailMarca"></span>
+                    </div>
+                    <div class="info-group">
+                        <label>Ubicazione Attuale:</label>
+                        <span id="detailUbicazione"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Form Note -->
+            <div class="detail-section edit-section">
+                <h3>Aggiungi Nota</h3>
+                <form id="updateNotesForm" class="detail-form">
+                    <div class="form-group">
+                        <label for="detailNote">Nuova Nota:</label>
+                        <textarea id="detailNote" class="form-input note-textarea" rows="2" placeholder="Scrivi una nuova nota..."></textarea>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Il tuo Nome</label>
-                        <input type="text" class="form-input" id="userName" placeholder="Inserisci il tuo nome">
+                        <label for="noteUserName">Il tuo nome:</label>
+                        <input type="text" id="noteUserName" class="form-input" required placeholder="INSERISCI IL TUO NOME" style="text-transform: uppercase;">
                     </div>
-                    <button class="btn" id="moveEquipmentBtn">Sposta Attrezzatura</button>
-                </div>
+                    <div class="form-actions">
+                        <button type="submit" class="primary-button">💾 Salva Nota</button>
+                    </div>
+                </form>
+            </div>
 
-                <div class="history-section">
-                    <h3 style="margin-bottom: 15px;">📋 Storico Spostamenti</h3>
-                    <div id="movementHistory"></div>
+            <!-- Storico Note -->
+            <div class="detail-section history-section">
+                <h3>Storico Note</h3>
+                <div id="notesHistory" class="notes-list">
+                    <p style="color: #666; font-style: italic;">Caricamento storico note...</p>
+                </div>
+            </div>
+
+            <!-- Sezione Spostamento -->
+            <div class="detail-section move-section">
+                <h3>Sposta Attrezzatura</h3>
+                <form id="moveForm" class="detail-form">
+                    <input type="hidden" id="currentLocation">
+                    
+                    <div class="form-group">
+                        <label for="newLocation">Nuova Ubicazione:</label>
+                        <!-- Select per ubicazioni esistenti -->
+                        <select id="newLocation" class="form-select" required style="display: block;">
+                            <option value="">Seleziona ubicazione...</option>
+                        </select>
+                        <!-- Input per nuova ubicazione (inizialmente nascosto) -->
+                        <input type="text" id="newLocationInput" class="form-input" 
+                               style="display: none; text-transform: uppercase;" 
+                               placeholder="Inserisci nuova ubicazione">
+                    </div>
+                    
+                    <div class="form-group checkbox-group">
+                        <label>
+                            <input type="checkbox" id="isNewLocationCheckbox">
+                            Nuova Ubicazione
+                        </label>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="userName">Il tuo nome:</label>
+                        <input type="text" id="userName" class="form-input" required placeholder="INSERISCI IL TUO NOME" style="text-transform: uppercase;">
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="primary-button">📦 Sposta</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Storico Movimenti -->
+            <div class="detail-section history-section">
+                <h3>Storico Movimenti</h3>
+                <div id="movementHistory" class="movement-list">
+                    <p style="color: #666; font-style: italic;">Caricamento storico...</p>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Modal Nuova Attrezzatura -->
+    <div class="modal" id="newEquipmentModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>🛠️ Nuova Attrezzatura</h3>
+                <button class="modal-close" id="newEquipmentClose">✕</button>
+            </div>
+            <div class="modal-body">
+                <form id="newEquipmentForm">
+                    <div class="form-group">
+                        <label for="categoria">Categoria:</label>
+                        <div class="select-with-add" id="existingCategoryDiv">
+                            <select id="categoria" name="categoria" class="form-select" required>
+                                <option value="">Seleziona categoria...</option>
+                            </select>
+                        </div>
+                        <input type="text" id="newCategoryInput" name="newCategory"
+                               style="display: none; text-transform: uppercase;"
+                               placeholder="Inserisci nuova categoria"
+                               class="form-input">
+                    </div>
+                    <div class="form-group checkbox-group">
+                        <label>
+                            <input type="checkbox" id="isNewCategoryCheckbox">
+                            Nuova Categoria
+                        </label>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tipo">Tipo:</label>
+                        <div class="select-with-add" id="existingTypeDiv">
+                            <select id="tipo" name="tipo" class="form-select" required>
+                                <option value="">Seleziona tipo...</option>
+                            </select>
+                        </div>
+                        <input type="text" id="newTypeInput" name="newType"
+                               style="display: none; text-transform: uppercase;"
+                               placeholder="Inserisci nuovo tipo"
+                               class="form-input">
+                    </div>
+                    <div class="form-group checkbox-group">
+                        <label>
+                            <input type="checkbox" id="isNewTypeCheckbox">
+                            Nuovo Tipo
+                        </label>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="marca">Marca/Modello:</label>
+                        <input type="text" id="marca" name="marca" required 
+                               placeholder="Es: Fluke 87V">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="ubicazione">Ubicazione:</label>
+                        <div class="select-with-add" id="existingLocationDiv">
+                            <select id="ubicazione" name="ubicazione" class="form-select" required>
+                                <option value="">Seleziona ubicazione...</option>
+                            </select>
+                        </div>
+                        <input type="text" id="newLocationInputForm" name="newLocation"
+                               style="display: none; text-transform: uppercase;"
+                               placeholder="Inserisci nuova ubicazione"
+                               class="form-input">
+                    </div>
+                    <div class="form-group checkbox-group">
+                        <label>
+                            <input type="checkbox" id="isNewLocationCheckboxForm">
+                            Nuova Ubicazione
+                        </label>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="userNameForm">Nome Utente:</label>
+                        <input type="text" id="userNameForm" name="userName" required 
+                               style="text-transform: uppercase;" 
+                               placeholder="Es: MARIO ROSSI">
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn-primary">Salva</button>
+                        <button type="button" class="btn-secondary" id="newEquipmentCancel">Annulla</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
     <div id="loadingOverlay" class="loading-overlay">
         <div class="loading-content">
             <div class="loading-spinner"></div>
-            <p id="loadingMessage">Spostamento in corso...</p>
+            <p id="loadingMessage">Caricamento in corso...</p>
         </div>
-    </div>
-    <!-- All content divs -->
     </div>
 
     <script src="script.js"></script>

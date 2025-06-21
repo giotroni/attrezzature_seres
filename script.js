@@ -1,13 +1,23 @@
 // Costanti e variabili globali
+const API_BASE_URL = './php/api.php';
+const USE_PHP_API = true;
 const SHEET_ID = '1efHWyYHqsZpAbPXuUadz7Mg2ScsZ1iXX15Yv8daVhvg';
 const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbyWzNZ91kZBr9D3PhQNO7FLSXypRt1Ret0EvlBMuW_GgIAMKB9r4Ag4GHnvoHCVJCUvsA/exec';
 
-let currentView = 'ubicazione'; // Inizializzazione della vista predefinita
-let currentFilter = ''; // Inizializzazione del filtro di ricerca
-let attrezzature = []; // Array per memorizzare i dati delle attrezzature
-let filteredData = []; // Array per i dati filtrati dalla ricerca
+let currentView = 'ubicazione';
+let currentFilter = '';
+let attrezzature = [];
+let filteredData = [];
+let equipmentData = [];
+let locationsData = [];
+let movementLog = [];
+let notesLog = [];
+let currentEquipmentId = null; // Variabile per tracciare l'attrezzatura corrente
 
-// Funzioni di utilità per mostrare/nascondere l'overlay di caricamento
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
 function showLoadingOverlay(message) {
     const overlay = document.getElementById('loadingOverlay');
     const messageElement = document.getElementById('loadingMessage');
@@ -24,247 +34,828 @@ function showError(message) {
     const errorElement = document.createElement('div');
     errorElement.className = 'error-message';
     errorElement.textContent = message;
-    errorElement.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #ff4444; color: white; padding: 15px; border-radius: 5px; z-index: 9999;';
+    
+    // Determina il colore in base al tipo di messaggio
+    let backgroundColor = '#f44336'; // Rosso per errori
+    if (message.includes('✅') || message.includes('successo')) {
+        backgroundColor = '#4CAF50'; // Verde per successo
+    } else if (message.includes('⚠️') || message.includes('attenzione')) {
+        backgroundColor = '#FF9800'; // Arancione per warning
+    }
+    
+    errorElement.style.cssText = `
+        position: fixed; 
+        top: 20px; 
+        right: 20px; 
+        background: ${backgroundColor}; 
+        color: white; 
+        padding: 15px 20px; 
+        border-radius: 8px; 
+        z-index: 10000;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        max-width: 300px;
+        word-wrap: break-word;
+        font-weight: 500;
+        animation: slideInRight 0.3s ease;
+    `;
+    
     document.body.appendChild(errorElement);
-    setTimeout(() => errorElement.remove(), 5000);
+    setTimeout(() => {
+        if (errorElement.parentNode) {
+            errorElement.remove();
+        }
+    }, 5000);
 }
 
-// Funzioni di inizializzazione
+function validateNewLocation(location) {
+    if (!location) return { valid: false, message: 'L\'ubicazione non può essere vuota' };
+    if (location.length > 20) return { valid: false, message: 'L\'ubicazione non può superare i 20 caratteri' };
+    
+    // Converti in maiuscolo e rimuovi spazi iniziali/finali
+    const formattedLocation = location.trim().toUpperCase();
+    
+    // Verifica se l'ubicazione esiste già (case insensitive)
+    if (locationsData.some(existing => existing.toUpperCase() === formattedLocation)) {
+        return { valid: false, message: 'Questa ubicazione esiste già nel sistema' };
+    }
+    
+    // Verifica che non contenga caratteri speciali
+    if (!/^[A-Z0-9\s-]+$/.test(formattedLocation)) {
+        return { valid: false, message: 'L\'ubicazione può contenere solo lettere, numeri, spazi e trattini' };
+    }
+    
+    return { valid: true, formatted: formattedLocation };
+}
+
+// Funzione per validare il nome utente (minimo 4 caratteri)
+function validateUserName(userName, fieldName = "Nome utente") {
+    if (!userName || userName.trim().length === 0) {
+        return { valid: false, message: `${fieldName} è obbligatorio` };
+    }
+    
+    const cleanUserName = userName.trim();
+    
+    if (cleanUserName.length < 4) {
+        return { valid: false, message: `${fieldName} deve contenere almeno 4 caratteri` };
+    }
+    
+    if (cleanUserName.length > 50) {
+        return { valid: false, message: `${fieldName} non può superare i 50 caratteri` };
+    }
+    
+    // Verifica che contenga almeno una lettera (non solo numeri/simboli)
+    if (!/[a-zA-Z]/.test(cleanUserName)) {
+        return { valid: false, message: `${fieldName} deve contenere almeno una lettera` };
+    }
+    
+    return { valid: true, formatted: cleanUserName.toUpperCase() };
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// DEBUG FUNCTIONS - AGGIUNTE PER RISOLUZIONE PROBLEMI
+function debugModalStatus() {
+    const modal = document.getElementById('detailModal');
+    console.log('[DEBUG MODAL]', {
+        exists: !!modal,
+        display: modal?.style.display,
+        className: modal?.className,
+        classList: modal?.classList.toString(),
+        visible: modal?.offsetHeight > 0,
+        computedStyle: modal ? window.getComputedStyle(modal).display : 'N/A'
+    });
+}
+
+function testModalOpen() {
+    console.log('[DEBUG] Test apertura modal...');
+    
+    if (attrezzature.length > 0) {
+        showEquipmentDetail(attrezzature[0].codice);
+    } else {
+        console.log('[DEBUG] Nessuna attrezzatura disponibile per test');
+    }
+}
+
+// ============================================================================
+// INITIALIZATION
+// ============================================================================
+
 document.addEventListener('DOMContentLoaded', function() {
     console.log('App SERES caricata correttamente');
     
-    // Aggiungi event listener per il checkbox nuova ubicazione
-    document.getElementById('isNewLocationCheckbox')?.addEventListener('change', handleNewLocationCheckbox);
+    // Inizializza tutti gli event listeners
+    initializeEventListeners();
     
-    // Avvia automaticamente il caricamento da Google Sheets
-    loadFromGoogleSheets();
+    // Applica il feedback visivo per la validazione
+    addRealTimeFeedback();
     
-    // Event listeners
-    document.getElementById('menuToggle').addEventListener('click', toggleMenu);
-    document.getElementById('menuClose').addEventListener('click', closeMenu);
-    document.getElementById('menuOverlay').addEventListener('click', closeMenu);
-    document.getElementById('searchToggle').addEventListener('click', toggleSearch);
-    document.getElementById('searchClose').addEventListener('click', closeSearch);
-    document.getElementById('searchOverlay').addEventListener('click', function(e) {
-        if (e.target === this) closeSearch();
-    });
-    document.getElementById('searchInput').addEventListener('input', filterContent);
-    document.getElementById('searchInput').addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') {
-            closeSearch();
+    // Avvia automaticamente il caricamento dei dati dal database
+    loadData();
+    
+    // Esponi funzioni debug globalmente
+    window.debugModal = debugModalStatus;
+    window.testModal = testModalOpen;
+});
+
+function initializeEventListeners() {
+    // Menu navigation
+    const menuToggle = document.getElementById('menuToggle');
+    const menuClose = document.getElementById('menuClose');
+    const menuOverlay = document.getElementById('menuOverlay');
+    
+    if (menuToggle) menuToggle.addEventListener('click', toggleMenu);
+    if (menuClose) menuClose.addEventListener('click', closeMenu);
+    if (menuOverlay) menuOverlay.addEventListener('click', closeMenu);
+    
+    // Search functionality
+    const searchToggle = document.getElementById('searchToggle');
+    const searchClose = document.getElementById('searchClose');
+    const searchOverlay = document.getElementById('searchOverlay');
+    const searchInput = document.getElementById('searchInput');
+    
+    if (searchToggle) searchToggle.addEventListener('click', toggleSearch);
+    if (searchClose) searchClose.addEventListener('click', closeSearch);
+    if (searchOverlay) {
+        searchOverlay.addEventListener('click', function(e) {
+            if (e.target === this) closeSearch();
+        });
+    }
+    if (searchInput) {
+        searchInput.addEventListener('input', filterContent);
+        searchInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                closeSearch();
+            }
+        });
+    }
+
+    // Modal functionality - FIX PRINCIPALE
+    const closeDetailModalBtn = document.getElementById('closeDetailModal');
+    if (closeDetailModalBtn) {
+        closeDetailModalBtn.addEventListener('click', closeDetailModal);
+        console.log('[DEBUG] Event listener per chiusura modal aggiunto');
+    } else {
+        console.error('[DEBUG] Bottone closeDetailModal non trovato!');
+    }
+
+    // Refresh button
+    const btnRefresh = document.getElementById('btnRefresh');
+    if (btnRefresh) btnRefresh.addEventListener('click', loadData);
+    
+    // Forms event listeners con validazione
+    const moveForm = document.getElementById('moveForm');
+    if (moveForm) {
+        moveForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            moveEquipment();
+        });
+    }
+
+    const notesForm = document.getElementById('updateNotesForm');
+    if (notesForm) {
+        notesForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            updateEquipmentNotes();
+        });
+    }
+
+    // Checkbox per nuova ubicazione
+    const checkbox = document.getElementById('isNewLocationCheckbox');
+    if (checkbox) {
+        checkbox.addEventListener('change', handleNewLocationCheckbox);
+    }
+
+    // Auto-maiuscolo per i campi nome utente
+    const userNameFields = ['userName', 'noteUserName', 'userNameForm'];
+    userNameFields.forEach(fieldId => {
+        const field = document.getElementById(fieldId);
+        if (field) {
+            field.addEventListener('input', function(e) {
+                this.value = this.value.toUpperCase();
+            });
         }
     });
-    document.getElementById('closeDetailModal').addEventListener('click', closeDetailModal);
-    document.getElementById('moveEquipmentBtn').addEventListener('click', moveEquipment);
-    document.getElementById('btnRefresh').addEventListener('click', loadFromGoogleSheets);
     
-    // Navigation eventi
-    document.getElementById('navUbicazione').addEventListener('click', function() { switchView('ubicazione'); });
-    document.getElementById('navCategoria').addEventListener('click', function() { switchView('categoria'); });
-    document.getElementById('navTipo').addEventListener('click', function() { switchView('tipo'); });
+    // Bottom navigation
+    const navUbicazione = document.getElementById('navUbicazione');
+    const navCategoria = document.getElementById('navCategoria');
+    const navTipo = document.getElementById('navTipo');
+    
+    if (navUbicazione) navUbicazione.addEventListener('click', () => switchView('ubicazione'));
+    if (navCategoria) navCategoria.addEventListener('click', () => switchView('categoria'));
+    if (navTipo) navTipo.addEventListener('click', () => switchView('tipo'));
 
-    // Chiudi modal cliccando fuori
+    // Modal close on outside click - FIX PRINCIPALE
     window.addEventListener('click', function(event) {
         const modal = document.getElementById('detailModal');
         if (event.target === modal) {
+            console.log('[DEBUG] Click esterno al modal, chiusura...');
             closeDetailModal();
         }
     });
-
+    
     // About Modal
+    initializeAboutModal();
+
+    // Gestione Modal Nuova Attrezzatura
+    initializeNewEquipmentForm();
+    
+    // Debug elementi modal
+    debugModalElements();
+    
+    console.log('✅ Validazione nome utente e fix mobile applicati');
+}
+
+// Debug per verificare che gli elementi esistano
+function debugModalElements() {
+    const elements = {
+        modal: document.getElementById('detailModal'),
+        closeBtn: document.getElementById('closeDetailModal'),
+        notesHistory: document.getElementById('notesHistory')
+    };
+    
+    console.log('[DEBUG] Elementi modal:', elements);
+    
+    Object.entries(elements).forEach(([name, element]) => {
+        if (!element) {
+            console.error(`[DEBUG] Elemento ${name} non trovato!`);
+        } else {
+            console.log(`[DEBUG] Elemento ${name} trovato:`, element);
+        }
+    });
+}
+
+// Visual feedback in tempo reale per i campi nome utente
+function addRealTimeFeedback() {
+    const userNameFields = ['userName', 'noteUserName', 'userNameForm'];
+    
+    userNameFields.forEach(fieldId => {
+        const field = document.getElementById(fieldId);
+        if (field) {
+            field.addEventListener('input', function() {
+                const validation = validateUserName(this.value, 'Nome');
+                
+                // Rimuovi classi esistenti
+                this.classList.remove('valid', 'invalid');
+                
+                if (this.value.length > 0) {
+                    if (validation.valid) {
+                        this.classList.add('valid');
+                        this.style.borderColor = '#4CAF50';
+                    } else {
+                        this.classList.add('invalid');
+                        this.style.borderColor = '#f44336';
+                    }
+                } else {
+                    this.style.borderColor = '#e0e0e0';
+                }
+            });
+        }
+    });
+}
+
+function initializeAboutModal() {
     const btnAbout = document.getElementById('btnAbout');
     const aboutModal = document.getElementById('aboutModal');
     const aboutClose = document.getElementById('aboutClose');
     const menuOverlay = document.getElementById('menuOverlay');
 
-    btnAbout.addEventListener('click', function() {
-        aboutModal.style.display = 'block';
-        menuOverlay.style.display = 'block';
-        slideMenu.classList.remove('open');
-    });
+    if (btnAbout && aboutModal && aboutClose && menuOverlay) {
+        btnAbout.addEventListener('click', function() {
+            aboutModal.style.display = 'block';
+            menuOverlay.style.display = 'block';
+            const slideMenu = document.getElementById('slideMenu');
+            if (slideMenu) slideMenu.classList.remove('open');
+        });
 
-    aboutClose.addEventListener('click', function() {
-        aboutModal.style.display = 'none';
-        menuOverlay.style.display = 'none';
-    });
-
-    menuOverlay.addEventListener('click', function() {
-        if (aboutModal.style.display === 'block') {
+        aboutClose.addEventListener('click', function() {
             aboutModal.style.display = 'none';
             menuOverlay.style.display = 'none';
-        }
-    });
-});
+        });
 
-async function loadData() {
-    try {
-        showLoadingOverlay('Caricamento dati in corso...');
-        const response = await fetch(WEBAPP_URL + '?action=getData');
+        menuOverlay.addEventListener('click', function() {
+            if (aboutModal.style.display === 'block') {
+                aboutModal.style.display = 'none';
+                menuOverlay.style.display = 'none';
+            }
+        });
+    }
+}
+
+// ============================================================================
+// NEW EQUIPMENT FORM MANAGEMENT
+// ============================================================================
+
+function initializeNewEquipmentForm() {
+    // Setup Modal Nuova Attrezzatura
+    const newEquipmentModal = document.getElementById('newEquipmentModal');
+    const btnAddEquipment = document.getElementById('btnAddEquipment');
+    const newEquipmentClose = document.getElementById('newEquipmentClose');
+    const newEquipmentCancel = document.getElementById('newEquipmentCancel');
+    const newEquipmentForm = document.getElementById('newEquipmentForm');
+    
+    // Gestione submit del form
+    if (newEquipmentForm) {
+        newEquipmentForm.addEventListener('submit', handleNewEquipmentSubmit);
+        console.log('[DEBUG] Event listener per submit del form nuova attrezzatura aggiunto');
+    }
+    
+    const isNewCategoryCheckbox = document.getElementById('isNewCategoryCheckbox');
+    const isNewTypeCheckbox = document.getElementById('isNewTypeCheckbox');
+    const isNewLocationCheckboxForm = document.getElementById('isNewLocationCheckboxForm');
+    const tipoSelect = document.getElementById('tipo');
+    const categoriaSelect = document.getElementById('categoria');
+
+    // Gestione click sul tipo senza categoria selezionata
+    if (tipoSelect) {
+        tipoSelect.addEventListener('click', () => {
+            if (!categoriaSelect.value && !isNewCategoryCheckbox.checked) {
+                showError('⚠️ Seleziona prima una categoria');
+                categoriaSelect.focus();
+            }
+        });
+    }
+
+    // Gestione checkbox categoria
+    if (isNewCategoryCheckbox) {
+        isNewCategoryCheckbox.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                // Se si seleziona nuova categoria, forza nuovo tipo
+                isNewTypeCheckbox.checked = true;
+                updateTypeSelect();
+            }
+            updateCategorySelect();
+        });
+    }
+    
+    // Gestione checkbox tipo
+    if (isNewTypeCheckbox) {
+        isNewTypeCheckbox.addEventListener('change', updateTypeSelect);
+    }
+    
+    // Gestione checkbox ubicazione
+    if (isNewLocationCheckboxForm) {
+        isNewLocationCheckboxForm.addEventListener('change', updateLocationSelectNewEquipment);
+    }
+
+    // Gestione cambio categoria
+    if (categoriaSelect) {
+        categoriaSelect.addEventListener('change', (e) => {
+            const selectedCategory = e.target.value;
+            if (selectedCategory && !isNewCategoryCheckbox.checked) {
+                updateTypesByCategory(selectedCategory);
+                // Reset tipo quando si cambia categoria
+                tipoSelect.value = '';
+            }
+        });
+    }
+
+    // Apri il modal
+    if (btnAddEquipment) {
+        btnAddEquipment.addEventListener('click', () => {
+            console.log('[DEBUG] Apertura modal nuova attrezzatura');
+            newEquipmentModal.classList.add('show-modal');
+            newEquipmentModal.style.display = 'flex';
+            document.body.classList.add('modal-open');
+            updateCategorySelect();
+            updateTypeSelect();
+            updateLocationSelectNewEquipment();
+        });
+    }
+
+    // Chiudi il modal
+    if (newEquipmentClose) {
+        newEquipmentClose.addEventListener('click', closeNewEquipmentModal);
+    }
+    
+    if (newEquipmentCancel) {
+        newEquipmentCancel.addEventListener('click', closeNewEquipmentModal);
+    }
+}
+
+async function handleNewEquipmentSubmit(e) {
+    e.preventDefault();
+
+    // Validazione nome utente
+    const userNameRaw = document.getElementById('userNameForm').value;
+    const userNameValidation = validateUserName(userNameRaw);
+    
+    if (!userNameValidation.valid) {
+        showError('⚠️ ' + userNameValidation.message);
+        document.getElementById('userNameForm').focus();
+        return;
+    }
+    
+    const userName = userNameValidation.formatted;
+
+    // Resto della validazione...
+    const isNewCategory = document.getElementById('isNewCategoryCheckbox').checked;
+    const categoria = isNewCategory 
+        ? document.getElementById('newCategoryInput').value.trim()
+        : document.getElementById('categoria').value.trim();
+    
+    if (!categoria) {
+        showError('⚠️ La categoria è obbligatoria');
+        return;
+    }
+
+    const isNewType = document.getElementById('isNewTypeCheckbox').checked;
+    const tipo = isNewType 
+        ? document.getElementById('newTypeInput').value.trim()
+        : document.getElementById('tipo').value.trim();
+    
+    if (!tipo) {
+        showError('⚠️ Il tipo è obbligatorio');
+        return;
+    }
+
+    const isNewLocation = document.getElementById('isNewLocationCheckboxForm').checked;
+    const ubicazione = isNewLocation 
+        ? document.getElementById('newLocationInputForm').value.trim()
+        : document.getElementById('ubicazione').value.trim();
+    
+    if (!ubicazione) {
+        showError('⚠️ L\'ubicazione è obbligatoria');
+        return;
+    }
+
+    const marca = document.getElementById('marca').value.trim();
+    if (!marca) {
+        showError('⚠️ La marca/modello è obbligatoria');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('categoria', categoria.toUpperCase());
+    formData.append('tipo', tipo.toUpperCase());
+    formData.append('marca', marca);
+    formData.append('ubicazione', ubicazione.toUpperCase());
+    formData.append('userName', userName);    try {
+        showLoadingOverlay('Creazione attrezzatura in corso...');
+        
+        console.log('[DEBUG] Dati form:', {
+            categoria: categoria.toUpperCase(),
+            tipo: tipo.toUpperCase(),
+            marca: marca,
+            ubicazione: ubicazione.toUpperCase(),
+            userName: userName
+        });
+
+        const params = {
+            action: 'createEquipment',
+            categoria: categoria.toUpperCase(),
+            tipo: tipo.toUpperCase(),
+            marca: marca,
+            ubicazione: ubicazione.toUpperCase(),
+            userName: userName
+        };
+
+        const queryString = new URLSearchParams(params).toString();
+        console.log('[DEBUG] URL API:', `${API_BASE_URL}?${queryString}`);
+        
+        const response = await fetch(`${API_BASE_URL}?${queryString}`, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+
         if (!response.ok) {
-            throw new Error('Errore nel caricamento dei dati');
+            throw new Error(`Errore nella richiesta: ${response.status} ${response.statusText}`);
         }
-        const data = await response.json();
-        if (!data || !data.success) {
-            throw new Error(data.error || 'Errore nel formato dei dati');
+
+        const result = await response.json();
+        console.log('[DEBUG] Risposta API:', result);
+
+        if (result.success) {
+            showError(`✅ Attrezzatura creata con successo!\nCodice assegnato: ${result.codice}`);
+            closeNewEquipmentModal();
+            await loadData(); // Ricarica i dati dopo la creazione
+        } else {
+            throw new Error(result.message || 'Errore durante la creazione dell\'attrezzatura');
         }
-        attrezzature = data.data || [];
-        filteredData = [...attrezzature];
-        renderCurrentView();
     } catch (error) {
-        console.error('Errore nel caricamento:', error);
-        showError('Errore nel caricamento dei dati. Carico i dati demo come fallback...');
-        // Carica i dati demo come fallback
-        loadDemoData();
+        console.error('[ERROR] Creazione attrezzatura:', error);
+        showError('❌ ' + error.message);
     } finally {
         hideLoadingOverlay();
     }
 }
 
-function loadDemoData() {
-    // Dati demo di esempio
-    attrezzature = [
-        {
-            id: 'DEMO1',
-            nome: 'Attrezzatura Demo 1',
-            categoria: 'Test',
-            tipo: 'Demo',
-            ubicazione: 'Magazzino',
-            stato: 'Disponibile',
-            note: 'Attrezzatura di test',
-            movimenti: []
-        },
-        // Aggiungi altri dati demo se necessario
-    ];
-    filteredData = [...attrezzature];
-    renderCurrentView();
+// ============================================================================
+// FORM MANAGEMENT FUNCTIONS
+// ============================================================================
+
+// Funzione per ottenere le categorie esistenti
+function getExistingCategories() {
+    return [...new Set(attrezzature.map(item => item.categoria))].sort();
 }
 
-function loadFromGoogleSheets() {
-    showLoading('Caricamento da Google Sheets...');
+// Funzione helper per popolare i select
+function populateSelect(id, options) {
+    const select = document.getElementById(id);
+    if (!select) return;
     
-    console.log('Tentativo di caricamento da Google Sheets...');
-    
-    const ranges = [
-        'attrezzatura!A:E',
-        'log!A:G', 
-        'elenchi!A:A'
-    ];
-
-    const promises = ranges.map(range => 
-        fetch('https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/' + range + '?key=AIzaSyCc8HZz0QCZ-OtQF_wu4GuBhmeAdTceUWE')
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('HTTP ' + response.status + ': ' + response.statusText);
-            }
-            return response.json();
-        })
-    );
-
-    Promise.all(promises)
-        .then(function(results) {
-            const attrezzaturaData = results[0];
-            const logData = results[1];
-            const elenchiData = results[2];
-
-            processAttrezzaturaData(attrezzaturaData.values || []);
-            processLogData(logData.values || []);
-            processElenchiData(elenchiData.values || []);
-
-            console.log('✅ Dati caricati da Google Sheets:', {
-                attrezzature: equipmentData.length,
-                ubicazioni: locationsData.length,
-                movimenti: movementLog.length
-            });
-
-            renderCurrentView();
-            hideLoading();
-        })
-        .catch(function(error) {
-            console.error('Errore nel caricamento da Google Sheets:', error);
-            alert('❌ Errore nel caricamento da Google Sheets:\n' + error.message + '\n\n📋 Verifica che il foglio sia pubblico e abbia le schede corrette\n\n🔄 Carico i dati demo come fallback...');
-            loadDemoData();
-        });
-}
-
-function processAttrezzaturaData(data) {
-    if (data.length < 2) return;
-    
-    equipmentData = [];
-    
-    for (let i = 1; i < data.length; i++) {
-        const row = data[i];
-        if (row.length >= 5) {
-            equipmentData.push({
-                id: i,
-                categoria: row[0] || '',
-                tipo: row[1] || '',
-                marcaModello: row[2] || '',
-                ubicazione: row[3] || '',
-                codice: row[4] || ''
-            });
+    select.innerHTML = `<option value="">Seleziona ${id}...</option>`;
+    options.forEach(option => {
+        if (option) {
+            select.innerHTML += `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`;
         }
-    }
-    
-    categoriesData = [];
-    const cats = new Set();
-    equipmentData.forEach(function(item) {
-        if (item.categoria) cats.add(item.categoria);
     });
-    categoriesData = Array.from(cats);
 }
 
-function processLogData(data) {
-    if (data.length < 2) return;
-    
-    movementLog = [];
-    
-    for (let i = 1; i < data.length; i++) {
-        const row = data[i];
-        if (row.length >= 7) {
-            movementLog.push({
-                data: row[0] || '',
-                utente: row[1] || '',
-                azione: row[2] || '',
-                tabella: row[3] || '',
-                codice: row[4] || '',
-                da: row[5] || '',
-                a: row[6] || ''
-            });
+// Funzione per aggiornare la select delle categorie
+function updateCategorySelect() {
+    const isNewCategory = document.getElementById('isNewCategoryCheckbox').checked;
+    const newCategoryInput = document.getElementById('newCategoryInput');
+    const existingCategoryDiv = document.getElementById('existingCategoryDiv');
+    const categoriaSelect = document.getElementById('categoria');
+
+    if (isNewCategory) {
+        existingCategoryDiv.style.display = 'none';
+        newCategoryInput.style.display = 'block';
+        newCategoryInput.required = true;
+        categoriaSelect.required = false;
+    } else {
+        existingCategoryDiv.style.display = 'block';
+        newCategoryInput.style.display = 'none';
+        newCategoryInput.required = false;
+        categoriaSelect.required = true;
+
+        // Popola il select con le categorie esistenti
+        populateSelect('categoria', getExistingCategories());
+    }
+}
+
+// Funzione per aggiornare la select dei tipi
+function updateTypeSelect() {
+    const isNewType = document.getElementById('isNewTypeCheckbox').checked;
+    const newTypeInput = document.getElementById('newTypeInput');
+    const existingTypeDiv = document.getElementById('existingTypeDiv');
+    const tipoSelect = document.getElementById('tipo');
+    const categoriaSelect = document.getElementById('categoria');
+
+    if (isNewType) {
+        existingTypeDiv.style.display = 'none';
+        newTypeInput.style.display = 'block';
+        newTypeInput.required = true;
+        tipoSelect.required = false;
+    } else {
+        existingTypeDiv.style.display = 'block';
+        newTypeInput.style.display = 'none';
+        newTypeInput.required = false;
+        tipoSelect.required = true;
+
+        // Aggiorna i tipi in base alla categoria selezionata
+        const selectedCategory = categoriaSelect.value;
+        if (selectedCategory) {
+            updateTypesByCategory(selectedCategory);
+        } else {
+            // Se nessuna categoria è selezionata, mostra tutti i tipi
+            populateSelect('tipo', [...new Set(attrezzature.map(item => item.tipo))].sort());
         }
     }
 }
 
-function processElenchiData(data) {
-    if (data.length < 2) return;
+// Funzione per aggiornare la select delle ubicazioni nel form nuova attrezzatura
+function updateLocationSelectNewEquipment() {
+    const isNewLocation = document.getElementById('isNewLocationCheckboxForm').checked;
+    const newLocationInput = document.getElementById('newLocationInputForm');
+    const existingLocationDiv = document.getElementById('existingLocationDiv');
+    const ubicazioneSelect = document.getElementById('ubicazione');
+
+    if (isNewLocation) {
+        existingLocationDiv.style.display = 'none';
+        newLocationInput.style.display = 'block';
+        newLocationInput.required = true;
+        ubicazioneSelect.required = false;
+    } else {
+        existingLocationDiv.style.display = 'block';
+        newLocationInput.style.display = 'none';
+        newLocationInput.required = false;
+        ubicazioneSelect.required = true;
+
+        // Popola il select con le ubicazioni esistenti
+        populateSelect('ubicazione', locationsData.sort());
+    }
+}
+
+function closeNewEquipmentModal() {
+    const newEquipmentModal = document.getElementById('newEquipmentModal');
+    const newEquipmentForm = document.getElementById('newEquipmentForm');
     
-    locationsData = [];
-    for (let i = 1; i < data.length; i++) {
-        if (data[i] && data[i][0]) {
-            locationsData.push(data[i][0]);
+    console.log('[DEBUG] Chiusura modal nuova attrezzatura');
+    newEquipmentModal.classList.remove('show-modal');
+    newEquipmentModal.style.display = 'none';
+    document.body.classList.remove('modal-open');
+    newEquipmentForm.reset();
+
+    // Reset dei campi categoria
+    document.getElementById('newCategoryInput').style.display = 'none';
+    document.getElementById('existingCategoryDiv').style.display = 'block';
+    document.getElementById('isNewCategoryCheckbox').checked = false;
+
+    // Reset dei campi tipo
+    document.getElementById('newTypeInput').style.display = 'none';
+    document.getElementById('existingTypeDiv').style.display = 'block';
+    document.getElementById('isNewTypeCheckbox').checked = false;
+
+    // Reset dei campi ubicazione
+    document.getElementById('newLocationInputForm').style.display = 'none';
+    document.getElementById('existingLocationDiv').style.display = 'block';
+    document.getElementById('isNewLocationCheckboxForm').checked = false;
+}
+
+// ============================================================================
+// DATA LOADING AND API CALLS
+// ============================================================================
+
+async function loadData() {
+    try {
+        showLoadingOverlay('Caricamento dati dal database...');
+        console.log('[DEBUG] Chiamata API a:', `${API_BASE_URL}?action=getData`);
+        
+        const response = await fetch(`${API_BASE_URL}?action=getData`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Errore nella richiesta: ${response.status} ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        if (!data.success) {
+            throw new Error(data.message || 'Errore nel caricamento dei dati');
+        }
+        
+        // Aggiorna l'array attrezzature con i dati dal database
+        attrezzature = data.data || [];
+        
+        // Aggiorna anche equipmentData con il mapping corretto per retrocompatibilità
+        equipmentData = attrezzature.map(item => ({
+            id: item.id,
+            codice: item.codice,
+            categoria: item.categoria,
+            tipo: item.tipo,
+            marca: item.marca,
+            marcaModello: item.marca,
+            ubicazione: item.ubicazione,
+            note: item.note,
+            doc: item.doc
+        }));
+        
+        // Estrai le ubicazioni uniche
+        const locations = new Set();
+        attrezzature.forEach(item => {
+            if (item.ubicazione) {
+                locations.add(item.ubicazione);
+            }
+        });
+        locationsData = Array.from(locations).sort();
+        
+        // Aggiorna filteredData
+        filteredData = [...attrezzature];
+        
+        // Aggiorna la vista corrente
+        renderCurrentView();
+        
+        console.log('[DEBUG] Dati caricati:', {
+            attrezzature: attrezzature.length,
+            equipment: equipmentData.length,
+            ubicazioni: locationsData.length
+        });
+        
+        showError('✅ Dati aggiornati con successo');
+        
+    } catch (error) {
+        console.error('[DEBUG] Errore nel caricamento:', error);
+        showError('❌ Errore nel caricamento dei dati: ' + error.message);
+    } finally {
+        hideLoadingOverlay();
+    }
+}
+
+async function loadMovementHistory(codice) {
+    try {
+        console.log('[DEBUG] Chiamata API getMovementHistory per codice:', codice);
+        
+        const response = await fetch(`${API_BASE_URL}?action=getMovementHistory&codice=${encodeURIComponent(codice)}`, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Errore HTTP: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+            throw new Error(data.message || 'Errore nel caricamento dello storico');
+        }
+
+        // Visualizza lo storico
+        displayMovementHistory(data.data || []);
+        
+    } catch (error) {
+        console.error('Errore nel caricamento dello storico:', error);
+        
+        // Mostra messaggio di errore nel container dello storico
+        const historyContainer = document.getElementById('movementHistory');
+        if (historyContainer) {
+            historyContainer.innerHTML = '<p style="color: #ff4444;">Errore nel caricamento dello storico: ' + error.message + '</p>';
         }
     }
 }
 
-// Funzioni UI
+async function loadNotesHistory(codice) {
+    try {
+        console.log('[DEBUG] Chiamata API loadNotesHistory per codice:', codice);
+        
+        const response = await fetch(`${API_BASE_URL}?action=getNotesHistory&codice=${encodeURIComponent(codice)}`, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+
+        console.log('[DEBUG] Response status:', response.status);
+
+        if (!response.ok) {
+            throw new Error(`Errore nella richiesta: ${response.status} ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        console.log('[DEBUG] Dati note ricevuti:', data);
+        
+        if (!data.success) {
+            throw new Error(data.message || 'Errore nel caricamento dello storico note');
+        }
+
+        // Aggiorna lo storico delle note
+        notesLog = data.data || [];
+        console.log('[DEBUG] Note caricate:', notesLog);
+        
+        // Visualizza lo storico
+        displayNotesHistory(notesLog);
+        
+        return true;
+    } catch (error) {
+        console.error('[DEBUG] Errore nel caricamento storico note:', error);
+        
+        // Mostra messaggio di errore nel container
+        const notesHistoryContainer = document.getElementById('notesHistory');
+        if (notesHistoryContainer) {
+            notesHistoryContainer.innerHTML = `<p style="color: #ff4444;">Errore nel caricamento delle note: ${error.message}</p>`;
+        }
+        
+        return false;
+    }
+}
+
+// ============================================================================
+// UI FUNCTIONS
+// ============================================================================
+
 function toggleMenu() {
-    document.getElementById('slideMenu').classList.add('open');
-    document.getElementById('menuOverlay').classList.add('show');
+    const slideMenu = document.getElementById('slideMenu');
+    const menuOverlay = document.getElementById('menuOverlay');
+    if (slideMenu) slideMenu.classList.add('open');
+    if (menuOverlay) menuOverlay.classList.add('show');
 }
 
 function closeMenu() {
-    document.getElementById('slideMenu').classList.remove('open');
-    document.getElementById('menuOverlay').classList.remove('show');
+    const slideMenu = document.getElementById('slideMenu');
+    const menuOverlay = document.getElementById('menuOverlay');
+    if (slideMenu) slideMenu.classList.remove('open');
+    if (menuOverlay) menuOverlay.classList.remove('show');
 }
 
 function toggleSearch() {
-    document.getElementById('searchOverlay').classList.add('show');
-    setTimeout(function() {
-        document.getElementById('searchInput').focus();
-    }, 300);
+    const searchOverlay = document.getElementById('searchOverlay');
+    if (searchOverlay) {
+        searchOverlay.classList.add('show');
+        setTimeout(function() {
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) searchInput.focus();
+        }, 300);
+    }
 }
 
 function closeSearch() {
-    document.getElementById('searchOverlay').classList.remove('show');
+    const searchOverlay = document.getElementById('searchOverlay');
+    if (searchOverlay) searchOverlay.classList.remove('show');
 }
 
 function switchView(view) {
@@ -273,13 +864,38 @@ function switchView(view) {
     document.querySelectorAll('.nav-item').forEach(function(item) {
         item.classList.remove('active');
     });
-    document.querySelector('[data-view="' + view + '"]').classList.add('active');
+    const activeNav = document.querySelector('[data-view="' + view + '"]');
+    if (activeNav) activeNav.classList.add('active');
     
     renderCurrentView();
 }
 
+function filterContent() {
+    const searchInput = document.getElementById('searchInput');
+    const searchText = document.getElementById('searchText');
+    
+    if (searchInput && searchText) {
+        currentFilter = searchInput.value.toLowerCase();
+        
+        if (currentFilter) {
+            searchText.textContent = currentFilter;
+            searchText.classList.add('active');
+        } else {
+            searchText.textContent = 'Ricerca';
+            searchText.classList.remove('active');
+        }
+        
+        renderCurrentView();
+    }
+}
+
+// ============================================================================
+// RENDERING FUNCTIONS
+// ============================================================================
+
 function renderCurrentView() {
     const container = document.getElementById('viewContent');
+    if (!container) return;
     
     if (currentView === 'ubicazione') {
         renderLocationView(container);
@@ -299,12 +915,12 @@ function renderLocationView(container) {
     }
 
     container.innerHTML = locations.map(function(location) {
-        return '<div class="location-card" onclick="showLocationEquipment(\'' + location.name + '\')">' +
+        return '<div class="location-card" onclick="showLocationEquipment(\'' + escapeHtml(location.name) + '\')">' +
             '<div class="card-header">' +
-                '<div class="card-title">📍 ' + location.name + '</div>' +
+                '<div class="card-title">📍 ' + escapeHtml(location.name) + '</div>' +
                 '<div class="card-count">' + location.count + '</div>' +
             '</div>' +
-            '<div class="card-items">' + location.types.slice(0, 3).join(', ') + (location.types.length > 3 ? '...' : '') + '</div>' +
+            '<div class="card-items">' + location.types.slice(0, 3).map(escapeHtml).join(', ') + (location.types.length > 3 ? '...' : '') + '</div>' +
         '</div>';
     }).join('');
 }
@@ -318,12 +934,12 @@ function renderCategoryView(container) {
     }
 
     container.innerHTML = categories.map(function(category) {
-        return '<div class="category-card" onclick="showCategoryEquipment(\'' + category.name + '\')">' +
+        return '<div class="category-card" onclick="showCategoryEquipment(\'' + escapeHtml(category.name) + '\')">' +
             '<div class="card-header">' +
-                '<div class="card-title">📂 ' + category.name + '</div>' +
+                '<div class="card-title">📂 ' + escapeHtml(category.name) + '</div>' +
                 '<div class="card-count">' + category.count + '</div>' +
             '</div>' +
-            '<div class="card-items">' + category.types.slice(0, 3).join(', ') + (category.types.length > 3 ? '...' : '') + '</div>' +
+            '<div class="card-items">' + category.types.slice(0, 3).map(escapeHtml).join(', ') + (category.types.length > 3 ? '...' : '') + '</div>' +
         '</div>';
     }).join('');
 }
@@ -337,15 +953,19 @@ function renderTypeView(container) {
     }
 
     container.innerHTML = types.map(function(type) {
-        return '<div class="type-card" onclick="showTypeEquipment(\'' + type.name + '\')">' +
+        return '<div class="type-card" onclick="showTypeEquipment(\'' + escapeHtml(type.name) + '\')">' +
             '<div class="card-header">' +
-                '<div class="card-title">🔧 ' + type.name + '</div>' +
+                '<div class="card-title">🔧 ' + escapeHtml(type.name) + '</div>' +
                 '<div class="card-count">' + type.count + '</div>' +
             '</div>' +
-            '<div class="card-items">' + type.locations.slice(0, 3).join(', ') + (type.locations.length > 3 ? '...' : '') + '</div>' +
+            '<div class="card-items">' + type.locations.slice(0, 3).map(escapeHtml).join(', ') + (type.locations.length > 3 ? '...' : '') + '</div>' +
         '</div>';
     }).join('');
 }
+
+// ============================================================================
+// DATA GROUPING FUNCTIONS
+// ============================================================================
 
 function getLocationGroups() {
     const filtered = getFilteredEquipment();
@@ -428,6 +1048,10 @@ function getFilteredEquipment() {
     });
 }
 
+// ============================================================================
+// EQUIPMENT LIST AND DETAIL FUNCTIONS
+// ============================================================================
+
 function showLocationEquipment(location) {
     showEquipmentList('ubicazione', location);
 }
@@ -466,342 +1090,547 @@ function showEquipmentList(filterType, filterValue) {
     }
 
     const equipmentCards = filteredEquipment.map(function(item) {
-        return '<div class="equipment-card" onclick="showEquipmentDetail(' + item.id + ')">' +
+        return '<div class="equipment-card" data-codice="' + escapeHtml(item.codice) + '">' +
             '<div class="equipment-header">' +
-                '<span class="equipment-code">' + item.codice + '</span>' +
-                '<span class="equipment-category">' + item.categoria + '</span>' +
+                '<div class="equipment-code">📦 ' + escapeHtml(item.codice) + ' - ' + escapeHtml(item.categoria) + '</div>' +
             '</div>' +
-            '<div class="equipment-title">' + item.tipo + '</div>' +
-            '<div class="equipment-brand">' + item.marcaModello + '</div>' +
-            '<div class="equipment-location">' +
-                '<span class="location-icon"></span>' +
-                item.ubicazione +
-            '</div>' +
+            '<div class="equipment-name">' + escapeHtml(item.tipo) + '</div>' +
+            '<div class="equipment-brand">' + escapeHtml(item.marca || '-') + '</div>' +
+            '<div class="equipment-location">📍 ' + escapeHtml(item.ubicazione) + '</div>' +
         '</div>';
     }).join('');
 
     container.innerHTML = backButton + equipmentCards;
+    attachEquipmentCardListeners();
 }
 
-function showEquipmentDetail(id) {
-    const equipment = equipmentData.find(function(item) {
-        return item.id === id;
+function attachEquipmentCardListeners() {
+    console.log('[DEBUG] Attaching equipment card listeners');
+    
+    document.querySelectorAll('.equipment-card').forEach((card, index) => {
+        const codice = card.dataset.codice;
+        console.log(`[DEBUG] Card ${index}: codice=${codice}`);
+        
+        if (!codice) {
+            console.warn(`[DEBUG] Card ${index} non ha attributo data-codice`);
+            return;
+        }
+        
+        card.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('[DEBUG] Click su card con codice:', codice);
+            showEquipmentDetail(codice);
+        });
     });
-    if (!equipment) return;
-
-    currentEquipmentId = id;
-    
-    document.getElementById('modalTitle').textContent = equipment.tipo;
-    
-    const detailsHtml = 
-        '<div class="detail-item">' +
-            '<div class="detail-label">Codice</div>' +
-            '<div class="detail-value">' + equipment.codice + '</div>' +
-        '</div>' +
-        '<div class="detail-item">' +
-            '<div class="detail-label">Categoria</div>' +
-            '<div class="detail-value">' + equipment.categoria + '</div>' +
-        '</div>' +
-        '<div class="detail-item">' +
-            '<div class="detail-label">Tipo</div>' +
-            '<div class="detail-value">' + equipment.tipo + '</div>' +
-        '</div>' +
-        '<div class="detail-item">' +
-            '<div class="detail-label">Marca/Modello</div>' +
-            '<div class="detail-value">' + equipment.marcaModello + '</div>' +
-        '</div>' +
-        '<div class="detail-item">' +
-            '<div class="detail-label">Ubicazione Attuale</div>' +
-            '<div class="detail-value">📍 ' + equipment.ubicazione + '</div>' +
-        '</div>';
-    
-    document.getElementById('equipmentDetails').innerHTML = detailsHtml;
-      // Aggiorna la lista delle ubicazioni disponibili
-    updateLocationSelect(equipment);
-    
-    showMovementHistory(equipment.codice);
-    
-    document.getElementById('detailModal').style.display = 'block';
 }
 
-function closeDetailModal() {
-    document.getElementById('detailModal').style.display = 'none';
-    document.getElementById('newLocation').value = '';
-    document.getElementById('userName').value = '';
-}
-
-function showMovementHistory(codice) {
-    const movements = movementLog.filter(function(log) {
-        return log.codice === codice;
-    });
-    const historyContainer = document.getElementById('movementHistory');
+// FUNZIONE PRINCIPALE CORRETTA - showEquipmentDetail
+function showEquipmentDetail(codice) {
+    console.log('[DEBUG] Apertura dettaglio per codice:', codice);
     
-    if (movements.length === 0) {
-        historyContainer.innerHTML = '<p style="color: #666; font-style: italic;">Nessuno spostamento registrato</p>';
+    // Cerca l'attrezzatura nell'array delle attrezzature usando il codice
+    const equipment = attrezzature.find(item => item.codice === codice);
+    if (!equipment) {
+        console.error('[DEBUG] Attrezzatura non trovata per codice:', codice);
+        showError('Attrezzatura non trovata');
         return;
     }
+
+    // Imposta la variabile globale
+    currentEquipmentId = equipment.codice;
     
-    historyContainer.innerHTML = movements
-        .sort(function(a, b) {
-            return new Date(b.data) - new Date(a.data);
-        })
-        .map(function(movement) {
-            const date = new Date(movement.data);
-            return '<div class="history-item">' +
-                '<div class="history-date">' + date.toLocaleDateString('it-IT') + ' ' + date.toLocaleTimeString('it-IT', {hour: '2-digit', minute: '2-digit'}) + '</div>' +
-                '<div class="history-action">' +
-                    '<strong>' + movement.utente + '</strong> ha spostato da ' +
-                    '<strong>' + movement.da + '</strong> a <strong>' + movement.a + '</strong>' +
-                '</div>' +
-            '</div>';
-        }).join('');
+    // Ottieni i riferimenti a tutti gli elementi DOM necessari
+    const elements = {
+        codice: document.getElementById('detailCodice'),
+        categoria: document.getElementById('detailCategoria'),
+        tipo: document.getElementById('detailTipo'),
+        marca: document.getElementById('detailMarca'),
+        ubicazione: document.getElementById('detailUbicazione'),
+        note: document.getElementById('detailNote'),
+        currentLocation: document.getElementById('currentLocation'),
+        modal: document.getElementById('detailModal')
+    };
+    
+    // Debug elementi
+    console.log('[DEBUG] Elementi DOM trovati:', {
+        codice: !!elements.codice,
+        categoria: !!elements.categoria,
+        tipo: !!elements.tipo,
+        marca: !!elements.marca,
+        ubicazione: !!elements.ubicazione,
+        modal: !!elements.modal
+    });
+    
+    // Controlla che tutti gli elementi essenziali esistano
+    const requiredElements = ['codice', 'categoria', 'tipo', 'marca', 'ubicazione', 'modal'];
+    const missingElements = requiredElements.filter(key => !elements[key]);
+    
+    if (missingElements.length > 0) {
+        console.error('[DEBUG] Missing DOM elements:', missingElements);
+        showError(`Errore: elementi mancanti nel DOM: ${missingElements.join(', ')}`);
+        return;
+    }
+
+    // Popola i dettagli nel modal
+    elements.codice.textContent = equipment.codice;
+    elements.categoria.textContent = equipment.categoria;
+    elements.tipo.textContent = equipment.tipo;
+    elements.marca.textContent = equipment.marca;
+    elements.ubicazione.textContent = equipment.ubicazione;
+    
+    // Aggiorna il titolo del modal con marca/modello
+    const modalTitle = document.querySelector('#detailModal .modal-header h2');
+    if (modalTitle) {
+        modalTitle.textContent = `Dettaglio Attrezzatura - ${equipment.codice}`;
+    }
+    
+    // Popola note se l'elemento esiste ma NON precompilare il campo
+    if (elements.note) {
+        elements.note.value = ''; // Campo sempre vuoto per nuove note
+    }
+    
+    // Gestione ubicazione attuale per il form di spostamento
+    if (elements.currentLocation) {
+        elements.currentLocation.value = equipment.ubicazione;
+    }
+    
+    // Aggiorna la lista delle ubicazioni disponibili per lo spostamento
+    updateLocationSelect(equipment);
+    
+    // CORREZIONE PRINCIPALE: Usa le classi CSS invece di solo style.display
+    console.log('[DEBUG] Apertura modal...');
+    elements.modal.classList.add('show-modal');
+    elements.modal.style.display = 'flex';
+    elements.modal.style.opacity = '1';
+    elements.modal.style.visibility = 'visible';
+    document.body.classList.add('modal-open');
+    
+    // Debug stato modal dopo l'apertura
+    console.log('[DEBUG] Modal aperto:', {
+        display: elements.modal.style.display,
+        classes: elements.modal.className,
+        visible: elements.modal.offsetHeight > 0
+    });
+    
+    // Carica lo storico movimenti e note con un piccolo delay per assicurarsi che il modal sia renderizzato
+    setTimeout(() => {
+        loadMovementHistory(equipment.codice);
+        loadNotesHistory(equipment.codice);
+    }, 100);
 }
 
-async function updateGoogleSheet(range, values) {
-    const API_KEY = 'AIzaSyCc8HZz0QCZ-OtQF_wu4GuBhmeAdTceUWE';
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}?valueInputOption=RAW&key=${API_KEY}`;
+// FUNZIONE CORRETTA - closeDetailModal
+function closeDetailModal() {
+    console.log('[DEBUG] Chiusura modal dettaglio');
     
-    try {
-        const response = await fetch(url, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                values: values
-            })
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+    const modal = document.getElementById('detailModal');
+    if (modal) {
+        // CORREZIONE: Rimuovi classe e imposta display
+        modal.classList.remove('show-modal');
+        modal.style.display = 'none';
+        modal.style.opacity = '0';
+        modal.style.visibility = 'hidden';
+        document.body.classList.remove('modal-open');
+    }
+    
+    // Reset della variabile globale
+    currentEquipmentId = null;
+    
+    // Reset dei campi del form se esistono
+    const formElements = {
+        newLocation: document.getElementById('newLocation'),
+        newLocationInput: document.getElementById('newLocationInput'),
+        detailNote: document.getElementById('detailNote'),
+        userName: document.getElementById('userName'),
+        noteUserName: document.getElementById('noteUserName')
+    };
+    
+    // Reset solo degli elementi che esistono
+    Object.values(formElements).forEach(element => {
+        if (element) {
+            element.value = '';
+            // Reset anche delle classi di validazione
+            element.classList.remove('valid', 'invalid');
+            element.style.borderColor = '#e0e0e0';
         }
-        
-        return await response.json();
-    } catch (error) {
-        console.error('Errore durante l\'aggiornamento del foglio Google:', error);
-        throw error;
+    });
+
+    // Reset del checkbox e ripristina visualizzazione
+    const checkbox = document.getElementById('isNewLocationCheckbox');
+    if (checkbox) {
+        checkbox.checked = false;
+        handleNewLocationCheckbox(); // Ripristina la visualizzazione corretta
     }
 }
 
-async function appendToGoogleSheet(range, values) {
-    const API_KEY = 'AIzaSyCc8HZz0QCZ-OtQF_wu4GuBhmeAdTceUWE';
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS&key=${API_KEY}`;
-    
-    try {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                values: values
-            })
-        });
+// ============================================================================
+// HISTORY DISPLAY FUNCTIONS - FIXED
+// ============================================================================
 
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        return await response.json();
-    } catch (error) {
-        console.error('Errore durante l\'aggiunta al foglio Google:', error);
-        throw error;
+function displayMovementHistory(history) {
+    const historyContainer = document.getElementById('movementHistory');
+    if (!historyContainer) return;
+
+    if (!history || history.length === 0) {
+        historyContainer.innerHTML = '<p style="color: #666; font-style: italic;">Nessuno storico disponibile</p>';
+        return;
     }
-}
 
-async function findRowInSheet(codice) {
-    try {
-        const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/attrezzatura!A:E?key=AIzaSyCc8HZz0QCZ-OtQF_wu4GuBhmeAdTceUWE`);
-        const data = await response.json();
-        const values = data.values || [];
+    const rows = history.map(entry => {
+        const date = new Date(entry.timestamp).toLocaleString('it-IT');
+        let details = '';
         
-        // Trova l'indice della riga con il codice specificato
-        for (let i = 0; i < values.length; i++) {
-            if (values[i][4] === codice) { // La colonna E (indice 4) contiene il codice
-                return i + 1; // +1 perché le righe in Google Sheets iniziano da 1
+        if (entry.azione === 'spostamento') {
+            details = `Spostato da <strong>${escapeHtml(entry.vecchia_ubicazione || '?')}</strong> a <strong>${escapeHtml(entry.nuova_ubicazione)}</strong> da <strong>${escapeHtml(entry.user_name)}</strong>`;
+        } else if (entry.azione === 'modifica_note') {
+            details = `Note modificate da <strong>${escapeHtml(entry.user_name)}</strong>`;
+            if (entry.note_precedenti || entry.note_nuove) {
+                details += `<br>Da: "${escapeHtml(entry.note_precedenti || '')}"<br>A: "${escapeHtml(entry.note_nuove || '')}"`;
             }
         }
-        return null;
-    } catch (error) {
-        console.error('Errore durante la ricerca nel foglio Google:', error);
-        throw error;
-    }
+        
+        return `
+            <div class="history-entry">
+                <div class="history-date">${escapeHtml(date)}</div>
+                <div class="history-details">${details}</div>
+            </div>
+        `;
+    });
+
+    historyContainer.innerHTML = rows.join('');
 }
 
-async function updateGoogleSheetViaWebApp(action, data) {
-    const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbyWzNZ91kZBr9D3PhQNO7FLSXypRt1Ret0EvlBMuW_GgIAMKB9r4Ag4GHnvoHCVJCUvsA/exec';
-    
-    try {
-        const response = await fetch(WEBAPP_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                action: action,
-                data: data
-            })
-        });
+function displayNotesHistory(history) {
+    const notesHistoryContainer = document.getElementById('notesHistory');
+    if (!notesHistoryContainer) {
+        console.error('Container notesHistory non trovato!');
+        return;
+    }
 
-        // A causa di 'no-cors', non possiamo leggere la risposta
-        // Assumiamo che sia andata a buon fine se non ci sono errori
-        return true;
-    } catch (error) {
-        console.error('Errore durante l\'aggiornamento del foglio Google:', error);
-        throw error;
+    console.log('[DEBUG] Visualizzazione storico note:', history);
+
+    if (!history || history.length === 0) {
+        notesHistoryContainer.innerHTML = '<p style="color: #666; font-style: italic;">Nessuno storico note disponibile</p>';
+        return;
+    }
+
+    // Ordina le note per data (più recenti prima)
+    const sortedHistory = history.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    const rows = sortedHistory.map(entry => {
+        const date = new Date(entry.timestamp).toLocaleString('it-IT');
+        
+        // Cerca il contenuto della nota in diversi campi possibili
+        const noteContent = entry.nota_nuova || entry.note || entry.nota || entry.contenuto || '';
+        
+        return `
+            <div class="note-entry">
+                <div class="note-content">
+                    <div class="note-text">${escapeHtml(noteContent)}</div>
+                </div>
+                <div class="note-metadata">
+                    <span class="note-author">📝 ${escapeHtml(entry.user_name || 'Utente sconosciuto')}</span>
+                    <span class="note-date">${escapeHtml(date)}</span>
+                </div>
+            </div>
+        `;
+    });
+
+    notesHistoryContainer.innerHTML = rows.join('');
+}
+
+// ============================================================================
+// FORM HANDLING FUNCTIONS - FIXED CON VALIDAZIONE
+// ============================================================================
+
+// Funzione FIXED per gestire il checkbox nuova ubicazione nel modal di dettaglio
+function handleNewLocationCheckbox() {
+    const isNewLocation = document.getElementById('isNewLocationCheckbox').checked;
+    const locationSelect = document.getElementById('newLocation');
+    const locationInput = document.getElementById('newLocationInput');
+    
+    console.log('[DEBUG] Checkbox clicked, isNewLocation:', isNewLocation);
+    
+    if (isNewLocation) {
+        // Mostra input, nascondi select
+        locationSelect.style.display = 'none';
+        locationSelect.required = false;
+        locationInput.style.display = 'block';
+        locationInput.required = true;
+        locationInput.focus();
+    } else {
+        // Mostra select, nascondi input
+        locationSelect.style.display = 'block';
+        locationSelect.required = true;
+        locationInput.style.display = 'none';
+        locationInput.required = false;
+        locationInput.value = ''; // Reset dell'input
     }
 }
 
 async function moveEquipment() {
-    let newLocation = document.getElementById('newLocation').value;
-    const userName = document.getElementById('userName').value.trim();
-    const isNewLocation = document.getElementById('isNewLocationCheckbox').checked;
-    
-    if (!userName) {
-        alert('⚠️ Inserisci il tuo nome');
+    // Verifica che currentEquipmentId sia definito
+    if (!currentEquipmentId) {
+        showError('⚠️ Errore: nessuna attrezzatura selezionata');
         return;
     }
-      if (isNewLocation) {
+
+    const isNewLocation = document.getElementById('isNewLocationCheckbox')?.checked || false;
+    let newLocation;
+    
+    if (isNewLocation) {
+        newLocation = document.getElementById('newLocationInput')?.value?.trim();
+    } else {
+        newLocation = document.getElementById('newLocation')?.value?.trim();
+    }
+    
+    const userNameRaw = document.getElementById('userName')?.value;
+    
+    // Validazione nome utente
+    const userNameValidation = validateUserName(userNameRaw);
+    if (!userNameValidation.valid) {
+        showError('⚠️ ' + userNameValidation.message);
+        const userNameField = document.getElementById('userName');
+        if (userNameField) userNameField.focus();
+        return;
+    }
+    
+    const userName = userNameValidation.formatted;
+
+    if (!newLocation) {
+        showError('⚠️ ' + (isNewLocation ? 'Inserisci una nuova ubicazione' : 'Seleziona una ubicazione'));
+        return;
+    }
+
+    if (isNewLocation) {
         // Valida e formatta la nuova ubicazione
         const validation = validateNewLocation(newLocation);
         if (!validation.valid) {
-            alert('⚠️ ' + validation.message);
+            console.log('[DEBUG] Validazione ubicazione fallita:', validation.message);
+            showError('⚠️ ' + validation.message);
             return;
         }
         newLocation = validation.formatted;
         
         // Aggiungi la nuova ubicazione alla lista
-        locationsData.push(newLocation);
-    } else if (!newLocation) {
-        alert('⚠️ Seleziona una ubicazione');
+        if (!locationsData.includes(newLocation)) {
+            locationsData.push(newLocation);
+            locationsData.sort();
+        }
+    }
+    
+    try {
+        showLoadingOverlay('Spostamento attrezzatura in corso...');
+        console.log('[DEBUG] Inizio spostamento - codice:', currentEquipmentId, 'nuova ubicazione:', newLocation, 'utente:', userName);
+
+        const formData = new FormData();
+        formData.append('codice', currentEquipmentId);
+        formData.append('newLocation', newLocation);
+        formData.append('userName', userName);
+
+        console.log('[DEBUG] FormData creato, invio richiesta POST a:', API_BASE_URL + '?action=moveEquipment');
+
+        const response = await fetch(`${API_BASE_URL}?action=moveEquipment`, {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json'
+            },
+            body: formData
+        });
+
+        console.log('[DEBUG] Response status:', response.status);
+        
+        if (!response.ok) {
+            throw new Error(`Errore HTTP: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        console.log('[DEBUG] Response data:', result);
+
+        if (!result.success) {
+            throw new Error(result.message || 'Errore durante lo spostamento');
+        }
+
+        // Aggiorna i dati in memoria
+        const index = attrezzature.findIndex(a => a.codice === currentEquipmentId);
+        if (index !== -1) {
+            attrezzature[index].ubicazione = newLocation;
+            // Aggiorna anche equipmentData per consistenza
+            const equipIndex = equipmentData.findIndex(e => e.codice === currentEquipmentId);
+            if (equipIndex !== -1) {
+                equipmentData[equipIndex].ubicazione = newLocation;
+            }
+        }
+
+        // Aggiorna la visualizzazione dell'ubicazione attuale nel modal
+        const detailUbicazione = document.getElementById('detailUbicazione');
+        if (detailUbicazione) {
+            detailUbicazione.textContent = newLocation;
+        }
+
+        // Ricarica lo storico dei movimenti dopo lo spostamento
+        await loadMovementHistory(currentEquipmentId);
+        
+        // Reset del form spostamento
+        const formElements = {
+            newLocation: document.getElementById('newLocation'),
+            newLocationInput: document.getElementById('newLocationInput'),
+            userName: document.getElementById('userName'),
+            checkbox: document.getElementById('isNewLocationCheckbox')
+        };
+        
+        if (formElements.newLocation) formElements.newLocation.value = '';
+        if (formElements.newLocationInput) formElements.newLocationInput.value = '';
+        if (formElements.userName) {
+            formElements.userName.value = '';
+            formElements.userName.classList.remove('valid', 'invalid');
+            formElements.userName.style.borderColor = '#e0e0e0';
+        }
+        if (formElements.checkbox) {
+            formElements.checkbox.checked = false;
+            handleNewLocationCheckbox(); // Ripristina la visualizzazione corretta
+        }
+
+        // Aggiorna il select delle ubicazioni per riflettere la nuova ubicazione corrente
+        const equipment = attrezzature.find(item => item.codice === currentEquipmentId);
+        if (equipment) {
+            updateLocationSelect(equipment);
+        }
+        
+        showError('✅ Attrezzatura spostata con successo');
+        
+    } catch (error) {
+        console.error('[DEBUG] Errore durante lo spostamento:', error);
+        showError('❌ ' + error.message);
+    } finally {
+        hideLoadingOverlay();
+    }
+}
+
+async function updateEquipmentNotes() {
+    if (!currentEquipmentId) {
+        showError('⚠️ Errore: nessuna attrezzatura selezionata');
+        return;
+    }
+
+    const noteText = document.getElementById('detailNote')?.value || '';
+    const userNameRaw = document.getElementById('noteUserName')?.value;
+    
+    // Validazione nome utente
+    const userNameValidation = validateUserName(userNameRaw);
+    if (!userNameValidation.valid) {
+        showError('⚠️ ' + userNameValidation.message);
+        const userNameField = document.getElementById('noteUserName');
+        if (userNameField) userNameField.focus();
         return;
     }
     
-    const equipment = equipmentData.find(function(item) {
-        return item.id === currentEquipmentId;
-    });
-    const oldLocation = equipment.ubicazione;
+    const userName = userNameValidation.formatted;
     
     try {
-        showLoading('Spostamento attrezzatura in corso...');
+        showLoadingOverlay('Salvataggio note...');
+        
+        console.log('[DEBUG] Inizio salvataggio note per codice:', currentEquipmentId);
+        
+        const formData = new FormData();
+        formData.append('codice', currentEquipmentId);
+        formData.append('note', noteText);
+        formData.append('userName', userName);
 
-        // Invia i dati all'Apps Script
-        await updateGoogleSheetViaWebApp('moveEquipment', {
-            codice: equipment.codice,
-            newLocation: newLocation,
-            userName: userName,
-            oldLocation: oldLocation,
-            timestamp: new Date().toISOString()
+        console.log('[DEBUG] FormData creato, invio richiesta POST a:', API_BASE_URL + '?action=updateNotes');
+
+        const response = await fetch(`${API_BASE_URL}?action=updateNotes`, {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json'
+            },
+            body: formData
         });
 
-        // Aggiorna i dati locali
-        equipment.ubicazione = newLocation;
-        movementLog.push({
-            codice: equipment.codice,
-            data: new Date().toISOString(),
-            utente: userName,
-            azione: 'Spostamento Ubicazione',
-            tabella: 'attrezzatura',
-            da: oldLocation,
-            a: newLocation
-        });
+        console.log('[DEBUG] Response status:', response.status);
         
-        hideLoading();
-        closeDetailModal(); // Chiude la scheda di dettaglio
-        alert('✅ Attrezzatura ' + equipment.codice + ' spostata da ' + oldLocation + ' a ' + newLocation);
+        if (!response.ok) {
+            throw new Error(`Errore HTTP: ${response.status}`);
+        }
         
-        renderCurrentView();
+        const result = await response.json();
+        console.log('[DEBUG] Response data:', result);
+
+        if (!result.success) {
+            throw new Error(result.message || 'Errore nel salvataggio delle note');
+        }
+
+        // Aggiorna i dati in memoria
+        const index = attrezzature.findIndex(a => a.codice === currentEquipmentId);
+        if (index !== -1) {
+            attrezzature[index].note = noteText;
+            // Aggiorna anche equipmentData per consistenza
+            const equipIndex = equipmentData.findIndex(e => e.codice === currentEquipmentId);
+            if (equipIndex !== -1) {
+                equipmentData[equipIndex].note = noteText;
+            }
+        }
+
+        // Ricarica lo storico note e movimenti per vedere le modifiche
+        try {
+            await Promise.all([
+                loadNotesHistory(currentEquipmentId),
+                loadMovementHistory(currentEquipmentId)
+            ]);
+        } catch (error) {
+            console.error('[DEBUG] Errore nel caricamento degli storici:', error);
+        }
+
+        // Reset del form note
+        const detailNoteField = document.getElementById('detailNote');
+        const noteUserNameField = document.getElementById('noteUserName');
+        if (detailNoteField) detailNoteField.value = '';
+        if (noteUserNameField) {
+            noteUserNameField.value = '';
+            noteUserNameField.classList.remove('valid', 'invalid');
+            noteUserNameField.style.borderColor = '#e0e0e0';
+        }
+
+        showError('✅ Note salvate con successo');
+
     } catch (error) {
-        hideLoading();
-        console.error('Errore durante lo spostamento:', error);
-        alert('❌ Errore durante lo spostamento: ' + error.message);
+        console.error('[DEBUG] Errore nel salvataggio delle note:', error);
+        showError('❌ Errore nel salvataggio: ' + error.message);
+    } finally {
+        hideLoadingOverlay();
     }
 }
 
-function filterContent() {
-    currentFilter = document.getElementById('searchInput').value.toLowerCase();
-    const searchText = document.getElementById('searchText');
-    
-    if (currentFilter) {
-        searchText.textContent = currentFilter;
-        searchText.classList.add('active');
-    } else {
-        searchText.textContent = 'Ricerca';
-        searchText.classList.remove('active');
-    }
-    
-    renderCurrentView();
-}
+// ============================================================================
+// LOCATION MANAGEMENT FUNCTIONS
+// ============================================================================
 
-function showLoading(message) {
-    document.getElementById('loadingMessage').textContent = message;
-    document.getElementById('loadingOverlay').classList.add('show');
-}
-
-function hideLoading() {
-    document.getElementById('loadingOverlay').classList.remove('show');
-}
-
-// Funzione per validare e formattare una nuova ubicazione
-function validateNewLocation(location) {
-    if (!location) return { valid: false, message: 'L\'ubicazione non può essere vuota' };
-    if (location.length > 20) return { valid: false, message: 'L\'ubicazione non può superare i 20 caratteri' };
-    
-    // Converti in maiuscolo e rimuovi spazi iniziali/finali
-    const formattedLocation = location.trim().toUpperCase();
-    
-    // Verifica se l'ubicazione esiste già (case insensitive)
-    if (locationsData.some(existing => existing.toUpperCase() === formattedLocation)) {
-        return { valid: false, message: 'Questa ubicazione esiste già nel sistema' };
-    }
-    
-    // Verifica che non contenga caratteri speciali
-    if (!/^[A-Z0-9\s-]+$/.test(formattedLocation)) {
-        return { valid: false, message: 'L\'ubicazione può contenere solo lettere, numeri, spazi e trattini' };
-    }
-    
-    return { valid: true, formatted: formattedLocation };
-}
-
-// Funzione per gestire il cambio tra select esistente e input nuova ubicazione
-function handleNewLocationCheckbox() {
-    const isNewLocation = document.getElementById('isNewLocationCheckbox').checked;
-    const locationDiv = document.getElementById('existingLocationDiv');
-    const select = document.getElementById('newLocation');
-    
-    if (isNewLocation) {
-        // Converti il select in un input text
-        locationDiv.innerHTML = '<input type="text" class="form-input new-location" id="newLocation" placeholder="Inserisci nuova ubicazione (max 20 caratteri)" maxlength="20">';
-        document.getElementById('newLocation').addEventListener('input', function(e) {
-            this.value = this.value.toUpperCase();
-        });
-    } else {
-        // Ripristina il select con le ubicazioni esistenti
-        locationDiv.innerHTML = '<select class="form-select" id="newLocation"><option value="">Seleziona ubicazione...</option></select>';
-        const select = document.getElementById('newLocation');
-        locationsData.sort().forEach(location => {
-            const option = document.createElement('option');
-            option.value = location;
-            option.textContent = location;
-            select.appendChild(option);
-        });
-    }
-}
-
-// Funzione per aggiornare il select delle ubicazioni
+// Funzione per aggiornare il select delle ubicazioni nel modal di dettaglio
 function updateLocationSelect(equipment) {
     const select = document.getElementById('newLocation');
     if (!select) return;
 
     // Resetta il checkbox di nuova ubicazione
     const checkbox = document.getElementById('isNewLocationCheckbox');
-    if (checkbox) checkbox.checked = false;
+    if (checkbox) {
+        checkbox.checked = false;
+        handleNewLocationCheckbox(); // Assicura la visualizzazione corretta
+    }
 
-    // Popola il select con le ubicazioni disponibili
+    // Pulisci il select
     select.innerHTML = '<option value="">Seleziona ubicazione...</option>';
-    locationsData
-        .sort()
+    
+    // Usa locationsData se disponibile, altrimenti usa le ubicazioni da attrezzature
+    const availableLocations = locationsData.length > 0 ? 
+        locationsData : 
+        Array.from(new Set(attrezzature.map(item => item.ubicazione))).filter(Boolean);
+
+    // Ordina le ubicazioni alfabeticamente
+    availableLocations.sort((a, b) => a.localeCompare(b));
+
+    // Aggiungi tutte le ubicazioni tranne quella corrente
+    availableLocations
         .filter(loc => loc !== equipment.ubicazione)
         .forEach(loc => {
             const option = document.createElement('option');
@@ -809,4 +1638,54 @@ function updateLocationSelect(equipment) {
             option.textContent = loc;
             select.appendChild(option);
         });
+
+    // Aggiorna il campo hidden con l'ubicazione corrente
+    const currentLocationField = document.getElementById('currentLocation');
+    if (currentLocationField) {
+        currentLocationField.value = equipment.ubicazione;
+    }
+
+    console.log('[DEBUG] Ubicazioni caricate nel select:', select.options.length - 1);
+}
+
+// Funzione per ottenere tutti i tipi di una specifica categoria
+function getTypesForCategory(category) {
+    return attrezzature
+        .filter(item => item.categoria === category)
+        .map(item => item.tipo)
+        .filter((value, index, self) => value && self.indexOf(value) === index)
+        .sort();
+}
+
+// Funzione per aggiornare i tipi in base alla categoria selezionata
+function updateTypesByCategory(category) {
+    const tipoSelect = document.getElementById('tipo');
+    const isNewTypeCheckbox = document.getElementById('isNewTypeCheckbox');
+    const newTypeInput = document.getElementById('newTypeInput');
+    const existingTypeDiv = document.getElementById('existingTypeDiv');
+
+    // Se è selezionato "nuovo tipo", non aggiorniamo la select
+    if (isNewTypeCheckbox.checked) {
+        return;
+    }
+
+    // Nascondi il campo input e mostra la select
+    newTypeInput.style.display = 'none';
+    existingTypeDiv.style.display = 'block';
+
+    // Svuota la select
+    tipoSelect.innerHTML = '<option value="">Seleziona tipo...</option>';
+
+    if (category) {
+        // Ottieni i tipi per la categoria selezionata
+        const tipi = getTypesForCategory(category);
+        
+        // Aggiungi le opzioni alla select
+        tipi.forEach(tipo => {
+            const option = document.createElement('option');
+            option.value = tipo;
+            option.textContent = tipo;
+            tipoSelect.appendChild(option);
+        });
+    }
 }
