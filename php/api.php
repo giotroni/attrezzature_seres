@@ -59,9 +59,14 @@ try {
                 error_log("logApiEvent: funzione non trovata");
             }
 
-            // Query semplice senza preparazione (per getData non serve)
-            error_log("Esecuzione query SELECT");
-            $result = $conn->query("SELECT * FROM attrezzature ORDER BY codice");
+            // Query con JOIN per ottenere i dettagli dell'ubicazione
+            error_log("Esecuzione query SELECT con JOIN");
+            $result = $conn->query("
+                SELECT a.*, u.nome_ubicazione, u.indirizzo 
+                FROM attrezzature a 
+                JOIN ubicazioni u ON a.ID_ubicazione = u.ID_ubicazione 
+                ORDER BY a.codice
+            ");
             $data = $result->fetchAll(PDO::FETCH_ASSOC);
             error_log("Query completata - " . count($data) . " record trovati");
 
@@ -240,13 +245,19 @@ try {
             // Prepara la query di base
             $query = "
                 SELECT 
-                    timestamp,
-                    user_name,
-                    azione,
-                    tipo_oggetto,
-                    codice,
-                    vecchia_ubicazione,                    nuova_ubicazione                FROM LogToolsMovements 
-                WHERE azione IN ('spostamento')
+                    m.timestamp,
+                    m.user_name,
+                    m.azione,
+                    m.tipo_oggetto,
+                    m.codice,
+                    m.vecchia_ubicazione_id,
+                    m.nuova_ubicazione_id,
+                    u_old.nome_ubicazione as vecchia_ubicazione,
+                    u_new.nome_ubicazione as nuova_ubicazione
+                FROM LogToolsMovements m
+                LEFT JOIN ubicazioni u_old ON m.vecchia_ubicazione_id = u_old.ID_ubicazione
+                LEFT JOIN ubicazioni u_new ON m.nuova_ubicazione_id = u_new.ID_ubicazione
+                WHERE m.azione IN ('spostamento')
             ";
             $params = [];
 
@@ -307,55 +318,79 @@ try {
         }
         
         try {
-            // Inizia la transazione per garantire la consistenza tra update e log
             $conn->beginTransaction();
 
-            // 1. Ottieni la vecchia ubicazione
-            $stmt = $conn->prepare("SELECT ubicazione FROM attrezzature WHERE codice = ?");
-            $stmt->execute([$_POST['codice']]);
-            $oldLocation = $stmt->fetchColumn();
+            // 1. Verifica se l'ubicazione esiste o creala
+            $stmt = $conn->prepare("SELECT ID_ubicazione FROM ubicazioni WHERE UPPER(nome_ubicazione) = UPPER(?)");
+            $stmt->execute([trim($_POST['newLocation'])]);
+            $newLocationId = $stmt->fetchColumn();
 
-            if ($oldLocation === false) {
+            if ($newLocationId === false) {
+                // Crea la nuova ubicazione
+                $stmt = $conn->prepare("INSERT INTO ubicazioni (nome_ubicazione, user_created) VALUES (UPPER(?), ?)");
+                $stmt->execute([trim($_POST['newLocation']), strtoupper($_POST['userName'])]);
+                $newLocationId = $conn->lastInsertId();
+            }
+
+            // 2. Ottieni la vecchia ubicazione
+            $stmt = $conn->prepare("
+                SELECT a.ID_ubicazione, u.nome_ubicazione 
+                FROM attrezzature a 
+                JOIN ubicazioni u ON a.ID_ubicazione = u.ID_ubicazione 
+                WHERE a.codice = ?
+            ");
+            $stmt->execute([$_POST['codice']]);
+            $oldLocation = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$oldLocation) {
                 throw new Exception("Attrezzatura non trovata");
             }
-              // 2. Aggiorna l'ubicazione e l'utente che ha fatto la modifica
-            $stmt = $conn->prepare("UPDATE attrezzature SET ubicazione = ?, utente_modifica = ? WHERE codice = ?");
-            $stmt->execute([strtoupper($_POST['newLocation']), strtoupper($_POST['userName']), $_POST['codice']]);
+
+            // 3. Aggiorna l'ubicazione e l'utente che ha fatto la modifica
+            $stmt = $conn->prepare("
+                UPDATE attrezzature 
+                SET ID_ubicazione = ?, utente_modifica = ? 
+                WHERE codice = ?
+            ");
+            $stmt->execute([$newLocationId, strtoupper($_POST['userName']), $_POST['codice']]);
 
             if ($stmt->rowCount() === 0) {
                 throw new Exception("Errore nell'aggiornamento dell'ubicazione");
             }
 
-            // 3. Inserisci il log del movimento
-            $stmt = $conn->prepare("                INSERT INTO LogToolsMovements (
+            // 4. Inserisci il log del movimento
+            $stmt = $conn->prepare("
+                INSERT INTO LogToolsMovements (
                     timestamp,
                     user_name,
                     azione,
                     tipo_oggetto,
                     codice,
-                    vecchia_ubicazione,
-                    nuova_ubicazione
+                    vecchia_ubicazione_id,
+                    nuova_ubicazione_id
                 ) VALUES (NOW(), ?, 'spostamento', 'attrezzatura', ?, ?, ?)
-            ");            if (!$stmt->execute([
-                strtoupper($_POST['userName']), // MAIUSCOLO
+            ");
+            
+            if (!$stmt->execute([
+                strtoupper($_POST['userName']),
                 $_POST['codice'],
-                $oldLocation,
-                strtoupper($_POST['newLocation']) // MAIUSCOLO
+                $oldLocation['ID_ubicazione'],
+                $newLocationId
             ])) {
                 throw new Exception("Errore durante l'inserimento del log");
             }
 
-            // 4. Log evento API
+            // 5. Log evento API
             if (function_exists('logApiEvent')) {
                 logApiEvent($conn, 'moveEquipment', $_POST, 200, [
                     'codice' => $_POST['codice'],
-                    'oldLocation' => $oldLocation,
+                    'oldLocation' => $oldLocation['nome_ubicazione'],
                     'newLocation' => $_POST['newLocation'],
                     'userName' => $_POST['userName']
                 ], null);
             }
 
-            // 5. Commit della transazione
+            // 6. Commit della transazione
             $conn->commit();
 
             echo json_encode([
@@ -374,7 +409,8 @@ try {
                 'message' => 'Errore durante lo spostamento: ' . $e->getMessage()
             ]);
         }
-          } else if ($action === 'createEquipment') {
+
+    } else if ($action === 'createEquipment') {
         try {
             // Ottieni i dati dalla query string
             $inputData = [
@@ -406,50 +442,65 @@ try {
             // Inizia la transazione
             $conn->beginTransaction();
 
-            // Prepara l'insert
+            // 1. Verifica se l'ubicazione esiste o creala
+            $stmt = $conn->prepare("SELECT ID_ubicazione FROM ubicazioni WHERE UPPER(nome_ubicazione) = UPPER(?)");
+            $stmt->execute([trim($inputData['ubicazione'])]);
+            $locationId = $stmt->fetchColumn();
+
+            if ($locationId === false) {
+                // Crea la nuova ubicazione
+                $stmt = $conn->prepare("INSERT INTO ubicazioni (nome_ubicazione, user_created) VALUES (UPPER(?), ?)");
+                $stmt->execute([trim($inputData['ubicazione']), strtoupper($inputData['userName'])]);
+                $locationId = $conn->lastInsertId();
+            }
+
+            // 2. Inserisci la nuova attrezzatura
             $stmt = $conn->prepare("
                 INSERT INTO attrezzature (
                     codice,
                     categoria,
                     tipo,
                     marca,
-                    ubicazione,
+                    ID_ubicazione,
                     note,
                     doc,
                     utente_creazione,
                     utente_modifica
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ");            // Esegui l'insert
+            ");
+            
             $result = $stmt->execute([
                 $newCode,
-                strtoupper($inputData['categoria']),  // MAIUSCOLO
-                strtoupper($inputData['tipo']),      // MAIUSCOLO
+                strtoupper($inputData['categoria']),
+                strtoupper($inputData['tipo']),
                 $inputData['marca'],
-                strtoupper($inputData['ubicazione']), // MAIUSCOLO
+                $locationId,
                 $inputData['note'] ?? '',
                 $inputData['doc'] ?? '',
-                strtoupper($inputData['userName']),  // MAIUSCOLO
-                strtoupper($inputData['userName'])  // MAIUSCOLO - Al momento della creazione, l'utente che modifica è lo stesso che crea
+                strtoupper($inputData['userName']),
+                strtoupper($inputData['userName'])
             ]);
 
             if (!$result) {
                 throw new Exception("Errore nell'inserimento dell'attrezzatura");
             }
 
-            // Registra nel log
-            $stmt = $conn->prepare("INSERT INTO LogToolsMovements (
+            // 3. Registra nel log
+            $stmt = $conn->prepare("
+                INSERT INTO LogToolsMovements (
                     timestamp,
                     user_name,
                     azione,
                     tipo_oggetto,
                     codice,
-                    nuova_ubicazione
-                ) VALUES (NOW(), ?, 'creazione', 'attrezzatura', ?, ?)");
+                    nuova_ubicazione_id
+                ) VALUES (NOW(), ?, 'creazione', 'attrezzatura', ?, ?)
+            ");
 
             $stmt->execute([
-                strtoupper($inputData['userName']), // MAIUSCOLO
+                strtoupper($inputData['userName']),
                 $newCode,
-                strtoupper($inputData['ubicazione']) // MAIUSCOLO
+                $locationId
             ]);
 
             // Commit della transazione
@@ -488,6 +539,56 @@ try {
                 'message' => 'Errore durante la creazione dell\'attrezzatura: ' . $e->getMessage()
             ]);
         }
+
+    } else if ($action === 'getLocations') {
+        try {
+            // Log inizio chiamata API
+            if (function_exists('logApiEvent')) {
+                logApiEvent($conn, 'getLocations', $_GET, 100, null, 'Inizio richiesta getLocations');
+            }
+
+            $query = "
+                SELECT 
+                    u.ID_ubicazione,
+                    u.nome_ubicazione,
+                    u.indirizzo,
+                    u.user_created,
+                    u.user_modified,
+                    u.created_at,
+                    u.modified_at,
+                    COUNT(a.id) as num_attrezzature
+                FROM ubicazioni u
+                LEFT JOIN attrezzature a ON u.ID_ubicazione = a.ID_ubicazione
+                GROUP BY u.ID_ubicazione
+                ORDER BY u.nome_ubicazione
+            ";
+
+            $result = $conn->query($query);
+            $locations = $result->fetchAll(PDO::FETCH_ASSOC);
+
+            // Log successo
+            if (function_exists('logApiEvent')) {
+                logApiEvent($conn, 'getLocations', $_GET, 200, [
+                    'count' => count($locations)
+                ], null);
+            }
+
+            echo json_encode([
+                'success' => true,
+                'count' => count($locations),
+                'data' => $locations
+            ]);
+
+        } catch (Exception $e) {
+            if (function_exists('logApiEvent')) {
+                logApiEvent($conn, 'getLocations', $_GET, 500, null, $e->getMessage());
+            }
+            echo json_encode([
+                'success' => false,
+                'message' => 'Errore durante il recupero delle ubicazioni: ' . $e->getMessage()
+            ]);
+        }
+
     } else {
         if (function_exists('logApiEvent')) {
             logApiEvent($conn, $action ?: 'unknown', $_GET, 400, null, 'Azione non specificata');
