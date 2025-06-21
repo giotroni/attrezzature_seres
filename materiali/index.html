@@ -96,30 +96,82 @@
         </ul>
     </div>
 
+    <!-- Material Detail Modal -->
+    <div class="material-modal" id="materialModal">
+        <div class="material-modal-content">
+            <div class="material-modal-header">
+                <h2 id="materialModalTitle">Dettaglio Materiale</h2>
+                <button class="modal-close" id="materialModalClose">✕</button>
+            </div>
+            <div class="material-modal-body">
+                <div class="material-details-grid">
+                    <div class="detail-row">
+                        <div class="detail-label">Codice:</div>
+                        <div class="detail-value" id="materialCodice"></div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label">Categoria:</div>
+                        <div class="detail-value" id="materialCategoria"></div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label">Tipo:</div>
+                        <div class="detail-value" id="materialTipo"></div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label">Ubicazione:</div>
+                        <div class="detail-value" id="materialUbicazione"></div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label">Quantità Attuale:</div>
+                        <div class="detail-value" id="materialQuantita"></div>
+                    </div>
+                </div>
+
+                <div class="update-section">
+                    <h3>Aggiorna Quantità</h3>
+                    <div class="input-group">
+                        <label for="nuovaQuantita">Nuova Quantità:</label>
+                        <input type="number" id="nuovaQuantita" step="0.01" min="0">
+                    </div>
+                    <div class="input-group">
+                        <label for="userName">Il tuo nome:</label>
+                        <input type="text" id="userName" placeholder="Inserisci il tuo nome (min. 4 caratteri)">
+                    </div>
+                    <button class="update-button" id="updateQuantita">
+                        💾 Salva Modifica
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Main Content Section -->
     <div class="main-content" id="mainContent">
         <!-- Content will be dynamically loaded here -->
+        <div id="header">
+            <h1></h1>
+            <p class="description"></p>
+        </div>
+        <div id="content"></div>
     </div>
 
     <!-- Loading Overlay -->
     <div class="loading-overlay" id="loadingOverlay">
         <div class="loading-spinner"></div>
         <div class="loading-message" id="loadingMessage">Caricamento in corso...</div>
-    </div>
-
-    <!-- Navigation Bar -->
-    <div class="view-navigation">
+    </div>    <!-- Bottom Navigation -->
+    <div class="bottom-nav">
         <button class="nav-button" data-view="ubicazione">
-            <span class="nav-icon">📍</span>
-            <span class="nav-text">Ubicazione</span>
+            <span class="icon">📍</span>
+            <span class="label">Ubicazione</span>
         </button>
         <button class="nav-button" data-view="categoria">
-            <span class="nav-icon">📂</span>
-            <span class="nav-text">Categoria</span>
+            <span class="icon">📂</span>
+            <span class="label">Categoria</span>
         </button>
         <button class="nav-button" data-view="tipo">
-            <span class="nav-icon">🏷️</span>
-            <span class="nav-text">Tipo</span>
+            <span class="icon">🏷</span>
+            <span class="label">Tipo</span>
         </button>
     </div>
 

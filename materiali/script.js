@@ -127,6 +127,9 @@ function validateUserName(userName, fieldName = "Nome utente") {
 // ============================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Initialize modal events
+    initializeModalEvents();
+    
     // Menu toggle
     const menuToggle = document.getElementById('menuToggle');
     const slideMenu = document.getElementById('slideMenu');
@@ -401,6 +404,8 @@ function renderUbicazioniList() {
 }
 
 function renderMaterialiUbicazione(mainContent, ubicazione) {
+    if (!mainContent) return;
+    
     // Filtra i materiali per l'ubicazione selezionata
     const materialiUbicazione = materiali.filter(m => m.nome_ubicazione === ubicazione);
     
@@ -479,7 +484,510 @@ function renderMaterialiUbicazione(mainContent, ubicazione) {
     document.querySelectorAll('.material-item').forEach(item => {
         item.addEventListener('click', () => {
             const materialId = item.dataset.id;
-            showMaterialDetail(materialId);
+            handleMaterialClick(materialId);
         });
     });
+}
+
+function renderCategorieList() {
+    const mainContent = document.getElementById('mainContent');
+    if (!mainContent) return;
+
+    // Raggruppa i materiali per categoria
+    const materialiPerCategoria = {};
+    materiali.forEach(item => {
+        if (!materialiPerCategoria[item.categoria]) {
+            materialiPerCategoria[item.categoria] = {
+                count: 0,
+                materialiCritici: 0,
+                tipi: new Set()
+            };
+        }
+        materialiPerCategoria[item.categoria].count++;
+        materialiPerCategoria[item.categoria].tipi.add(item.tipo);
+        if (item.quantita_attuale <= item.soglia_minima) {
+            materialiPerCategoria[item.categoria].materialiCritici++;
+        }
+    });
+
+    // Crea l'HTML per la vista delle categorie
+    let html = `
+        <div class="view-container">
+            <div class="view-header">
+                <h2>📂 Categorie</h2>
+                <div class="view-stats">
+                    ${Object.keys(materialiPerCategoria).length} categorie totali
+                </div>
+            </div>
+            <div class="locations-grid">
+    `;
+
+    // Ordina le categorie alfabeticamente
+    Object.keys(materialiPerCategoria).sort().forEach(categoria => {
+        const stats = materialiPerCategoria[categoria];
+        const alertClass = stats.materialiCritici > 0 ? 'location-alert' : '';
+        
+        html += `
+            <div class="location-card ${alertClass}" data-category="${categoria}">
+                <div class="location-content">
+                    <div class="location-icon">📂</div>
+                    <div class="location-info">
+                        <h3>${categoria}</h3>
+                        <div class="location-stats">
+                            <span class="material-total">${stats.count} materiali (${stats.tipi.size} tipi)</span>
+                            ${stats.materialiCritici > 0 ? 
+                                `<span class="material-alert">⚠️ ${stats.materialiCritici} sotto scorta</span>` : 
+                                ''}
+                        </div>
+                    </div>
+                    <div class="location-arrow">▶</div>
+                </div>
+            </div>
+        `;
+    });
+
+    html += `
+            </div>
+        </div>
+    `;
+
+    mainContent.innerHTML = html;
+
+    // Aggiungi event listener per i click sulle categorie
+    document.querySelectorAll('.location-card').forEach(card => {
+        card.addEventListener('click', () => {
+            const category = card.dataset.category;
+            currentFilter = category;
+            renderMaterialiCategoria(mainContent, category);
+        });
+    });
+}
+
+function renderTipiList() {
+    const mainContent = document.getElementById('mainContent');
+    if (!mainContent) return;
+
+    // Raggruppa i materiali per tipo
+    const materialiPerTipo = {};
+    materiali.forEach(item => {
+        const tipoKey = `${item.categoria}|${item.tipo}`; // Usa combinazione categoria+tipo come chiave
+        if (!materialiPerTipo[tipoKey]) {
+            materialiPerTipo[tipoKey] = {
+                categoria: item.categoria,
+                tipo: item.tipo,
+                count: 0,
+                materialiCritici: 0,
+                quantitaTotale: 0
+            };
+        }
+        materialiPerTipo[tipoKey].count++;
+        materialiPerTipo[tipoKey].quantitaTotale += parseFloat(item.quantita_attuale) || 0;
+        if (item.quantita_attuale <= item.soglia_minima) {
+            materialiPerTipo[tipoKey].materialiCritici++;
+        }
+    });
+
+    // Crea l'HTML per la vista dei tipi
+    let html = `
+        <div class="view-container">
+            <div class="view-header">
+                <h2>🏷️ Tipi</h2>
+                <div class="view-stats">
+                    ${Object.keys(materialiPerTipo).length} tipi totali
+                </div>
+            </div>
+            <div class="locations-grid">
+    `;
+
+    // Ordina prima per categoria e poi per tipo
+    Object.keys(materialiPerTipo).sort((a, b) => {
+        const [catA, tipoA] = a.split('|');
+        const [catB, tipoB] = b.split('|');
+        if (catA !== catB) return catA.localeCompare(catB);
+        return tipoA.localeCompare(tipoB);
+    }).forEach(tipoKey => {
+        const stats = materialiPerTipo[tipoKey];
+        const alertClass = stats.materialiCritici > 0 ? 'location-alert' : '';
+        
+        html += `
+            <div class="location-card ${alertClass}" data-category="${stats.categoria}" data-tipo="${stats.tipo}">
+                <div class="location-content">
+                    <div class="location-icon">🏷️</div>
+                    <div class="location-info">
+                        <h3>${stats.tipo}</h3>
+                        <div class="categoria-label">${stats.categoria}</div>
+                        <div class="location-stats">
+                            <span class="material-total">${stats.count} ubicazioni</span>
+                            ${stats.materialiCritici > 0 ? 
+                                `<span class="material-alert">⚠️ ${stats.materialiCritici} sotto scorta</span>` : 
+                                ''}
+                        </div>
+                    </div>
+                    <div class="location-arrow">▶</div>
+                </div>
+            </div>
+        `;
+    });
+
+    html += `
+            </div>
+        </div>
+    `;
+
+    mainContent.innerHTML = html;
+
+    // Aggiungi event listener per i click sui tipi
+    document.querySelectorAll('.location-card').forEach(card => {
+        card.addEventListener('click', () => {
+            const category = card.dataset.category;
+            const tipo = card.dataset.tipo;
+            currentFilter = `${category}|${tipo}`;
+            renderMaterialiTipo(mainContent, category, tipo);
+        });
+    });
+}
+
+function renderMaterialiCategoria(mainContent, categoria) {
+    // Filtra i materiali per la categoria selezionata
+    const materialiCategoria = materiali.filter(m => m.categoria === categoria);
+    
+    let html = `
+        <div class="view-container">
+            <div class="view-header">
+                <div class="back-button" id="backButton">
+                    <span class="back-arrow">◀</span>
+                    <span>Torna alle categorie</span>
+                </div>
+                <div class="location-title">
+                    <h2>📂 ${categoria}</h2>
+                    <div class="view-stats">${materialiCategoria.length} materiali presenti</div>
+                </div>
+            </div>
+            <div class="materials-list">
+    `;
+
+    // Raggruppa per tipo
+    const materialiPerTipo = {};
+    materialiCategoria.forEach(materiale => {
+        if (!materialiPerTipo[materiale.tipo]) {
+            materialiPerTipo[materiale.tipo] = [];
+        }
+        materialiPerTipo[materiale.tipo].push(materiale);
+    });
+
+    // Ordina i tipi e renderizza i materiali
+    Object.keys(materialiPerTipo).sort().forEach(tipo => {
+        html += `
+            <div class="category-section">
+                <h3 class="category-header">${tipo}</h3>
+                <div class="category-items">
+        `;
+
+        materialiPerTipo[tipo].sort((a, b) => a.nome_ubicazione.localeCompare(b.nome_ubicazione)).forEach(materiale => {
+            const statoClasse = materiale.quantita_attuale <= materiale.soglia_minima ? 'stato-critico' :
+                               materiale.quantita_attuale <= (materiale.soglia_minima * 1.5) ? 'stato-basso' : 
+                               'stato-ok';
+
+            html += `
+                <div class="material-item" data-id="${materiale.codice_materiale}">
+                    <div class="material-info">
+                        <div class="material-type">📍 ${materiale.nome_ubicazione}</div>
+                        <div class="material-details">
+                            <span class="material-code">${materiale.codice_materiale}</span>
+                            <span class="material-quantity ${statoClasse}">
+                                ${materiale.quantita_attuale} ${materiale.unita_misura}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+
+        html += `
+                </div>
+            </div>
+        `;
+    });
+
+    html += `
+            </div>
+        </div>
+    `;
+
+    mainContent.innerHTML = html;
+
+    // Aggiungi event listener per il pulsante indietro
+    document.getElementById('backButton').addEventListener('click', () => {
+        currentFilter = '';
+        renderView();
+    });
+
+    // Aggiungi event listener per i click sui materiali
+    document.querySelectorAll('.material-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const materialId = item.dataset.id;
+            handleMaterialClick(materialId);
+        });
+    });
+}
+
+function renderMaterialiTipo(mainContent, categoria, tipo) {
+    // Filtra i materiali per il tipo selezionato
+    const materialiTipo = materiali.filter(m => m.categoria === categoria && m.tipo === tipo);
+    
+    let html = `
+        <div class="view-container">
+            <div class="view-header">
+                <div class="back-button" id="backButton">
+                    <span class="back-arrow">◀</span>
+                    <span>Torna ai tipi</span>
+                </div>
+                <div class="location-title">
+                    <h2>🏷️ ${tipo}</h2>
+                    <div class="view-stats">${materialiTipo.length} ubicazioni</div>
+                </div>
+            </div>
+            <div class="category-section">
+                <h3 class="category-header">${categoria}</h3>
+                <div class="category-items">
+    `;
+
+    // Ordina per ubicazione
+    materialiTipo.sort((a, b) => a.nome_ubicazione.localeCompare(b.nome_ubicazione)).forEach(materiale => {
+        const statoClasse = materiale.quantita_attuale <= materiale.soglia_minima ? 'stato-critico' :
+                           materiale.quantita_attuale <= (materiale.soglia_minima * 1.5) ? 'stato-basso' : 
+                           'stato-ok';
+
+        html += `
+            <div class="material-item" data-id="${materiale.codice_materiale}">
+                <div class="material-info">
+                    <div class="material-type">📍 ${materiale.nome_ubicazione}</div>
+                    <div class="material-details">
+                        <span class="material-code">${materiale.codice_materiale}</span>
+                        <span class="material-quantity ${statoClasse}">
+                            ${materiale.quantita_attuale} ${materiale.unita_misura}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    html += `
+                </div>
+            </div>
+        </div>
+    `;
+
+    mainContent.innerHTML = html;
+
+    // Aggiungi event listener per il pulsante indietro
+    document.getElementById('backButton').addEventListener('click', () => {
+        currentFilter = '';
+        renderView();
+    });
+
+    // Aggiungi event listener per i click sui materiali
+    document.querySelectorAll('.material-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const materialId = item.dataset.id;
+            handleMaterialClick(materialId);
+        });
+    });
+}
+
+// Funzione per mostrare i materiali in una lista
+function renderMaterialsList(materials, parentElement) {
+    const list = document.createElement('div');
+    list.className = 'materials-list';
+    
+    materials.forEach(material => {
+        const card = document.createElement('div');
+        card.className = 'material-card';
+        if (material.quantita <= material.soglia_minima) {
+            card.classList.add('low-stock');
+        }
+        
+        card.innerHTML = `
+            <div class="material-header">
+                <h3>${material.nome}</h3>
+                <span class="material-code">${material.codice}</span>
+            </div>
+            <div class="material-body">
+                <div class="material-info">
+                    <span class="info-label">Quantità:</span>
+                    <span class="info-value">${material.quantita}</span>
+                </div>
+                <div class="material-info">
+                    <span class="info-label">Min:</span>
+                    <span class="info-value">${material.soglia_minima}</span>
+                </div>
+                ${currentView !== VIEWS.UBICAZIONE ? 
+                    `<div class="material-info">
+                        <span class="info-label">Ubicazione:</span>
+                        <span class="info-value">${material.ubicazione}</span>
+                    </div>` : ''}
+                ${currentView !== VIEWS.CATEGORIA ? 
+                    `<div class="material-info">
+                        <span class="info-label">Categoria:</span>
+                        <span class="info-value">${material.categoria}</span>
+                    </div>` : ''}
+                ${currentView !== VIEWS.TIPO ? 
+                    `<div class="material-info">
+                        <span class="info-label">Tipo:</span>
+                        <span class="info-value">${material.tipo}</span>
+                    </div>` : ''}
+            </div>
+        `;
+        
+        // Aggiunta dell'event listener per aprire il modal
+        card.addEventListener('click', () => showMaterialModal(material));
+        
+        list.appendChild(card);
+    });
+    
+    parentElement.appendChild(list);
+}
+
+// Modal handling
+function showMaterialModal(material) {
+    if (!material) {
+        console.error('No material provided to showMaterialModal');
+        return;
+    }
+
+    const modal = document.querySelector('.material-modal');
+    if (!modal) {
+        console.error('Modal element not found');
+        return;
+    }
+
+    currentMaterialId = material.codice_materiale;
+    const header = modal.querySelector('.material-modal-header h2');
+    const details = modal.querySelector('.material-details-grid');
+
+    // Set title and details
+    header.textContent = material.tipo;
+    details.innerHTML = `
+        <div class="detail-row">
+            <span class="detail-label">Codice:</span>
+            <span class="detail-value">${material.codice_materiale}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Categoria:</span>
+            <span class="detail-value">${material.categoria}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Tipo:</span>
+            <span class="detail-value">${material.tipo}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Ubicazione:</span>
+            <span class="detail-value">${material.nome_ubicazione}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Quantità:</span>
+            <span class="detail-value">${material.quantita_attuale} ${material.unita_misura}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Soglia minima:</span>
+            <span class="detail-value">${material.soglia_minima}</span>
+        </div>
+    `;    // Reset form fields
+    const newQuantityInput = document.getElementById('nuovaQuantita');
+    const usernameInput = document.getElementById('userName');
+    if (newQuantityInput) newQuantityInput.value = '';
+    if (usernameInput) usernameInput.value = '';
+
+    // Show modal
+    modal.style.display = 'block';
+    document.body.style.overflow = 'hidden'; // Prevent background scrolling
+}
+
+function closeModal() {
+    const modal = document.querySelector('.material-modal');
+    modal.style.display = 'none';
+    document.body.style.overflow = ''; // Restore scrolling
+    currentMaterialId = null;
+}
+
+async function updateQuantity(event) {
+    event.preventDefault();
+      const newQuantity = document.getElementById('nuovaQuantita').value;
+    const username = document.getElementById('userName').value;
+    
+    if (!newQuantity || !username) {
+        alert('Per favore compila tutti i campi');
+        return;
+    }
+
+    if (isNaN(newQuantity) || parseInt(newQuantity) < 0) {
+        alert('La quantità deve essere un numero positivo');
+        return;
+    }
+
+    try {
+        const response = await fetch('../php/api_materiali.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                action: 'updateGiacenza',
+                codice_materiale: currentMaterialId,
+                quantita_attuale: parseInt(newQuantity),
+                username: username
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('Errore nella risposta del server');
+        }
+
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('Quantità aggiornata con successo!');
+            closeModal();
+            loadData(); // Refresh the data
+        } else {
+            alert('Errore durante l\'aggiornamento: ' + (result.message || 'Errore sconosciuto'));
+        }
+    } catch (error) {
+        console.error('Errore durante l\'aggiornamento:', error);
+        alert('Si è verificato un errore durante l\'aggiornamento');
+    }
+}
+
+// Event Listeners for modal
+function initializeModalEvents() {
+    const modal = document.querySelector('.material-modal');
+    if (!modal) {
+        console.error('Modal element not found');
+        return;
+    }
+    
+    // Close modal when clicking outside
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            closeModal();
+        }
+    });
+
+    // Close modal with close button
+    const closeButton = modal.querySelector('.modal-close');
+    if (closeButton) {
+        closeButton.addEventListener('click', closeModal);
+    }    // Form submission
+    const updateButton = modal.querySelector('#updateQuantita');    if (updateButton) {
+        updateButton.addEventListener('click', updateQuantity);
+    }
+}
+
+// Helper function per gestire il click sui materiali
+function handleMaterialClick(materialId) {
+    const material = materiali.find(m => m.codice_materiale === materialId);
+    if (material) {
+        showMaterialModal(material);
+    }
 }
