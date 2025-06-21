@@ -124,7 +124,7 @@ try {
 
             // 2. Inserisci il log nella tabella logNote (SEMPLIFICATA)
             $stmt = $conn->prepare(
-                "INSERT INTO logNote (
+                "INSERT INTO LogToolsNotes (
                     timestamp,
                     user_name,
                     codice,
@@ -182,7 +182,7 @@ try {
                     user_name,
                     codice,
                     nota
-                FROM logNote 
+                FROM LogToolsNotes 
                 WHERE 1=1
             ";
             $params = [];
@@ -245,8 +245,7 @@ try {
                     azione,
                     tipo_oggetto,
                     codice,
-                    vecchia_ubicazione,
-                    nuova_ubicazione                FROM logMovement 
+                    vecchia_ubicazione,                    nuova_ubicazione                FROM LogToolsMovements 
                 WHERE azione IN ('spostamento')
             ";
             $params = [];
@@ -328,8 +327,7 @@ try {
             }
 
             // 3. Inserisci il log del movimento
-            $stmt = $conn->prepare("
-                INSERT INTO logMovement (
+            $stmt = $conn->prepare("                INSERT INTO LogToolsMovements (
                     timestamp,
                     user_name,
                     azione,
@@ -439,15 +437,16 @@ try {
             }
 
             // Registra nel log
-            $stmt = $conn->prepare("                INSERT INTO logMovement (
+            $stmt = $conn->prepare("INSERT INTO LogToolsMovements (
+                    timestamp,
                     user_name,
                     azione,
                     tipo_oggetto,
                     codice,
                     nuova_ubicazione
-                ) VALUES (?, 'creazione', 'attrezzatura', ?, ?)
-            ");
-              $stmt->execute([
+                ) VALUES (NOW(), ?, 'creazione', 'attrezzatura', ?, ?)");
+
+            $stmt->execute([
                 strtoupper($inputData['userName']), // MAIUSCOLO
                 $newCode,
                 strtoupper($inputData['ubicazione']) // MAIUSCOLO

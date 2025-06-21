@@ -86,6 +86,7 @@ try {
     $conn->exec("USE " . DB_NAME);
 
     // Crea tabella attrezzature con il nuovo campo DOC
+    echo "Creazione tabella attrezzature...\n";
     $sql = "CREATE TABLE IF NOT EXISTS attrezzature (
         id INT AUTO_INCREMENT PRIMARY KEY,
         codice VARCHAR(50) UNIQUE NOT NULL,
@@ -102,16 +103,9 @@ try {
     )";
     $conn->exec($sql);
 
-    // Aggiungi il campo DOC se non esiste già
-    try {
-        $conn->exec("ALTER TABLE attrezzature ADD COLUMN doc VARCHAR(500)");
-        echo "Campo DOC aggiunto con successo!\n";
-    } catch(PDOException $e) {
-        if($e->getCode() != '42S21') { // Ignora errore se la colonna esiste già
-            throw $e;
-        }
-    }    // Crea tabella logMovement per gli spostamenti e le modifiche
-    $sql = "CREATE TABLE IF NOT EXISTS logMovement (
+    // Crea tabella LogToolsMovements per gli spostamenti e le modifiche
+    echo "Creazione tabella LogToolsMovements...\n";
+    $sql = "CREATE TABLE IF NOT EXISTS LogToolsMovements (
         id INT AUTO_INCREMENT PRIMARY KEY,
         timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         user_name VARCHAR(100) NOT NULL,
@@ -125,10 +119,9 @@ try {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (codice) REFERENCES attrezzature(codice) ON DELETE CASCADE
     )";
-    $conn->exec($sql);
-
-    // NUOVA TABELLA: Crea tabella logNote per lo storico delle note (SEMPLIFICATA)
-    $sql = "CREATE TABLE IF NOT EXISTS logNote (
+    $conn->exec($sql);    // NUOVA TABELLA: Crea tabella LogToolsNotes per lo storico delle note (SEMPLIFICATA)
+    echo "Creazione tabella LogToolsNotes...\n";
+    $sql = "CREATE TABLE IF NOT EXISTS LogToolsNotes (
         id INT AUTO_INCREMENT PRIMARY KEY,
         timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         user_name VARCHAR(100) NOT NULL,
@@ -139,10 +132,9 @@ try {
         INDEX idx_timestamp (timestamp),
         FOREIGN KEY (codice) REFERENCES attrezzature(codice) ON DELETE CASCADE
     )";
-    $conn->exec($sql);
-
-    // Crea tabella LogEvent per log API
-    $sql = "CREATE TABLE IF NOT EXISTS LogEvent (
+    $conn->exec($sql);// Crea tabella LogApiEvent per log API
+    echo "Creazione tabella LogApiEvent...\n";
+    $sql = "CREATE TABLE IF NOT EXISTS LogApiEvent (
         id INT AUTO_INCREMENT PRIMARY KEY,
         ip_address VARCHAR(45),
         request_method VARCHAR(10),
@@ -160,24 +152,56 @@ try {
     $conn->exec($sql);
 
     echo "Database e tabelle create con successo!\n";
-    echo "Tabella logNote creata per lo storico delle note (versione semplificata)!\n";
-
-    // Migrazione dati dalla vecchia tabella log alla nuova logMovement
+    echo "Tabella LogToolsNotes creata per lo storico delle note (versione semplificata)!\n";    // Migrazione dati dalle vecchie tabelle (log e logMovement) alla nuova LogToolsMovements
     try {
-        // Prima verifica se la vecchia tabella esiste
+        // Prima verifica se la vecchia tabella 'log' esiste
         $stmt = $conn->query("SHOW TABLES LIKE 'log'");
         if ($stmt->rowCount() > 0) {
-            // Copia i dati dalla vecchia alla nuova tabella
-            $conn->exec("INSERT INTO logMovement (timestamp, user_name, azione, tipo_oggetto, codice, vecchia_ubicazione, nuova_ubicazione, note_precedenti, note_nuove, created_at)
+            // Copia i dati dalla vecchia tabella 'log'
+            $conn->exec("INSERT INTO LogToolsMovements (timestamp, user_name, azione, tipo_oggetto, codice, vecchia_ubicazione, nuova_ubicazione, note_precedenti, note_nuove, created_at)
                         SELECT timestamp, user_name, azione, tipo_oggetto, codice, vecchia_ubicazione, nuova_ubicazione, note_precedenti, note_nuove, created_at 
                         FROM log");
             
             // Elimina la vecchia tabella
             $conn->exec("DROP TABLE log");
-            echo "Migrazione dati da log a logMovement completata con successo!\n";
+            echo "Migrazione dati da log a LogToolsMovements completata con successo!\n";
         }
     } catch(PDOException $e) {
         echo "Nota: nessuna migrazione necessaria dalla tabella log\n";
+    }
+
+    // Verifica e migra i dati dalla tabella logMovement se esiste
+    try {
+        $stmt = $conn->query("SHOW TABLES LIKE 'logMovement'");
+        if ($stmt->rowCount() > 0) {
+            // Copia i dati dalla tabella logMovement
+            $conn->exec("INSERT INTO LogToolsMovements (timestamp, user_name, azione, tipo_oggetto, codice, vecchia_ubicazione, nuova_ubicazione, note_precedenti, note_nuove, created_at)
+                        SELECT timestamp, user_name, azione, tipo_oggetto, codice, vecchia_ubicazione, nuova_ubicazione, note_precedenti, note_nuove, created_at 
+                        FROM logMovement");
+            
+            // Elimina la vecchia tabella
+            $conn->exec("DROP TABLE logMovement");
+            echo "Migrazione dati da logMovement a LogToolsMovements completata con successo!\n";
+        }
+    } catch(PDOException $e) {
+        echo "Nota: nessuna migrazione necessaria dalla tabella logMovement\n";
+    }
+
+    // Migrazione dati da LogEvent a LogApiEvent (se esiste la vecchia tabella)
+    try {
+        $check = $conn->query("SHOW TABLES LIKE 'LogEvent'");
+        if ($check->rowCount() > 0) {
+            // La vecchia tabella esiste, migriamo i dati
+            $conn->exec("INSERT IGNORE INTO LogApiEvent 
+                SELECT * FROM LogEvent");
+            echo "Dati migrati da LogEvent a LogApiEvent\n";
+            
+            // Opzionalmente, elimina la vecchia tabella
+            $conn->exec("DROP TABLE IF EXISTS LogEvent");
+            echo "Vecchia tabella LogEvent eliminata\n";
+        }
+    } catch (PDOException $e) {
+        echo "Nota: nessuna migrazione necessaria per LogEvent\n";
     }
 
     // Importa dati dal CSV se il file esiste

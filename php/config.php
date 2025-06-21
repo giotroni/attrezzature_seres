@@ -78,17 +78,15 @@ function logApiEvent($conn, $action, $requestData = null, $responseCode = null, 
         if (!$conn || !($conn instanceof PDO)) {
             error_log("logApiEvent: connessione non valida per action: $action");
             return false;
-        }
-
-        // Verifica se la tabella LogEvent esiste
-        $checkTable = $conn->query("SHOW TABLES LIKE 'LogEvent'");
+        }        // Verifica se la tabella LogApiEvent esiste
+        $checkTable = $conn->query("SHOW TABLES LIKE 'LogApiEvent'");
         if ($checkTable->rowCount() == 0) {
-            error_log("logApiEvent: tabella LogEvent non trovata");
+            error_log("logApiEvent: tabella LogApiEvent non trovata");
             return false;
         }
 
         $stmt = $conn->prepare("
-            INSERT INTO LogEvent (
+            INSERT INTO LogApiEvent (
                 ip_address,
                 request_method,
                 api_endpoint,
