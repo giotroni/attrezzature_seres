@@ -913,7 +913,8 @@ function closeModal() {
 
 async function updateQuantity(event) {
     event.preventDefault();
-      const newQuantity = document.getElementById('nuovaQuantita').value;
+    
+    const newQuantity = document.getElementById('nuovaQuantita').value;
     const username = document.getElementById('userName').value;
     
     if (!newQuantity || !username) {
@@ -926,18 +927,24 @@ async function updateQuantity(event) {
         return;
     }
 
+    // Ottieni il materiale corrente per l'ubicazione
+    const material = materiali.find(m => m.codice_materiale === currentMaterialId);
+    if (!material) {
+        alert('Errore: materiale non trovato');
+        return;
+    }
+
     try {
+        const formData = new FormData();
+        formData.append('action', 'updateGiacenza');
+        formData.append('codice_materiale', currentMaterialId);
+        formData.append('ubicazione', material.nome_ubicazione);
+        formData.append('nuova_quantita', newQuantity);
+        formData.append('userName', username);
+
         const response = await fetch('../php/api_materiali.php', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                action: 'updateGiacenza',
-                codice_materiale: currentMaterialId,
-                quantita_attuale: parseInt(newQuantity),
-                username: username
-            })
+            body: formData
         });
 
         if (!response.ok) {
@@ -951,7 +958,7 @@ async function updateQuantity(event) {
             closeModal();
             loadData(); // Refresh the data
         } else {
-            alert('Errore durante l\'aggiornamento: ' + (result.message || 'Errore sconosciuto'));
+            alert('Errore durante l\'aggiornamento: ' + (result.error || 'Errore sconosciuto'));
         }
     } catch (error) {
         console.error('Errore durante l\'aggiornamento:', error);
