@@ -1,5 +1,5 @@
 // Costanti e variabili globali
-const API_BASE_URL = './php/api.php';
+const API_BASE_URL = '../php/api.php';
 const USE_PHP_API = true;
 
 
