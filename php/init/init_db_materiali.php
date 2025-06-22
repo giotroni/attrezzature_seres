@@ -1,6 +1,6 @@
 <?php
-require_once 'config.php';
-
+// config.php è già incluso dal file principale
+echo "Inizializzazione tabelle materiali...\n";
 try {
     $conn = new PDO("mysql:host=" . DB_HOST, DB_USER, DB_PASS);
     $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
