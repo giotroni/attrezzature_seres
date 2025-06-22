@@ -1021,19 +1021,25 @@ async function updateQuantity(event) {
     event.preventDefault();
     
     const newQuantity = document.getElementById('nuovaQuantita').value;
-    const username = document.getElementById('userName').value;
+    const username = document.getElementById('userName').value.trim();
     
     console.log('updateQuantity - Valori inseriti:', { newQuantity, username, currentMaterialId });
     
     if (!newQuantity || !username) {
         console.log('updateQuantity - Campi mancanti');
-        alert('Per favore compila tutti i campi');
+        showError('⚠️ Per favore compila tutti i campi');
+        return;
+    }
+
+    if (username.length < 4) {
+        console.log('updateQuantity - Nome utente troppo corto:', username);
+        showError('⚠️ Il nome utente deve essere di almeno 4 caratteri');
         return;
     }
 
     if (isNaN(newQuantity) || parseInt(newQuantity) < 0) {
         console.log('updateQuantity - Quantità non valida:', newQuantity);
-        alert('La quantità deve essere un numero positivo');
+        showError('⚠️ La quantità deve essere un numero positivo');
         return;
     }
 
@@ -1112,12 +1118,22 @@ function initializeModalEvents() {
 // Helper function per gestire il click sui materiali
 function handleMaterialClick(materialId) {
     console.log('handleMaterialClick - ID ricevuto:', materialId);
-    const material = materiali.find(m => m.codice_materiale === materialId);
-    console.log('handleMaterialClick - Materiale trovato:', material);
-    if (material) {
-        showMaterialModal(material);
+    // Filtra per ubicazione corrente se siamo in vista ubicazione
+    const materiale = materiali.find(m => {
+        const matchId = m.codice_materiale === materialId;
+        const matchLocation = currentView === VIEWS.UBICAZIONE ? m.nome_ubicazione === currentFilter : true;
+        return matchId && matchLocation;
+    });
+    
+    console.log('handleMaterialClick - Vista corrente:', currentView);
+    console.log('handleMaterialClick - Filtro corrente:', currentFilter);
+    console.log('handleMaterialClick - Materiale trovato:', materiale);
+    
+    if (materiale) {
+        showMaterialModal(materiale);
     } else {
         console.error('handleMaterialClick - Materiale non trovato per ID:', materialId);
+        showError('⚠️ Materiale non trovato');
     }
 }
 
@@ -1148,14 +1164,12 @@ function caricaStorico(codice_materiale, ubicazione) {
     const storicoEsistente = modalBody.querySelector('.storico-section');
     if (storicoEsistente) {
         storicoEsistente.remove();
-    }
-
-    // Crea la sezione dello storico
+    }    // Crea la sezione dello storico
     const storicoSection = document.createElement('div');
-    storicoSection.className = 'storico-section';
+    storicoSection.className = 'storico-section mobile-friendly';
     storicoSection.innerHTML = `
-        <h3>Storico Movimenti</h3>
-        <div class="storico-content">
+        <h3 class="storico-title">Storico Movimenti</h3>
+        <div class="storico-content mobile-scrollable">
             <div class="loading-spinner">Caricamento storico...</div>
         </div>
     `;
