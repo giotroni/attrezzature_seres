@@ -236,17 +236,38 @@ body {
     width: 90%;
     max-width: 600px;
     max-height: 90vh;
-    overflow-y: auto;
-    padding: 30px;
     border-radius: 12px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.2);
     z-index: 1000;
     display: none;
+    overflow: hidden;
 }
 
-.about-modal h2 {
-    color: #8B2E1A;
-    margin-bottom: 25px;
+.about-modal .material-modal-content {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.about-modal .material-modal-header {
+    background: linear-gradient(135deg, #8B2E1A 0%, #A53527 100%);
+    color: white;
+    padding: 20px;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.about-modal .material-modal-header h2 {
+    color: white;
+    margin: 0;
+}
+
+.about-modal .material-modal-body {
+    padding: 30px;
+    overflow-y: auto;
+    flex: 1;
 }
 
 .about-modal h3 {
@@ -266,15 +287,16 @@ body {
     margin: 5px 0;
 }
 
-.about-close {
+.about-modal .modal-close {
     position: absolute;
-    top: 15px;
-    right: 15px;
+    top: 50%;
+    right: 20px;
+    transform: translateY(-50%);
     background: none;
     border: none;
     font-size: 1.5em;
     cursor: pointer;
-    color: #666;
+    color: white;
     padding: 5px;
 }
 

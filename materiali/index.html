@@ -35,9 +35,8 @@
             <button class="menu-close" id="menuClose">✕</button>
         </div>
         <div class="menu-content">
-            <h4 style="margin: 25px 0 15px; color: #333;">⚙️ Azioni</h4>
-            <button class="menu-item" id="btnAddMaterial">
-                📦 Nuovo Materiale
+            <h4 style="margin: 25px 0 15px; color: #333;">⚙️ Azioni</h4>            <button class="menu-item" id="btnAddMaterial">
+                📦 Nuova Associazione
             </button>
             <button class="menu-item" id="btnRefresh">
                 🔄 Aggiorna Dati
@@ -47,53 +46,104 @@
                 📖 Guida all'uso
             </button>
         </div>
-    </div>
-
-    <!-- About Modal -->
+    </div>    <!-- About Modal -->
     <div class="about-modal" id="aboutModal">
-        <button class="about-close" id="aboutClose">✕</button>
-        <h2>📦 Gestione Materiali SERES</h2>
-        
-        <h3>🎯 Scopo dell'applicazione</h3>
-        <p>Questa applicazione permette di gestire e tracciare tutti i materiali SERES, mantenendo uno storico dei movimenti, facilitando la ricerca e il controllo delle giacenze.</p>
-
-        <h3>🔍 Visualizzazione e Ricerca</h3>
+        <div class="material-modal-content">
+            <div class="material-modal-header">
+                <h2>📦 Gestione Materiali SERES</h2>
+                <button class="modal-close" id="aboutClose">✕</button>
+            </div>
+            <div class="material-modal-body">
+                <h3>🎯 Scopo dell'applicazione</h3>
+        <p>Questa applicazione è progettata per gestire e monitorare i materiali SERES in modo efficiente. Permette di:</p>
         <ul>
-            <li><strong>Viste principali:</strong> Puoi visualizzare i materiali per:
+            <li>Tracciare la posizione e la quantità di ogni materiale</li>
+            <li>Monitorare le scorte con alert automatici</li>
+            <li>Registrare tutti i movimenti di magazzino</li>
+            <li>Visualizzare dati in tempo reale</li>
+        </ul>
+
+        <h3>🔍 Viste e Navigazione</h3>
+        <ul>
+            <li><strong>Vista per Ubicazione 📍</strong>
                 <ul>
-                    <li>📍 <strong>Ubicazione</strong> - Dove si trovano i materiali</li>
-                    <li>📂 <strong>Categoria</strong> - Raggruppati per tipo di materiale</li>
-                    <li>📊 <strong>Giacenza</strong> - Stato delle quantità disponibili</li>
+                    <li>Visualizza tutti i materiali presenti in ogni ubicazione</li>
+                    <li>Evidenzia le ubicazioni con materiali sotto scorta</li>
+                    <li>Accesso rapido ai dettagli di ogni materiale</li>
                 </ul>
             </li>
-            <li><strong>Ricerca avanzata:</strong> Usa la barra di ricerca (🔍) per trovare rapidamente materiali per:
+            <li><strong>Vista per Categoria 📂</strong>
                 <ul>
-                    <li>Codice materiale</li>
-                    <li>Categoria o tipo</li>
-                    <li>Ubicazione</li>
+                    <li>Raggruppa i materiali per categoria merceologica</li>
+                    <li>Mostra il totale dei materiali per categoria</li>
+                    <li>Visualizza rapidamente tutti i tipi in una categoria</li>
+                </ul>
+            </li>
+            <li><strong>Vista per Tipo 🏷️</strong>
+                <ul>
+                    <li>Elenca tutti i tipi di materiale disponibili</li>
+                    <li>Mostra le quantità totali per tipo</li>
+                    <li>Indica in quante ubicazioni è presente ogni tipo</li>
                 </ul>
             </li>
         </ul>
-        
-        <h3>➕ Gestione Materiali</h3>
+
+        <h3>🔎 Ricerca e Filtri</h3>
+        <p>La barra di ricerca (🔍) permette di trovare rapidamente qualsiasi materiale utilizzando:</p>
         <ul>
-            <li><strong>Nuovo Materiale:</strong>
+            <li>Codice materiale univoco</li>
+            <li>Nome della categoria</li>
+            <li>Tipo di materiale</li>
+            <li>Nome dell'ubicazione</li>
+        </ul>
+
+        <h3>📋 Gestione Materiali</h3>
+        <ul>
+            <li><strong>Nuova Associazione 📦</strong>
                 <ul>
-                    <li>Seleziona una categoria esistente o creane una nuova</li>
-                    <li>Specifica il tipo e l'unità di misura</li>
-                    <li>Imposta la soglia minima per gli alert</li>
-                    <li>Il codice viene generato automaticamente dal sistema</li>
+                    <li>Associa un materiale esistente ad una nuova ubicazione</li>
+                    <li>Seleziona categoria e tipo del materiale</li>
+                    <li>Scegli l'ubicazione tra quelle disponibili</li>
+                    <li>Inserisci la quantità iniziale</li>
+                    <li>Il sistema previene automaticamente duplicati</li>
                 </ul>
             </li>
-            <li><strong>Scheda Dettaglio:</strong>
+            <li><strong>Scheda Dettaglio 📝</strong>
                 <ul>
                     <li>Visualizza tutte le informazioni del materiale</li>
-                    <li>Controlla lo storico completo dei movimenti</li>
-                    <li>Verifica le giacenze per ubicazione</li>
-                    <li>Registra carichi e scarichi</li>
+                    <li>Modifica la quantità in giacenza</li>
+                    <li>Consulta lo storico completo dei movimenti</li>
+                    <li>Verifica data e operatore di ogni modifica</li>
                 </ul>
             </li>
         </ul>
+
+        <h3>⚠️ Sistema di Alert</h3>
+        <ul>
+            <li>Indicatori visivi per materiali sotto scorta</li>
+            <li>Tre livelli di stato:
+                <ul>
+                    <li>🟢 Scorta normale</li>
+                    <li>🟡 Scorta bassa (sotto 1.5x soglia minima)</li>
+                    <li>🔴 Sotto soglia minima</li>
+                </ul>
+            </li>
+        </ul>
+
+        <h3>📊 Tracciamento</h3>
+        <ul>
+            <li>Ogni movimento viene registrato con:
+                <ul>
+                    <li>Data e ora dell'operazione</li>
+                    <li>Quantità modificata</li>
+                    <li>Nome dell'operatore</li>
+                    <li>Ubicazione interessata</li>
+                </ul>
+            </li>
+        </ul>        <h3>🔄 Aggiornamento Dati</h3>
+        <p>Usa il pulsante "Aggiorna Dati" nel menu per assicurarti di visualizzare sempre le informazioni più recenti.</p>
+            </div>
+        </div>
     </div>
 
     <!-- Material Detail Modal -->
@@ -125,9 +175,7 @@
                         <div class="detail-label">Quantità Attuale:</div>
                         <div class="detail-value" id="materialQuantita"></div>
                     </div>
-                </div>
-
-                <div class="update-section">
+                </div>                <div class="update-section">
                     <h3>Aggiorna Quantità</h3>
                     <div class="input-group">
                         <label for="nuovaQuantita">Nuova Quantità:</label>
@@ -141,6 +189,57 @@
                         💾 Salva Modifica
                     </button>
                 </div>
+
+                <!-- Sezione Storico Movimenti -->
+                <div class="storico-section mobile-friendly">
+                    <h3 class="storico-title">Storico Movimenti</h3>
+                    <div class="storico-content mobile-scrollable">
+                        <!-- Il contenuto dello storico verrà caricato dinamicamente qui -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Associa Materiale Modal -->
+    <div class="material-modal" id="associaMaterialeModal">
+        <div class="material-modal-content">
+            <div class="material-modal-header">
+                <h2>Associa Materiale</h2>
+                <button class="modal-close" id="associaMaterialeClose">✕</button>
+            </div>
+            <div class="material-modal-body">
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label for="selectCategoria">Categoria:</label>
+                        <select id="selectCategoria" required>
+                            <option value="">Seleziona una categoria...</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label for="selectTipo">Tipo:</label>
+                        <select id="selectTipo" required disabled>
+                            <option value="">Seleziona un tipo...</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label for="selectUbicazione">Ubicazione:</label>
+                        <select id="selectUbicazione" required>
+                            <option value="">Seleziona un'ubicazione...</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label for="nuovaQuantitaAssociazione">Quantità:</label>
+                        <input type="number" id="nuovaQuantitaAssociazione" step="0.01" min="0" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="userNameAssociazione">Il tuo nome:</label>
+                        <input type="text" id="userNameAssociazione" placeholder="Inserisci il tuo nome (min. 4 caratteri)" required>
+                    </div>
+                </div>
+                <button class="update-button" id="btnSalvaAssociazione">
+                    💾 Salva Associazione
+                </button>
             </div>
         </div>
     </div>
