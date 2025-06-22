@@ -330,10 +330,7 @@ body {
     padding: 20px;
     max-width: 1200px;
     margin: 0 auto;
-}
-
-.view-container {
-    padding-bottom: 80px;
+    padding-bottom: 80px; /* Spazio per navigation bar */
 }
 
 .view-header {
@@ -351,54 +348,6 @@ body {
 .view-stats {
     color: #666;
     font-size: 0.9em;
-}
-
-/* Navigation Bar */
-.view-navigation {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background: white;
-    display: flex;
-    justify-content: space-around;
-    padding: 10px;
-    box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
-    z-index: 100;
-}
-
-.nav-button {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 5px;
-    padding: 10px;
-    border: none;
-    background: none;
-    cursor: pointer;
-    color: #666;
-    transition: all 0.3s ease;
-    border-radius: 8px;
-    min-width: 80px;
-}
-
-.nav-button:hover {
-    background: #f5f5f5;
-    color: #8B2E1A;
-}
-
-.nav-button.active {
-    color: #8B2E1A;
-    background: rgba(139, 46, 26, 0.1);
-}
-
-.nav-icon {
-    font-size: 1.5em;
-}
-
-.nav-text {
-    font-size: 0.8em;
-    font-weight: 500;
 }
 
 /* Bottom Navigation */
@@ -500,6 +449,7 @@ body {
     display: flex;
     gap: 15px;
     align-items: center;
+    flex-wrap: wrap;
 }
 
 .material-total {
@@ -509,6 +459,11 @@ body {
 
 .material-alert {
     color: #d32f2f;
+    font-size: 0.9em;
+}
+
+.location-count {
+    color: #666;
     font-size: 0.9em;
 }
 
@@ -699,6 +654,18 @@ body {
     display: inline-block;
 }
 
+/* Tipo Header */
+.tipo-header {
+    background-color: #8B3E2F;
+    color: white;
+    padding: 10px 15px;
+    font-size: 16px;
+    font-weight: 500;
+    margin: 0 0 20px 0;
+    width: 100%;
+    border-radius: 8px;
+}
+
 /* Material Detail Modal */
 .material-modal {
     display: none;
@@ -750,6 +717,11 @@ body {
     cursor: pointer;
     color: white;
     padding: 5px;
+    transition: transform 0.2s ease;
+}
+
+.modal-close:hover {
+    transform: scale(1.1);
 }
 
 .material-modal-body {
@@ -774,6 +746,7 @@ body {
 .detail-label {
     color: #666;
     font-size: 0.9em;
+    font-weight: 500;
 }
 
 .detail-value {
@@ -803,11 +776,12 @@ body {
     margin-bottom: 5px;
     color: #666;
     font-size: 0.9em;
+    font-weight: 500;
 }
 
 .input-group input {
     width: 100%;
-    padding: 8px 12px;
+    padding: 10px 12px;
     border: 2px solid #ddd;
     border-radius: 6px;
     font-size: 1em;
@@ -817,6 +791,7 @@ body {
 .input-group input:focus {
     outline: none;
     border-color: #8B2E1A;
+    box-shadow: 0 0 0 3px rgba(139, 46, 26, 0.1);
 }
 
 .update-button {
@@ -827,6 +802,7 @@ body {
     border: none;
     border-radius: 6px;
     font-size: 1em;
+    font-weight: 500;
     cursor: pointer;
     transition: transform 0.2s ease;
 }
@@ -835,12 +811,193 @@ body {
     transform: translateY(-2px);
 }
 
-.tipo-header {
-    background-color: #8B3E2F;
-    color: white;
-    padding: 10px 15px;
-    font-size: 16px;
-    font-weight: 500;
-    margin: 0;
+.update-button:active {
+    transform: translateY(0);
+}
+
+/* Stili per la sezione storico */
+.storico-section {
+    margin-top: 30px;
+    padding: 20px;
+    background: #f9f9f9;
+    border-radius: 8px;
+}
+
+.storico-section h3 {
+    margin: 0 0 15px 0;
+    color: #333;
+    font-size: 1.1em;
+}
+
+.storico-content {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.storico-table {
     width: 100%;
+    border-collapse: collapse;
+    background: white;
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.storico-table th {
+    background: #8B2E1A;
+    color: white;
+    padding: 12px 8px;
+    text-align: left;
+    font-weight: 500;
+    font-size: 0.9em;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.storico-table td {
+    padding: 10px 8px;
+    border-bottom: 1px solid #eee;
+    font-size: 0.9em;
+}
+
+.storico-table tr:last-child td {
+    border-bottom: none;
+}
+
+.storico-table tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+.quantita-positiva {
+    color: #4CAF50;
+    font-weight: 500;
+}
+
+.quantita-negativa {
+    color: #f44336;
+    font-weight: 500;
+}
+
+.no-data {
+    text-align: center;
+    color: #666;
+    font-style: italic;
+    padding: 20px;
+    margin: 0;
+}
+
+.error-message {
+    text-align: center;
+    color: #f44336;
+    padding: 20px;
+    margin: 0;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .header h1 {
+        font-size: 1.2em;
+    }
+    
+    .search-section {
+        min-width: 80px;
+    }
+    
+    .search-text {
+        display: none;
+    }
+    
+    .view-container {
+        padding: 15px;
+    }
+    
+    .locations-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+        padding: 5px;
+    }
+    
+    .location-content {
+        padding: 15px;
+    }
+    
+    .view-button {
+        gap: 15px;
+        padding: 15px;
+    }
+    
+    .view-button-icon {
+        width: 50px;
+        height: 50px;
+        font-size: 1.5em;
+    }
+    
+    .material-modal-content {
+        margin: 20px auto;
+        max-height: calc(100vh - 40px);
+    }
+    
+    .detail-row {
+        grid-template-columns: 1fr;
+        gap: 5px;
+    }
+    
+    .detail-label {
+        font-weight: 600;
+        color: #8B2E1A;
+    }
+    
+    .storico-table th,
+    .storico-table td {
+        padding: 8px 4px;
+        font-size: 0.8em;
+    }
+    
+    .slide-menu {
+        width: 280px;
+        left: -280px;
+    }
+}
+
+@media (max-width: 480px) {
+    .header {
+        padding: 10px 15px;
+    }
+    
+    .header h1 {
+        font-size: 1.1em;
+        margin: 0 10px;
+    }
+    
+    .menu-toggle {
+        width: 40px;
+        height: 40px;
+        font-size: 1.3em;
+    }
+    
+    .view-container {
+        padding: 10px;
+    }
+    
+    .material-modal {
+        padding: 10px;
+    }
+    
+    .material-modal-content {
+        margin: 10px auto;
+    }
+    
+    .material-modal-header {
+        padding: 15px;
+    }
+    
+    .material-modal-body {
+        padding: 15px;
+    }
+    
+    .about-modal {
+        padding: 20px;
+        width: 95%;
+    }
 }

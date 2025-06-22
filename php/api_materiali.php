@@ -116,7 +116,8 @@ try {
                 'count' => count($giacenze),
                 'data' => $giacenze
             ]);
-            break;        case 'updateGiacenza':
+            break;
+        case 'updateGiacenza':
             $requiredFields = ['codice_materiale', 'ubicazione', 'nuova_quantita', 'userName'];
             foreach ($requiredFields as $field) {
                 if ((!isset($_POST[$field]) || $_POST[$field] === '') && (!isset($_GET[$field]) || $_GET[$field] === '')) {
@@ -372,8 +373,27 @@ try {
                 'data' => $totali
             ]);
             break;
-
         case 'getStorico':
+            $params = [];
+            $conditions = ["1=1"];
+            
+            // Gestisce sia 'codice' che 'codice_materiale' per retrocompatibilità
+            $codice_materiale = $_GET['codice'] ?? $_GET['codice_materiale'] ?? null;
+            if (!empty($codice_materiale)) {
+                $conditions[] = "lvm.codice_materiale = ?";
+                $params[] = $codice_materiale;
+            }
+
+            if (isset($_GET['ubicazione']) && !empty($_GET['ubicazione'])) {
+                $conditions[] = "(
+                    (u_dest.nome_ubicazione = ? AND lvm.ID_ubicazione_destinazione IS NOT NULL) OR 
+                    (u_orig.nome_ubicazione = ? AND lvm.ID_ubicazione_origine IS NOT NULL)
+                )";
+                $params[] = $_GET['ubicazione'];
+                $params[] = $_GET['ubicazione'];
+            }
+
+            // Costruisci la query con le condizioni
             $query = "
                 SELECT 
                     lvm.*,
@@ -382,26 +402,12 @@ try {
                     u_dest.nome_ubicazione as ubicazione_destinazione,
                     u_orig.nome_ubicazione as ubicazione_origine
                 FROM LogVariazioniMateriali lvm
-                JOIN anagrafica_materiali am ON lvm.codice_materiale = am.codice_materiale
+                INNER JOIN anagrafica_materiali am ON lvm.codice_materiale = am.codice_materiale
                 LEFT JOIN ubicazioni u_dest ON lvm.ID_ubicazione_destinazione = u_dest.ID_ubicazione
                 LEFT JOIN ubicazioni u_orig ON lvm.ID_ubicazione_origine = u_orig.ID_ubicazione
-                WHERE 1=1
+                WHERE " . implode(" AND ", $conditions) . "
+                ORDER BY lvm.timestamp DESC
             ";
-
-            $params = [];
-
-            if (isset($_GET['codice_materiale']) && !empty($_GET['codice_materiale'])) {
-                $query .= " AND lvm.codice_materiale = ?";
-                $params[] = $_GET['codice_materiale'];
-            }
-
-            if (isset($_GET['ubicazione']) && !empty($_GET['ubicazione'])) {
-                $query .= " AND (u_dest.nome_ubicazione = ? OR u_orig.nome_ubicazione = ?)";
-                $params[] = $_GET['ubicazione'];
-                $params[] = $_GET['ubicazione'];
-            }
-
-            $query .= " ORDER BY lvm.timestamp DESC";
 
             if (isset($_GET['limit']) && is_numeric($_GET['limit'])) {
                 $query .= " LIMIT ?";

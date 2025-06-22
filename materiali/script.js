@@ -837,8 +837,7 @@ function renderMaterialsList(materials, parentElement) {
         
         card.innerHTML = `
             <div class="material-header">
-                <h3>${material.nome}</h3>
-                <span class="material-code">${material.codice}</span>
+                <h3>${material.nome}</h3>                <span class="material-code">${material.codice_materiale}</span>
             </div>
             <div class="material-body">
                 <div class="material-info">
@@ -878,56 +877,137 @@ function renderMaterialsList(materials, parentElement) {
 
 // Modal handling
 function showMaterialModal(material) {
-    if (!material) {
-        console.error('No material provided to showMaterialModal');
-        return;
-    }
-
-    const modal = document.querySelector('.material-modal');
+    console.log('showMaterialModal - Materiale ricevuto:', material);
+    
+    const modal = document.getElementById('materialModal');
     if (!modal) {
-        console.error('Modal element not found');
+        console.error('showMaterialModal - Elemento modal non trovato');
         return;
     }
 
+    // IMPORTANTE: Imposta currentMaterialId
     currentMaterialId = material.codice_materiale;
-    const header = modal.querySelector('.material-modal-header h2');
-    const details = modal.querySelector('.material-details-grid');
+    console.log('showMaterialModal - currentMaterialId impostato:', currentMaterialId);
 
-    // Set title and details
-    header.textContent = material.tipo;
-    details.innerHTML = `
-        <div class="detail-row">
-            <span class="detail-label">Codice:</span>
-            <span class="detail-value">${material.codice_materiale}</span>
-        </div>
-        <div class="detail-row">
-            <span class="detail-label">Categoria:</span>
-            <span class="detail-value">${material.categoria}</span>
-        </div>
-        <div class="detail-row">
-            <span class="detail-label">Tipo:</span>
-            <span class="detail-value">${material.tipo}</span>
-        </div>
-        <div class="detail-row">
-            <span class="detail-label">Ubicazione:</span>
-            <span class="detail-value">${material.nome_ubicazione}</span>
-        </div>
-        <div class="detail-row">
-            <span class="detail-label">Quantità:</span>
-            <span class="detail-value">${material.quantita_attuale} ${material.unita_misura}</span>
-        </div>
-        <div class="detail-row">            <span class="detail-label">Soglia minima:</span>
-            <span class="detail-value">${formatQuantity(material.soglia_minima)} ${material.unita_misura}</span>
-        </div>
-    `;    // Reset form fields
-    const newQuantityInput = document.getElementById('nuovaQuantita');
-    const usernameInput = document.getElementById('userName');
-    if (newQuantityInput) newQuantityInput.value = '';
-    if (usernameInput) usernameInput.value = '';
+    const modalTitle = document.getElementById('materialModalTitle');
+    const materialCodice = document.getElementById('materialCodice');
+    const materialCategoria = document.getElementById('materialCategoria');
+    const materialTipo = document.getElementById('materialTipo');
+    const materialUbicazione = document.getElementById('materialUbicazione');
+    const materialQuantita = document.getElementById('materialQuantita');
 
-    // Show modal
+    // Verifica che tutti gli elementi necessari esistano
+    if (!modalTitle || !materialCodice || !materialCategoria || !materialTipo || 
+        !materialUbicazione || !materialQuantita) {
+        console.error('showMaterialModal - Elementi della modal mancanti');
+        return;
+    }
+
+    console.log(`Mostra modal per materiale: ${material.codice_materiale} (${material.nome_ubicazione})`);
+    
+    // Popola i dettagli del materiale
+    materialCodice.textContent = material.codice_materiale;
+    materialCategoria.textContent = material.categoria;
+    materialTipo.textContent = material.tipo;
+    materialUbicazione.textContent = material.nome_ubicazione;
+    materialQuantita.textContent = `${formatQuantity(material.quantita_attuale)} ${material.unita_misura}`;
+    
+    modalTitle.textContent = `${material.tipo} (${material.codice_materiale})`;
+    
+    // Resetta e prepara il form di aggiornamento quantità
+    const nuovaQuantitaInput = document.getElementById('nuovaQuantita');
+    const userNameInput = document.getElementById('userName');
+    
+    // Reset del campo quantità e aggiunta placeholder
+    nuovaQuantitaInput.value = '';
+    nuovaQuantitaInput.placeholder = `Inserisci la nuova quantità (attuale: ${formatQuantity(material.quantita_attuale)})`;
+    
+    // Reset del campo nome utente
+    userNameInput.value = '';
+    
+    // Gestione del click sul pulsante di aggiornamento
+    const updateButton = document.getElementById('updateQuantita');
+    if (updateButton) {
+        updateButton.onclick = async function() {
+            const nuovaQuantita = parseFloat(nuovaQuantitaInput.value);
+            const userName = userNameInput.value.trim();
+
+            if (isNaN(nuovaQuantita) || nuovaQuantita < 0) {
+                showError('⚠️ La quantità deve essere un numero positivo');
+                return;
+            }
+            
+            if (userName.length < 4) {
+                showError('⚠️ Inserisci un nome di almeno 4 caratteri');
+                return;
+            }
+
+            try {
+                showLoadingOverlay('Aggiornamento quantità in corso...');
+                
+                const formData = new FormData();
+                formData.append('action', 'updateGiacenza');
+                formData.append('codice_materiale', material.codice_materiale);
+                formData.append('ubicazione', material.nome_ubicazione);
+                formData.append('nuova_quantita', nuovaQuantita);
+                formData.append('userName', userName);
+
+                console.log('Invio aggiornamento giacenza:', Object.fromEntries(formData));
+                
+                const response = await fetch('../php/api_materiali.php', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSuccess('✅ Quantità aggiornata con successo');
+                    
+                    // Aggiorna lo storico
+                    caricaStorico(material.codice_materiale, material.nome_ubicazione);
+                    
+                    // Reset form
+                    nuovaQuantitaInput.value = '';
+                    userNameInput.value = '';
+                    
+                    // Aggiorna i dati
+                    loadData();
+                } else {
+                    showError(`⚠️ ${result.error || 'Errore durante l\'aggiornamento'}`);
+                }
+            } catch (error) {
+                console.error('Errore durante l\'aggiornamento:', error);
+                showError('⚠️ Errore durante l\'aggiornamento');
+            } finally {
+                hideLoadingOverlay();
+            }
+        };
+    }
+
+    // Carica lo storico dei movimenti
+    console.log(`Caricamento storico per codice: ${material.codice_materiale}, ubicazione: ${material.nome_ubicazione}`);
+    caricaStorico(material.codice_materiale, material.nome_ubicazione);
+
+    // Mostra la modal
     modal.style.display = 'block';
-    document.body.style.overflow = 'hidden'; // Prevent background scrolling
+    
+    // Gestione chiusura modal
+    const closeBtn = document.getElementById('materialModalClose');
+    if (closeBtn) {
+        closeBtn.onclick = () => {
+            modal.style.display = 'none';
+            currentMaterialId = null; // Reset quando si chiude
+        };
+    }
+
+    // Chiudi la modal se si clicca fuori
+    window.onclick = (event) => {
+        if (event.target === modal) {
+            modal.style.display = 'none';
+            currentMaterialId = null; // Reset quando si chiude
+        }
+    };
 }
 
 function closeModal() {
@@ -943,19 +1023,26 @@ async function updateQuantity(event) {
     const newQuantity = document.getElementById('nuovaQuantita').value;
     const username = document.getElementById('userName').value;
     
+    console.log('updateQuantity - Valori inseriti:', { newQuantity, username, currentMaterialId });
+    
     if (!newQuantity || !username) {
+        console.log('updateQuantity - Campi mancanti');
         alert('Per favore compila tutti i campi');
         return;
     }
 
     if (isNaN(newQuantity) || parseInt(newQuantity) < 0) {
+        console.log('updateQuantity - Quantità non valida:', newQuantity);
         alert('La quantità deve essere un numero positivo');
         return;
     }
 
     // Ottieni il materiale corrente per l'ubicazione
     const material = materiali.find(m => m.codice_materiale === currentMaterialId);
+    console.log('updateQuantity - Materiale trovato:', material);
+    
     if (!material) {
+        console.error('updateQuantity - Materiale non trovato per ID:', currentMaterialId);
         alert('Errore: materiale non trovato');
         return;
     }
@@ -1024,8 +1111,139 @@ function initializeModalEvents() {
 
 // Helper function per gestire il click sui materiali
 function handleMaterialClick(materialId) {
+    console.log('handleMaterialClick - ID ricevuto:', materialId);
     const material = materiali.find(m => m.codice_materiale === materialId);
+    console.log('handleMaterialClick - Materiale trovato:', material);
     if (material) {
         showMaterialModal(material);
+    } else {
+        console.error('handleMaterialClick - Materiale non trovato per ID:', materialId);
     }
+}
+
+function formatDateTime(dateTimeStr) {
+    if (!dateTimeStr) return 'Data non disponibile';
+    const date = new Date(dateTimeStr);
+    if (isNaN(date.getTime())) return 'Data non disponibile';
+    
+    return date.toLocaleString('it-IT', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+function caricaStorico(codice_materiale, ubicazione) {
+    console.log('caricaStorico - Parametri:', { codice_materiale, ubicazione });
+    
+    const modalBody = document.querySelector('.material-modal-body');
+    if (!modalBody) {
+        console.error('caricaStorico - Modal body non trovato');
+        return;
+    }
+
+    // Rimuovi la sezione storico esistente se presente
+    const storicoEsistente = modalBody.querySelector('.storico-section');
+    if (storicoEsistente) {
+        storicoEsistente.remove();
+    }
+
+    // Crea la sezione dello storico
+    const storicoSection = document.createElement('div');
+    storicoSection.className = 'storico-section';
+    storicoSection.innerHTML = `
+        <h3>Storico Movimenti</h3>
+        <div class="storico-content">
+            <div class="loading-spinner">Caricamento storico...</div>
+        </div>
+    `;
+    modalBody.appendChild(storicoSection);
+
+    // Carica lo storico dall'API
+    const url = `${API_BASE_URL}?action=getStorico&codice_materiale=${encodeURIComponent(codice_materiale)}&ubicazione=${encodeURIComponent(ubicazione)}`;
+    console.log('caricaStorico - URL chiamata:', url);
+    
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            console.log('caricaStorico - Risposta API:', data);
+
+            if (!data.success) {
+                throw new Error(data.error || 'Errore nel caricamento dello storico');
+            }
+
+            const storicoContent = storicoSection.querySelector('.storico-content');
+            if (data.data && data.data.length > 0) {
+                let html = '<table class="storico-table">';
+                html += `
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Quantità</th>
+                            <th>Operatore</th>
+                            <th>Ubicazione</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                `;
+
+                data.data.forEach(record => {
+                    const dataFormattata = formatDateTime(record.timestamp);
+                    const operatore = record.user_name || 'Non specificato';
+                    const quantitaDiff = record.quantita_attuale - record.quantita_precedente;
+                    const segno = quantitaDiff >= 0 ? '+' : '';
+                    
+                    html += `
+                        <tr>
+                            <td>${dataFormattata}</td>
+                            <td class="${quantitaDiff >= 0 ? 'quantita-positiva' : 'quantita-negativa'}">
+                                ${segno}${formatQuantity(quantitaDiff)}
+                            </td>
+                            <td>${operatore}</td>
+                            <td>${record.ubicazione_destinazione || 'N/D'}</td>
+                        </tr>
+                    `;
+                });
+
+                html += '</tbody></table>';
+                storicoContent.innerHTML = html;
+            } else {
+                storicoContent.innerHTML = '<p class="no-data">Nessun movimento registrato</p>';
+            }
+        })
+        .catch(error => {
+            console.error('Errore nel caricamento dello storico:', error);
+            const storicoContent = storicoSection.querySelector('.storico-content');
+            storicoContent.innerHTML = '<p class="error-message">⚠️ Errore nel caricamento dello storico</p>';
+        });
+}
+function showSuccess(message) {
+    const successElement = document.createElement('div');
+    successElement.className = 'success-message';
+    successElement.textContent = message;
+    
+    successElement.style.cssText = `
+        position: fixed; 
+        top: 20px; 
+        right: 20px; 
+        background: #4CAF50; 
+        color: white; 
+        padding: 15px 20px; 
+        border-radius: 8px; 
+        z-index: 10000;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        max-width: 300px;
+        word-wrap: break-word;
+        font-weight: 500;
+        animation: slideInRight 0.3s ease;
+    `;
+    
+    document.body.appendChild(successElement);
+    setTimeout(() => {
+        if (successElement.parentNode) {
+            successElement.remove();
+        }
+    }, 3000);
 }
