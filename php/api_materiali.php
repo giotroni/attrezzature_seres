@@ -347,16 +347,44 @@ try {
             ]);
             break;
 
+        case 'getTotaliPerTipo':
+            $query = "
+                SELECT 
+                    am.tipo,
+                    am.categoria,
+                    COUNT(DISTINCT am.codice_materiale) as numero_materiali,
+                    COALESCE(SUM(gm.quantita_attuale), 0) as quantita_totale,
+                    COALESCE(SUM(gm.quantita_disponibile), 0) as quantita_disponibile,
+                    COALESCE(SUM(gm.quantita_riservata), 0) as quantita_riservata
+                FROM anagrafica_materiali am
+                LEFT JOIN giacenze_materiali gm ON am.codice_materiale = gm.codice_materiale
+                WHERE am.attivo = 1
+                GROUP BY am.tipo, am.categoria
+                ORDER BY am.categoria, am.tipo
+            ";
+
+            $stmt = $conn->query($query);
+            $totali = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            echo json_encode([
+                'success' => true,
+                'count' => count($totali),
+                'data' => $totali
+            ]);
+            break;
+
         case 'getStorico':
             $query = "
                 SELECT 
                     lvm.*,
                     am.categoria,
                     am.tipo,
-                    u_dest.nome_ubicazione as ubicazione_destinazione
+                    u_dest.nome_ubicazione as ubicazione_destinazione,
+                    u_orig.nome_ubicazione as ubicazione_origine
                 FROM LogVariazioniMateriali lvm
                 JOIN anagrafica_materiali am ON lvm.codice_materiale = am.codice_materiale
                 LEFT JOIN ubicazioni u_dest ON lvm.ID_ubicazione_destinazione = u_dest.ID_ubicazione
+                LEFT JOIN ubicazioni u_orig ON lvm.ID_ubicazione_origine = u_orig.ID_ubicazione
                 WHERE 1=1
             ";
 
@@ -365,6 +393,12 @@ try {
             if (isset($_GET['codice_materiale']) && !empty($_GET['codice_materiale'])) {
                 $query .= " AND lvm.codice_materiale = ?";
                 $params[] = $_GET['codice_materiale'];
+            }
+
+            if (isset($_GET['ubicazione']) && !empty($_GET['ubicazione'])) {
+                $query .= " AND (u_dest.nome_ubicazione = ? OR u_orig.nome_ubicazione = ?)";
+                $params[] = $_GET['ubicazione'];
+                $params[] = $_GET['ubicazione'];
             }
 
             $query .= " ORDER BY lvm.timestamp DESC";

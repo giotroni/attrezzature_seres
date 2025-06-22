@@ -465,7 +465,7 @@ function renderMaterialiUbicazione(mainContent, ubicazione) {
                         <div class="material-details">
                             <span class="material-code">${materiale.codice_materiale}</span>
                             <span class="material-quantity ${statoClasse}">
-                                ${materiale.quantita_attuale} ${materiale.unita_misura}
+                                ${formatQuantity(materiale.quantita_attuale)} ${materiale.unita_misura}
                             </span>
                         </div>
                     </div>
@@ -579,84 +579,86 @@ function renderTipiList() {
     const mainContent = document.getElementById('mainContent');
     if (!mainContent) return;
 
-    // Raggruppa i materiali per tipo
-    const materialiPerTipo = {};
-    materiali.forEach(item => {
-        const tipoKey = `${item.categoria}|${item.tipo}`; // Usa combinazione categoria+tipo come chiave
-        if (!materialiPerTipo[tipoKey]) {
-            materialiPerTipo[tipoKey] = {
-                categoria: item.categoria,
-                tipo: item.tipo,
-                count: 0,
-                materialiCritici: 0,
-                quantitaTotale: 0
-            };
-        }
-        materialiPerTipo[tipoKey].count++;
-        materialiPerTipo[tipoKey].quantitaTotale += parseFloat(item.quantita_attuale) || 0;
-        if (item.quantita_attuale <= item.soglia_minima) {
-            materialiPerTipo[tipoKey].materialiCritici++;
-        }
-    });
+    showLoadingOverlay('Caricamento totali per tipo...');
 
-    // Crea l'HTML per la vista dei tipi
-    let html = `
-        <div class="view-container">
-            <div class="view-header">
-                <h2>🏷️ Tipi</h2>
-                <div class="view-stats">
-                    ${Object.keys(materialiPerTipo).length} tipi totali
-                </div>
-            </div>
-            <div class="locations-grid">
-    `;
+    // Usa la nuova API getTotaliPerTipo
+    fetch(`${API_BASE_URL}?action=getTotaliPerTipo`)
+        .then(response => response.json())
+        .then(data => {
+            if (!data.success) {
+                throw new Error(data.error || 'Errore nel caricamento dei totali per tipo');
+            }
 
-    // Ordina prima per categoria e poi per tipo
-    Object.keys(materialiPerTipo).sort((a, b) => {
-        const [catA, tipoA] = a.split('|');
-        const [catB, tipoB] = b.split('|');
-        if (catA !== catB) return catA.localeCompare(catB);
-        return tipoA.localeCompare(tipoB);
-    }).forEach(tipoKey => {
-        const stats = materialiPerTipo[tipoKey];
-        const alertClass = stats.materialiCritici > 0 ? 'location-alert' : '';
-        
-        html += `
-            <div class="location-card ${alertClass}" data-category="${stats.categoria}" data-tipo="${stats.tipo}">
-                <div class="location-content">
-                    <div class="location-icon">🏷️</div>
-                    <div class="location-info">
-                        <h3>${stats.tipo}</h3>
-                        <div class="categoria-label">${stats.categoria}</div>
-                        <div class="location-stats">
-                            <span class="material-total">${stats.count} ubicazioni</span>
-                            ${stats.materialiCritici > 0 ? 
-                                `<span class="material-alert">⚠️ ${stats.materialiCritici} sotto scorta</span>` : 
-                                ''}
+            // Per ogni tipo, conta in quante ubicazioni è presente
+            const ubicazioniPerTipo = {};
+            materiali.forEach(m => {
+                if (!ubicazioniPerTipo[m.tipo]) {
+                    ubicazioniPerTipo[m.tipo] = new Set();
+                }
+                ubicazioniPerTipo[m.tipo].add(m.nome_ubicazione);
+            });
+
+            let html = `
+                <div class="view-container">
+                    <div class="view-header">
+                        <h2>🏷️ Tipi di Materiale</h2>
+                        <div class="view-stats">
+                            ${data.data.length} tipi totali
                         </div>
                     </div>
-                    <div class="location-arrow">▶</div>
+                    <div class="locations-grid">
+            `;
+
+            // Ordina i tipi alfabeticamente
+            data.data.sort((a, b) => a.tipo.localeCompare(b.tipo)).forEach(tipo => {
+                // Trova l'unità di misura dal primo materiale di questo tipo
+                const primoMateriale = materiali.find(m => m.tipo === tipo.tipo);
+                const unitaMisura = primoMateriale ? primoMateriale.unita_misura : '';
+                const numUbicazioni = ubicazioniPerTipo[tipo.tipo] ? ubicazioniPerTipo[tipo.tipo].size : 0;
+                const alertClass = parseFloat(tipo.quantita_totale) <= parseFloat(tipo.soglia_minima) ? 'location-alert' : '';
+                
+                html += `
+                    <div class="location-card ${alertClass}" data-tipo="${tipo.tipo}">
+                        <div class="location-content">
+                            <div class="location-icon">🏷️</div>
+                            <div class="location-info">
+                                <h3>${tipo.tipo}</h3>
+                                <div class="location-stats">
+                                    <span class="material-total">${formatQuantity(tipo.quantita_totale)} ${unitaMisura}</span>
+                                    <span class="location-count">(${numUbicazioni} ubicazioni)</span>
+                                    ${parseFloat(tipo.quantita_totale) <= parseFloat(tipo.soglia_minima) ? 
+                                        `<span class="material-alert">⚠️ Sotto scorta minima</span>` : 
+                                        ''}
+                                </div>
+                            </div>
+                            <div class="location-arrow">▶</div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `
+                    </div>
                 </div>
-            </div>
-        `;
-    });
+            `;
 
-    html += `
-            </div>
-        </div>
-    `;
+            mainContent.innerHTML = html;
+            hideLoadingOverlay();
 
-    mainContent.innerHTML = html;
-
-    // Aggiungi event listener per i click sui tipi
-    document.querySelectorAll('.location-card').forEach(card => {
-        card.addEventListener('click', () => {
-            const category = card.dataset.category;
-            const tipo = card.dataset.tipo;
-            currentFilter = `${category}|${tipo}`;
-            renderMaterialiTipo(mainContent, category, tipo);
+            // Aggiungi event listener per i click sui tipi
+            document.querySelectorAll('.location-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    const tipo = card.dataset.tipo;
+                    currentFilter = tipo;
+                    renderMaterialiTipo(tipo);
+                });
+            });
+        })
+        .catch(error => {
+            console.error('Errore nel caricamento dei totali per tipo:', error);
+            showError('⚠️ Errore nel caricamento dei totali per tipo');
+            hideLoadingOverlay();
         });
-    });
 }
 
 function renderMaterialiCategoria(mainContent, categoria) {
@@ -682,20 +684,26 @@ function renderMaterialiCategoria(mainContent, categoria) {
     const materialiPerTipo = {};
     materialiCategoria.forEach(materiale => {
         if (!materialiPerTipo[materiale.tipo]) {
-            materialiPerTipo[materiale.tipo] = [];
+            materialiPerTipo[materiale.tipo] = {
+                materiali: [],
+                totale: 0,
+                unita_misura: materiale.unita_misura
+            };
         }
-        materialiPerTipo[materiale.tipo].push(materiale);
+        materialiPerTipo[materiale.tipo].materiali.push(materiale);
+        materialiPerTipo[materiale.tipo].totale += parseFloat(materiale.quantita_attuale);
     });
 
     // Ordina i tipi e renderizza i materiali
     Object.keys(materialiPerTipo).sort().forEach(tipo => {
+        const tipoInfo = materialiPerTipo[tipo];
         html += `
             <div class="category-section">
-                <h3 class="category-header">${tipo}</h3>
+                <h3 class="category-header">${tipo}: ${formatQuantity(tipoInfo.totale)} ${tipoInfo.unita_misura}</h3>
                 <div class="category-items">
         `;
 
-        materialiPerTipo[tipo].sort((a, b) => a.nome_ubicazione.localeCompare(b.nome_ubicazione)).forEach(materiale => {
+        tipoInfo.materiali.sort((a, b) => a.nome_ubicazione.localeCompare(b.nome_ubicazione)).forEach(materiale => {
             const statoClasse = materiale.quantita_attuale <= materiale.soglia_minima ? 'stato-critico' :
                                materiale.quantita_attuale <= (materiale.soglia_minima * 1.5) ? 'stato-basso' : 
                                'stato-ok';
@@ -707,7 +715,7 @@ function renderMaterialiCategoria(mainContent, categoria) {
                         <div class="material-details">
                             <span class="material-code">${materiale.codice_materiale}</span>
                             <span class="material-quantity ${statoClasse}">
-                                ${materiale.quantita_attuale} ${materiale.unita_misura}
+                                ${formatQuantity(materiale.quantita_attuale)} ${materiale.unita_misura}
                             </span>
                         </div>
                     </div>
@@ -743,9 +751,14 @@ function renderMaterialiCategoria(mainContent, categoria) {
     });
 }
 
-function renderMaterialiTipo(mainContent, categoria, tipo) {
+function renderMaterialiTipo(tipo) {
+    const mainContent = document.getElementById('mainContent');
+    if (!mainContent) return;
+    
     // Filtra i materiali per il tipo selezionato
-    const materialiTipo = materiali.filter(m => m.categoria === categoria && m.tipo === tipo);
+    const materialiTipo = materiali.filter(m => m.tipo === tipo);
+    const totaleQuantita = materialiTipo.reduce((acc, m) => acc + parseFloat(m.quantita_attuale), 0);
+    const unitaMisura = materialiTipo[0]?.unita_misura || '';
     
     let html = `
         <div class="view-container">
@@ -756,15 +769,18 @@ function renderMaterialiTipo(mainContent, categoria, tipo) {
                 </div>
                 <div class="location-title">
                     <h2>🏷️ ${tipo}</h2>
-                    <div class="view-stats">${materialiTipo.length} ubicazioni</div>
+                    <div class="view-stats">
+                        ${materialiTipo.length} ubicazioni
+                    </div>
                 </div>
             </div>
-            <div class="category-section">
-                <h3 class="category-header">${categoria}</h3>
-                <div class="category-items">
+            <div class="tipo-header">
+                ${tipo}: ${formatQuantity(totaleQuantita)} ${unitaMisura}
+            </div>
+            <div class="materials-list">
     `;
 
-    // Ordina per ubicazione
+    // Ordina i materiali per ubicazione
     materialiTipo.sort((a, b) => a.nome_ubicazione.localeCompare(b.nome_ubicazione)).forEach(materiale => {
         const statoClasse = materiale.quantita_attuale <= materiale.soglia_minima ? 'stato-critico' :
                            materiale.quantita_attuale <= (materiale.soglia_minima * 1.5) ? 'stato-basso' : 
@@ -773,11 +789,11 @@ function renderMaterialiTipo(mainContent, categoria, tipo) {
         html += `
             <div class="material-item" data-id="${materiale.codice_materiale}">
                 <div class="material-info">
-                    <div class="material-type">📍 ${materiale.nome_ubicazione}</div>
+                    <div class="material-type">${materiale.nome_ubicazione}</div>
                     <div class="material-details">
                         <span class="material-code">${materiale.codice_materiale}</span>
                         <span class="material-quantity ${statoClasse}">
-                            ${materiale.quantita_attuale} ${materiale.unita_misura}
+                            ${formatQuantity(materiale.quantita_attuale)} ${materiale.unita_misura}
                         </span>
                     </div>
                 </div>
@@ -786,7 +802,6 @@ function renderMaterialiTipo(mainContent, categoria, tipo) {
     });
 
     html += `
-                </div>
             </div>
         </div>
     `;
