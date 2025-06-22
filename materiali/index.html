@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SERES - Gestione Materiali</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="header">
+        <button class="menu-toggle" id="menuToggle">☰</button>
+        <h1>📦 SERES - Gestione Materiali</h1>
+        <div class="search-section">
+            <span class="search-text" id="searchText">Ricerca</span>
+            <button class="search-icon" id="searchToggle">🔍</button>
+        </div>
+    </div>
+
+    <!-- Search Overlay -->
+    <div class="search-overlay" id="searchOverlay">
+        <div class="search-container">
+            <div class="search-header">
+                <h3>🔍 Ricerca Materiali</h3>
+                <button class="search-close" id="searchClose">✕</button>
+            </div>
+            <input type="text" class="search-bar" id="searchInput" placeholder="Cerca per codice, categoria, tipo o ubicazione..." style="margin-bottom: 0;">
+        </div>
+    </div>
+
+    <!-- Menu Slide -->
+    <div class="menu-overlay" id="menuOverlay"></div>
+    <div class="slide-menu" id="slideMenu">
+        <div class="menu-header">
+            <h3>Menu</h3>
+            <button class="menu-close" id="menuClose">✕</button>
+        </div>
+        <div class="menu-content">
+            <h4 style="margin: 25px 0 15px; color: #333;">⚙️ Azioni</h4>
+            <button class="menu-item" id="btnAddMaterial">
+                📦 Nuovo Materiale
+            </button>
+            <button class="menu-item" id="btnRefresh">
+                🔄 Aggiorna Dati
+            </button>
+            <h4 style="margin: 25px 0 15px; color: #333;">ℹ️ Info</h4>
+            <button class="menu-item" id="btnAbout">
+                📖 Guida all'uso
+            </button>
+        </div>
+    </div>
+
+    <!-- About Modal -->
+    <div class="about-modal" id="aboutModal">
+        <button class="about-close" id="aboutClose">✕</button>
+        <h2>📦 Gestione Materiali SERES</h2>
+        
+        <h3>🎯 Scopo dell'applicazione</h3>
+        <p>Questa applicazione permette di gestire e tracciare tutti i materiali SERES, mantenendo uno storico dei movimenti, facilitando la ricerca e il controllo delle giacenze.</p>
+
+        <h3>🔍 Visualizzazione e Ricerca</h3>
+        <ul>
+            <li><strong>Viste principali:</strong> Puoi visualizzare i materiali per:
+                <ul>
+                    <li>📍 <strong>Ubicazione</strong> - Dove si trovano i materiali</li>
+                    <li>📂 <strong>Categoria</strong> - Raggruppati per tipo di materiale</li>
+                    <li>📊 <strong>Giacenza</strong> - Stato delle quantità disponibili</li>
+                </ul>
+            </li>
+            <li><strong>Ricerca avanzata:</strong> Usa la barra di ricerca (🔍) per trovare rapidamente materiali per:
+                <ul>
+                    <li>Codice materiale</li>
+                    <li>Categoria o tipo</li>
+                    <li>Ubicazione</li>
+                </ul>
+            </li>
+        </ul>
+        
+        <h3>➕ Gestione Materiali</h3>
+        <ul>
+            <li><strong>Nuovo Materiale:</strong>
+                <ul>
+                    <li>Seleziona una categoria esistente o creane una nuova</li>
+                    <li>Specifica il tipo e l'unità di misura</li>
+                    <li>Imposta la soglia minima per gli alert</li>
+                    <li>Il codice viene generato automaticamente dal sistema</li>
+                </ul>
+            </li>
+            <li><strong>Scheda Dettaglio:</strong>
+                <ul>
+                    <li>Visualizza tutte le informazioni del materiale</li>
+                    <li>Controlla lo storico completo dei movimenti</li>
+                    <li>Verifica le giacenze per ubicazione</li>
+                    <li>Registra carichi e scarichi</li>
+                </ul>
+            </li>
+        </ul>
+    </div>
+
+    <!-- Material Detail Modal -->
+    <div class="material-modal" id="materialModal">
+        <div class="material-modal-content">
+            <div class="material-modal-header">
+                <h2 id="materialModalTitle">Dettaglio Materiale</h2>
+                <button class="modal-close" id="materialModalClose">✕</button>
+            </div>
+            <div class="material-modal-body">
+                <div class="material-details-grid">
+                    <div class="detail-row">
+                        <div class="detail-label">Codice:</div>
+                        <div class="detail-value" id="materialCodice"></div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label">Categoria:</div>
+                        <div class="detail-value" id="materialCategoria"></div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label">Tipo:</div>
+                        <div class="detail-value" id="materialTipo"></div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label">Ubicazione:</div>
+                        <div class="detail-value" id="materialUbicazione"></div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label">Quantità Attuale:</div>
+                        <div class="detail-value" id="materialQuantita"></div>
+                    </div>
+                </div>
+
+                <div class="update-section">
+                    <h3>Aggiorna Quantità</h3>
+                    <div class="input-group">
+                        <label for="nuovaQuantita">Nuova Quantità:</label>
+                        <input type="number" id="nuovaQuantita" step="0.01" min="0">
+                    </div>
+                    <div class="input-group">
+                        <label for="userName">Il tuo nome:</label>
+                        <input type="text" id="userName" placeholder="Inserisci il tuo nome (min. 4 caratteri)">
+                    </div>
+                    <button class="update-button" id="updateQuantita">
+                        💾 Salva Modifica
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Section -->
+    <div class="main-content" id="mainContent">
+        <!-- Content will be dynamically loaded here -->
+        <div id="header">
+            <h1></h1>
+            <p class="description"></p>
+        </div>
+        <div id="content"></div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-message" id="loadingMessage">Caricamento in corso...</div>
+    </div>    <!-- Bottom Navigation -->
+    <div class="bottom-nav">
+        <button class="nav-button" data-view="ubicazione">
+            <span class="icon">📍</span>
+            <span class="label">Ubicazione</span>
+        </button>
+        <button class="nav-button" data-view="categoria">
+            <span class="icon">📂</span>
+            <span class="label">Categoria</span>
+        </button>
+        <button class="nav-button" data-view="tipo">
+            <span class="icon">🏷</span>
+            <span class="label">Tipo</span>
+        </button>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

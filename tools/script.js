@@ -1,8 +1,7 @@
 // Costanti e variabili globali
-const API_BASE_URL = './php/api.php';
+const API_BASE_URL = '../php/api.php';
 const USE_PHP_API = true;
-const SHEET_ID = '1efHWyYHqsZpAbPXuUadz7Mg2ScsZ1iXX15Yv8daVhvg';
-const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbyWzNZ91kZBr9D3PhQNO7FLSXypRt1Ret0EvlBMuW_GgIAMKB9r4Ag4GHnvoHCVJCUvsA/exec';
+
 
 let currentView = 'ubicazione';
 let currentFilter = '';
@@ -708,20 +707,25 @@ async function loadData() {
             tipo: item.tipo,
             marca: item.marca,
             marcaModello: item.marca,
-            ubicazione: item.ubicazione,
+            ubicazione: item.nome_ubicazione,
             note: item.note,
             doc: item.doc
         }));
-        
-        // Estrai le ubicazioni uniche
-        const locations = new Set();
-        attrezzature.forEach(item => {
-            if (item.ubicazione) {
-                locations.add(item.ubicazione);
+          // Carica le ubicazioni dal database
+        const locationsResponse = await fetch(`${API_BASE_URL}?action=getLocations`, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json'
             }
         });
-        locationsData = Array.from(locations).sort();
-        
+
+        if (!locationsResponse.ok) {
+            throw new Error(`Errore nel caricamento delle ubicazioni: ${locationsResponse.status} ${locationsResponse.statusText}`);
+        }
+
+        const locationsResult = await locationsResponse.json();
+        locationsData = locationsResult.data.map(loc => loc.nome_ubicazione).sort();
+
         // Aggiorna filteredData
         filteredData = [...attrezzature];
         
@@ -1172,12 +1176,11 @@ function showEquipmentDetail(codice) {
         return;
     }
 
-    // Popola i dettagli nel modal
-    elements.codice.textContent = equipment.codice;
+    // Popola i dettagli nel modal    elements.codice.textContent = equipment.codice;
     elements.categoria.textContent = equipment.categoria;
     elements.tipo.textContent = equipment.tipo;
     elements.marca.textContent = equipment.marca;
-    elements.ubicazione.textContent = equipment.ubicazione;
+    elements.ubicazione.textContent = equipment.nome_ubicazione;
     
     // Aggiorna il titolo del modal con marca/modello
     const modalTitle = document.querySelector('#detailModal .modal-header h2');
@@ -1627,11 +1630,13 @@ function updateLocationSelect(equipment) {
         Array.from(new Set(attrezzature.map(item => item.ubicazione))).filter(Boolean);
 
     // Ordina le ubicazioni alfabeticamente
-    availableLocations.sort((a, b) => a.localeCompare(b));
-
-    // Aggiungi tutte le ubicazioni tranne quella corrente
+    availableLocations.sort((a, b) => a.localeCompare(b));    // Aggiungi tutte le ubicazioni tranne quella corrente
+    const currentLocation = equipment?.ubicazione?.trim().toUpperCase() || '';
     availableLocations
-        .filter(loc => loc !== equipment.ubicazione)
+        .filter(loc => {
+            const locationName = (loc || '').trim().toUpperCase();
+            return locationName !== currentLocation;
+        })
         .forEach(loc => {
             const option = document.createElement('option');
             option.value = loc;
