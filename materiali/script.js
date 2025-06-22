@@ -38,6 +38,18 @@ const viewConfig = {
 // UTILITY FUNCTIONS
 // ============================================================================
 
+// Formatta un numero con 2 decimali e separatore corretto
+function formatQuantity(value) {
+    if (value === null || value === undefined) return '0.00';
+    // Converte il valore in numero e arrotonda a 2 decimali
+    const num = Number(parseFloat(value).toFixed(2));
+    // Usa toLocaleString per formattare con separatore decimale corretto
+    return num.toLocaleString('it-IT', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+}
+
 function showLoadingOverlay(message) {
     const overlay = document.getElementById('loadingOverlay');
     const messageElement = document.getElementById('loadingMessage');
@@ -820,7 +832,7 @@ function renderMaterialsList(materials, parentElement) {
                 </div>
                 <div class="material-info">
                     <span class="info-label">Min:</span>
-                    <span class="info-value">${material.soglia_minima}</span>
+                    <span class="info-value">${formatQuantity(material.soglia_minima)} ${material.unita_misura}</span>
                 </div>
                 ${currentView !== VIEWS.UBICAZIONE ? 
                     `<div class="material-info">
@@ -889,9 +901,8 @@ function showMaterialModal(material) {
             <span class="detail-label">Quantità:</span>
             <span class="detail-value">${material.quantita_attuale} ${material.unita_misura}</span>
         </div>
-        <div class="detail-row">
-            <span class="detail-label">Soglia minima:</span>
-            <span class="detail-value">${material.soglia_minima}</span>
+        <div class="detail-row">            <span class="detail-label">Soglia minima:</span>
+            <span class="detail-value">${formatQuantity(material.soglia_minima)} ${material.unita_misura}</span>
         </div>
     `;    // Reset form fields
     const newQuantityInput = document.getElementById('nuovaQuantita');
@@ -941,7 +952,12 @@ async function updateQuantity(event) {
         formData.append('ubicazione', material.nome_ubicazione);
         formData.append('nuova_quantita', newQuantity);
         formData.append('userName', username);
-
+        console.log('Invio dati aggiornamento:', {
+            codice_materiale: currentMaterialId,
+            ubicazione: material.nome_ubicazione,
+            nuova_quantita: newQuantity,
+            userName: username
+        });
         const response = await fetch('../php/api_materiali.php', {
             method: 'POST',
             body: formData

@@ -24,10 +24,15 @@ try {
         DB_USER,
         DB_PASS,
         [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
-    );
-
-    // Determina l'azione richiesta
+    );    // Determina l'azione richiesta
     $action = $_GET['action'] ?? $_POST['action'] ?? 'getMateriali';
+    
+    // Log della chiamata API
+    $requestData = $_POST;
+    if (empty($requestData)) {
+        $requestData = $_GET;
+    }
+    //logApiEvent($conn, 'api_materiali.php', $action, $requestData);
 
     switch ($action) {
         
@@ -111,26 +116,28 @@ try {
                 'count' => count($giacenze),
                 'data' => $giacenze
             ]);
-            break;
-
-        case 'updateGiacenza':
+            break;        case 'updateGiacenza':
             $requiredFields = ['codice_materiale', 'ubicazione', 'nuova_quantita', 'userName'];
             foreach ($requiredFields as $field) {
-                if (!isset($_POST[$field]) || $_POST[$field] === '') {
+                if ((!isset($_POST[$field]) || $_POST[$field] === '') && (!isset($_GET[$field]) || $_GET[$field] === '')) {
                     throw new Exception("Campo obbligatorio mancante: $field");
                 }
             }
+            
+            // Prende i valori da POST o GET usando l'operatore di coalescenza null
+            $codice_materiale = $_POST['codice_materiale'] ?? $_GET['codice_materiale'];
+            $ubicazione = $_POST['ubicazione'] ?? $_GET['ubicazione'];
+            $nuova_quantita = $_POST['nuova_quantita'] ?? $_GET['nuova_quantita'];
+            $userName = $_POST['userName'] ?? $_GET['userName'];
 
-            $conn->beginTransaction();
-
-            // Trova o crea ubicazione
+            $conn->beginTransaction();            // Trova o crea ubicazione
             $stmt = $conn->prepare("SELECT ID_ubicazione FROM ubicazioni WHERE UPPER(nome_ubicazione) = UPPER(?)");
-            $stmt->execute([trim($_POST['ubicazione'])]);
+            $stmt->execute([trim($ubicazione)]);
             $ubicazione_id = $stmt->fetchColumn();
 
             if (!$ubicazione_id) {
                 $stmt = $conn->prepare("INSERT INTO ubicazioni (nome_ubicazione, user_created) VALUES (UPPER(?), ?)");
-                $stmt->execute([trim($_POST['ubicazione']), strtoupper($_POST['userName'])]);
+                $stmt->execute([trim($ubicazione), strtoupper($userName)]);
                 $ubicazione_id = $conn->lastInsertId();
             }
 
@@ -140,21 +147,31 @@ try {
                 FROM giacenze_materiali 
                 WHERE codice_materiale = ? AND ID_ubicazione = ?
             ");
-            $stmt->execute([$_POST['codice_materiale'], $ubicazione_id]);
-            $quantita_precedente = $stmt->fetchColumn();
+            $stmt->execute([$codice_materiale, $ubicazione_id]);
+            $quantita_precedente = $stmt->fetchColumn();            // Converti la quantità in modo sicuro
+            $nuova_quantita = trim($nuova_quantita);
+            // Sostituisce le virgole con punti
+            $nuova_quantita = str_replace(',', '.', $nuova_quantita);
+            // Converti in float senza formattazione aggiuntiva
+            $nuova_quantita = (float)$nuova_quantita;
 
-            $nuova_quantita = (float)$_POST['nuova_quantita'];
-
-            if ($quantita_precedente !== false) {
+            // Log della quantità per debug
+            error_log("Aggiornamento giacenza - Valore originale: " . $nuova_quantita . 
+                     " - Dopo trim: " . trim($nuova_quantita) . 
+                     " - Dopo replace: " . str_replace(',', '.', trim($nuova_quantita)) . 
+                     " - Valore finale: " . $nuova_quantita);            if ($quantita_precedente !== false) {
                 // Aggiorna giacenza esistente
                 $stmt = $conn->prepare("
                     UPDATE giacenze_materiali 
                     SET quantita_attuale = ?, utente_modifica = ?
                     WHERE codice_materiale = ? AND ID_ubicazione = ?
                 ");
-                $stmt->execute([$nuova_quantita, strtoupper($_POST['userName']), $_POST['codice_materiale'], $ubicazione_id]);
-            } else {
-                // Crea nuova giacenza
+                $stmt->bindValue(1, $nuova_quantita, PDO::PARAM_STR);
+                $stmt->bindValue(2, strtoupper($userName), PDO::PARAM_STR);
+                $stmt->bindValue(3, $codice_materiale, PDO::PARAM_STR);
+                $stmt->bindValue(4, $ubicazione_id, PDO::PARAM_INT);
+                $stmt->execute();
+            } else {                // Crea nuova giacenza
                 $quantita_precedente = 0;
                 $stmt = $conn->prepare("
                     INSERT INTO giacenze_materiali (
@@ -162,13 +179,12 @@ try {
                         utente_creazione, utente_modifica
                     ) VALUES (?, ?, ?, ?, ?)
                 ");
-                $stmt->execute([
-                    $_POST['codice_materiale'], 
-                    $ubicazione_id, 
-                    $nuova_quantita,
-                    strtoupper($_POST['userName']),
-                    strtoupper($_POST['userName'])
-                ]);
+                $stmt->bindValue(1, $codice_materiale, PDO::PARAM_STR);
+                $stmt->bindValue(2, $ubicazione_id, PDO::PARAM_INT);
+                $stmt->bindValue(3, $nuova_quantita, PDO::PARAM_STR);
+                $stmt->bindValue(4, strtoupper($userName), PDO::PARAM_STR);
+                $stmt->bindValue(5, strtoupper($userName), PDO::PARAM_STR);
+                $stmt->execute();
             }
 
             $conn->commit();
