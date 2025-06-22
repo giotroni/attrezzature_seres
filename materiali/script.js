@@ -207,6 +207,21 @@ document.addEventListener('DOMContentLoaded', () => {
         closeMenu();
     });
     
+    // Event listener per il pulsante Associa Materiale
+    const btnAddMaterial = document.getElementById('btnAddMaterial');
+    if (btnAddMaterial) {
+        btnAddMaterial.addEventListener('click', () => {
+            showAssociaMaterialeModal();
+            closeMenu(); // Chiude il menu dopo aver cliccato
+        });
+    }
+
+    // Event listener per il pulsante Salva Associazione
+    const btnSalvaAssociazione = document.getElementById('btnSalvaAssociazione');
+    if (btnSalvaAssociazione) {
+        btnSalvaAssociazione.addEventListener('click', handleSalvaAssociazione);
+    }
+
     // Initial data load
     loadData();
 
@@ -458,8 +473,9 @@ function renderMaterialiUbicazione(mainContent, ubicazione) {
                                materiale.quantita_attuale <= (materiale.soglia_minima * 1.5) ? 'stato-basso' : 
                                'stato-ok';
 
-            html += `
-                <div class="material-item" data-id="${materiale.codice_materiale}">
+            html += `                <div class="material-item" 
+                    data-id="${materiale.codice_materiale}"
+                    data-ubicazione="${materiale.nome_ubicazione}">
                     <div class="material-info">
                         <div class="material-type">${materiale.tipo}</div>
                         <div class="material-details">
@@ -708,8 +724,9 @@ function renderMaterialiCategoria(mainContent, categoria) {
                                materiale.quantita_attuale <= (materiale.soglia_minima * 1.5) ? 'stato-basso' : 
                                'stato-ok';
 
-            html += `
-                <div class="material-item" data-id="${materiale.codice_materiale}">
+            html += `                <div class="material-item" 
+                    data-id="${materiale.codice_materiale}"
+                    data-ubicazione="${materiale.nome_ubicazione}">
                     <div class="material-info">
                         <div class="material-type">📍 ${materiale.nome_ubicazione}</div>
                         <div class="material-details">
@@ -786,8 +803,9 @@ function renderMaterialiTipo(tipo) {
                            materiale.quantita_attuale <= (materiale.soglia_minima * 1.5) ? 'stato-basso' : 
                            'stato-ok';
 
-        html += `
-            <div class="material-item" data-id="${materiale.codice_materiale}">
+        html += `            <div class="material-item" 
+                data-id="${materiale.codice_materiale}"
+                data-ubicazione="${materiale.nome_ubicazione}">
                 <div class="material-info">
                     <div class="material-type">${materiale.nome_ubicazione}</div>
                     <div class="material-details">
@@ -1115,28 +1133,261 @@ function initializeModalEvents() {
     }
 }
 
-// Helper function per gestire il click sui materiali
-function handleMaterialClick(materialId) {
-    console.log('handleMaterialClick - ID ricevuto:', materialId);
-    // Filtra per ubicazione corrente se siamo in vista ubicazione
-    const materiale = materiali.find(m => {
-        const matchId = m.codice_materiale === materialId;
-        const matchLocation = currentView === VIEWS.UBICAZIONE ? m.nome_ubicazione === currentFilter : true;
-        return matchId && matchLocation;
+// Funzione per mostrare il modal di associazione materiale
+function showAssociaMaterialeModal() {
+    const modal = document.getElementById('associaMaterialeModal');
+    if (!modal) return;
+
+    // Reset form
+    document.getElementById('selectCategoria').value = '';
+    document.getElementById('selectTipo').value = '';
+    document.getElementById('selectTipo').disabled = true;
+    document.getElementById('selectUbicazione').value = '';
+    document.getElementById('nuovaQuantitaAssociazione').value = '';
+    document.getElementById('userNameAssociazione').value = '';
+
+    // Popola le select con i dati disponibili
+    popolaSelectCategorie();
+    popolaSelectUbicazioni();    // Event listeners per le select
+    document.getElementById('selectCategoria').addEventListener('change', handleCategoriaChange);
+    document.getElementById('selectTipo').addEventListener('change', handleTipoChange);
+
+    // Mostra il modal
+    modal.style.display = 'block';
+
+    // Gestione chiusura
+    const closeBtn = document.getElementById('associaMaterialeClose');
+    if (closeBtn) {
+        closeBtn.onclick = () => {
+            modal.style.display = 'none';
+        };
+    }
+
+    // Chiudi se click fuori dal modal
+    window.onclick = (event) => {
+        if (event.target === modal) {
+            modal.style.display = 'none';
+        }
+    };
+}
+
+// Popola la select delle categorie
+function popolaSelectCategorie() {
+    const selectCategoria = document.getElementById('selectCategoria');
+    if (!selectCategoria) return;
+
+    // Ottieni categorie uniche
+    const categorie = [...new Set(materiali.map(m => m.categoria))].sort();
+    
+    // Resetta e popola la select
+    selectCategoria.innerHTML = '<option value="">Seleziona una categoria...</option>';
+    categorie.forEach(categoria => {
+        const option = document.createElement('option');
+        option.value = categoria;
+        option.textContent = categoria;
+        selectCategoria.appendChild(option);
     });
+}
+
+// Popola la select delle ubicazioni
+function popolaSelectUbicazioni() {
+    const selectUbicazione = document.getElementById('selectUbicazione');
+    if (!selectUbicazione) return;
+
+    // Ottieni ubicazioni uniche
+    const ubicazioni = [...new Set(materiali.map(m => m.nome_ubicazione))].sort();
     
-    console.log('handleMaterialClick - Vista corrente:', currentView);
-    console.log('handleMaterialClick - Filtro corrente:', currentFilter);
-    console.log('handleMaterialClick - Materiale trovato:', materiale);
+    // Resetta e popola la select
+    selectUbicazione.innerHTML = '<option value="">Seleziona un\'ubicazione...</option>';
+    ubicazioni.forEach(ubicazione => {
+        const option = document.createElement('option');
+        option.value = ubicazione;
+        option.textContent = ubicazione;
+        selectUbicazione.appendChild(option);
+    });
+}
+
+// Handler per il cambio categoria
+function handleCategoriaChange(event) {
+    const categoria = event.target.value;
+    const selectTipo = document.getElementById('selectTipo');
+    const selectUbicazione = document.getElementById('selectUbicazione');
+    if (!selectTipo || !selectUbicazione) return;
+
+    // Reset and disable both tipo and ubicazione
+    selectTipo.disabled = !categoria;
+    selectTipo.innerHTML = '<option value="">Seleziona un tipo...</option>';
+    selectUbicazione.value = '';
     
-    if (materiale) {
-        showMaterialModal(materiale);
-    } else {
-        console.error('handleMaterialClick - Materiale non trovato per ID:', materialId);
-        showError('⚠️ Materiale non trovato');
+    if (categoria) {
+        // Filtra i tipi per la categoria selezionata
+        const tipi = [...new Set(materiali
+            .filter(m => m.categoria === categoria)
+            .map(m => m.tipo))].sort();
+        
+        // Popola la select dei tipi
+        tipi.forEach(tipo => {
+            const option = document.createElement('option');
+            option.value = tipo;
+            option.textContent = tipo;
+            selectTipo.appendChild(option);
+        });
     }
 }
 
+// Handler per il cambio tipo
+function handleTipoChange(event) {
+    const tipo = event.target.value;
+    const categoria = document.getElementById('selectCategoria').value;
+    const selectUbicazione = document.getElementById('selectUbicazione');
+    if (!selectUbicazione || !categoria) return;
+
+    // Ottieni ubicazioni uniche escludendo quelle dove il materiale è già presente
+    const ubicazioniOccupate = new Set(
+        materiali
+            .filter(m => m.categoria === categoria && m.tipo === tipo)
+            .map(m => m.nome_ubicazione)
+    );
+
+    const ubicazioni = [...new Set(materiali.map(m => m.nome_ubicazione))]
+        .filter(ubicazione => !ubicazioniOccupate.has(ubicazione))
+        .sort();
+    
+    // Resetta e popola la select delle ubicazioni
+    selectUbicazione.innerHTML = '<option value="">Seleziona un\'ubicazione...</option>';
+    if (ubicazioni.length === 0) {
+        const option = document.createElement('option');
+        option.value = "";
+        option.textContent = "Materiale già presente in tutte le ubicazioni";
+        option.disabled = true;
+        selectUbicazione.appendChild(option);
+    } else {
+        ubicazioni.forEach(ubicazione => {
+            const option = document.createElement('option');
+            option.value = ubicazione;
+            option.textContent = ubicazione;
+            selectUbicazione.appendChild(option);
+        });
+    }
+}
+
+// Handler per il salvataggio dell'associazione
+async function handleSalvaAssociazione() {
+    const categoria = document.getElementById('selectCategoria').value;
+    const tipo = document.getElementById('selectTipo').value;
+    const ubicazione = document.getElementById('selectUbicazione').value;
+    const quantita = document.getElementById('nuovaQuantitaAssociazione').value;
+    const userName = document.getElementById('userNameAssociazione').value.trim();
+
+    // Validazione
+    if (!categoria || !tipo || !ubicazione) {
+        showError('⚠️ Seleziona tutti i campi richiesti');
+        return;
+    }
+
+    if (!quantita || isNaN(quantita) || parseFloat(quantita) < 0) {
+        showError('⚠️ Inserisci una quantità valida');
+        return;
+    }
+
+    if (!validateUserName(userName)) {
+        showError('⚠️ Inserisci un nome valido (minimo 4 caratteri)');
+        return;
+    }    // Trova il materiale esistente per tipo e categoria
+    const materialeEsistente = materiali.find(
+        m => m.categoria === categoria && 
+        m.tipo === tipo && 
+        m.nome_ubicazione === ubicazione
+    );
+    
+    if (materialeEsistente) {
+        showError('⚠️ Questo materiale è già presente in questa ubicazione');
+        return;
+    }
+
+    const materiale = materiali.find(m => m.categoria === categoria && m.tipo === tipo);
+    if (!materiale) {
+        showError('⚠️ Combinazione tipo/categoria non trovata');
+        return;
+    }
+
+    try {
+        showLoadingOverlay('Associazione materiale in corso...');
+        
+        const formData = new FormData();
+        formData.append('action', 'updateGiacenza');
+        formData.append('codice_materiale', materiale.codice_materiale);
+        formData.append('ubicazione', ubicazione);
+        formData.append('nuova_quantita', quantita);
+        formData.append('userName', userName);
+
+        const response = await fetch('../php/api_materiali.php', {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+        
+        if (result.success) {
+            showSuccess('✅ Materiale associato con successo');
+            document.getElementById('associaMaterialeModal').style.display = 'none';
+            loadData(); // Ricarica i dati
+        } else {
+            showError(`⚠️ ${result.error || 'Errore durante l\'associazione'}`);
+        }
+    } catch (error) {
+        console.error('Errore durante l\'associazione:', error);
+        showError('⚠️ Errore durante l\'associazione del materiale');
+    } finally {
+        hideLoadingOverlay();
+    }
+}
+
+// Funzione per mostrare i dettagli di un materiale nel modal
+function showMaterialDetailsInModal(material) {
+    const modal = document.getElementById('materialDetailsModal');
+    if (!modal) return;
+
+    // Popola i campi del modal con i dati del materiale
+    document.getElementById('detailCodiceMateriale').textContent = material.codice_materiale;
+    document.getElementById('detailCategoria').textContent = material.categoria;
+    document.getElementById('detailTipo').textContent = material.tipo;
+    document.getElementById('detailUbicazione').textContent = material.nome_ubicazione;
+    document.getElementById('detailQuantita').textContent = `${formatQuantity(material.quantita_attuale)} ${material.unita_misura}`;
+
+    // Mostra il modal
+    modal.style.display = 'block';
+
+    // Gestione chiusura modal
+    const closeBtn = document.getElementById('materialDetailsClose');
+    if (closeBtn) {
+        closeBtn.onclick = () => {
+            modal.style.display = 'none';
+        };
+    }
+
+    // Chiudi la modal se si clicca fuori
+    window.onclick = (event) => {
+        if (event.target === modal) {
+            modal.style.display = 'none';
+        }
+    };
+}
+
+// Funzione per caricare e mostrare i dettagli di un materiale
+function caricaEDettagliMateriale(codiceMateriale) {
+    // Trova il materiale per codice
+    const materiale = materiali.find(m => m.codice_materiale === codiceMateriale);
+    
+    if (materiale) {
+        showMaterialDetailsInModal(materiale);
+    } else {
+        console.error('Materiale non trovato:', codiceMateriale);
+        showError('⚠️ Dettagli materiale non disponibili');
+    }
+}
+
+// Funzione per formattare la data e ora
 function formatDateTime(dateTimeStr) {
     if (!dateTimeStr) return 'Data non disponibile';
     const date = new Date(dateTimeStr);
@@ -1151,29 +1402,18 @@ function formatDateTime(dateTimeStr) {
     });
 }
 
+// Funzione per caricare lo storico dei movimenti di un materiale
 function caricaStorico(codice_materiale, ubicazione) {
     console.log('caricaStorico - Parametri:', { codice_materiale, ubicazione });
     
-    const modalBody = document.querySelector('.material-modal-body');
-    if (!modalBody) {
-        console.error('caricaStorico - Modal body non trovato');
+    const storicoContent = document.querySelector('.storico-content');
+    if (!storicoContent) {
+        console.error('caricaStorico - Contenitore storico non trovato');
         return;
     }
 
-    // Rimuovi la sezione storico esistente se presente
-    const storicoEsistente = modalBody.querySelector('.storico-section');
-    if (storicoEsistente) {
-        storicoEsistente.remove();
-    }    // Crea la sezione dello storico
-    const storicoSection = document.createElement('div');
-    storicoSection.className = 'storico-section mobile-friendly';
-    storicoSection.innerHTML = `
-        <h3 class="storico-title">Storico Movimenti</h3>
-        <div class="storico-content mobile-scrollable">
-            <div class="loading-spinner">Caricamento storico...</div>
-        </div>
-    `;
-    modalBody.appendChild(storicoSection);
+    // Mostra loading spinner
+    storicoContent.innerHTML = '<div class="loading-spinner">Caricamento storico...</div>';
 
     // Carica lo storico dall'API
     const url = `${API_BASE_URL}?action=getStorico&codice_materiale=${encodeURIComponent(codice_materiale)}&ubicazione=${encodeURIComponent(ubicazione)}`;
@@ -1186,9 +1426,7 @@ function caricaStorico(codice_materiale, ubicazione) {
 
             if (!data.success) {
                 throw new Error(data.error || 'Errore nel caricamento dello storico');
-            }
-
-            const storicoContent = storicoSection.querySelector('.storico-content');
+            }            const storicoContent = document.querySelector('.storico-content');
             if (data.data && data.data.length > 0) {
                 let html = '<table class="storico-table">';
                 html += `
@@ -1233,6 +1471,7 @@ function caricaStorico(codice_materiale, ubicazione) {
             storicoContent.innerHTML = '<p class="error-message">⚠️ Errore nel caricamento dello storico</p>';
         });
 }
+
 function showSuccess(message) {
     const successElement = document.createElement('div');
     successElement.className = 'success-message';
@@ -1260,4 +1499,36 @@ function showSuccess(message) {
             successElement.remove();
         }
     }, 3000);
+}
+
+// Helper function per gestire il click sui materiali
+function handleMaterialClick(materialId, ubicazione = null) {
+    console.log('handleMaterialClick - ID ricevuto:', materialId, 'Ubicazione:', ubicazione);
+    
+    // Filtra i materiali in base all'ID e all'ubicazione se specificata
+    let materiale;
+    if (ubicazione) {
+        materiale = materiali.find(m => 
+            m.codice_materiale === materialId && 
+            m.nome_ubicazione === ubicazione
+        );
+    } else {
+        // Se l'ubicazione non è specificata, prova a usare il filtro corrente
+        if (currentView === VIEWS.UBICAZIONE && currentFilter) {
+            materiale = materiali.find(m => 
+                m.codice_materiale === materialId && 
+                m.nome_ubicazione === currentFilter
+            );
+        } else {
+            materiale = materiali.find(m => m.codice_materiale === materialId);
+        }
+    }
+    
+    if (materiale) {
+        console.log('handleMaterialClick - Materiale trovato:', materiale);
+        showMaterialModal(materiale);
+    } else {
+        console.error('handleMaterialClick - Materiale non trovato per ID:', materialId, 'e ubicazione:', ubicazione);
+        showError('⚠️ Materiale non trovato');
+    }
 }
