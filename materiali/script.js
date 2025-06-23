@@ -10,6 +10,7 @@ const VIEWS = {
 
 let currentView = VIEWS.UBICAZIONE;
 let currentFilter = '';
+let anagraficaMateriali = [];
 let materiali = [];
 let filteredData = [];
 let locationsData = [];
@@ -1172,21 +1173,45 @@ function showAssociaMaterialeModal() {
 }
 
 // Popola la select delle categorie
-function popolaSelectCategorie() {
+async function popolaSelectCategorie() {
     const selectCategoria = document.getElementById('selectCategoria');
     if (!selectCategoria) return;
 
-    // Ottieni categorie uniche
-    const categorie = [...new Set(materiali.map(m => m.categoria))].sort();
-    
-    // Resetta e popola la select
-    selectCategoria.innerHTML = '<option value="">Seleziona una categoria...</option>';
-    categorie.forEach(categoria => {
-        const option = document.createElement('option');
-        option.value = categoria;
-        option.textContent = categoria;
-        selectCategoria.appendChild(option);
-    });
+    try {
+        showLoadingOverlay('Caricamento materiali...');
+        
+        // Carica i dati completi dall'API getMateriali solo se non sono già stati caricati
+        if (anagraficaMateriali.length === 0) {
+            const response = await fetch(`${API_BASE_URL}?action=getMateriali`);
+            if (!response.ok) {
+                throw new Error('Errore nel caricamento dei materiali');
+            }
+            
+            const result = await response.json();
+            if (!result.success) {
+                throw new Error(result.error || 'Errore nel recupero dei materiali');
+            }
+            
+            anagraficaMateriali = result.data;
+        }
+
+        // Estrai categorie uniche dall'anagrafica
+        const categorie = [...new Set(anagraficaMateriali.map(m => m.categoria))].sort();
+        
+        // Resetta e popola la select
+        selectCategoria.innerHTML = '<option value="">Seleziona una categoria...</option>';
+        categorie.forEach(categoria => {
+            const option = document.createElement('option');
+            option.value = categoria;
+            option.textContent = categoria;
+            selectCategoria.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Errore durante il caricamento delle categorie:', error);
+        showError('⚠️ Errore nel caricamento delle categorie');
+    } finally {
+        hideLoadingOverlay();
+    }
 }
 
 // Popola la select delle ubicazioni
@@ -1220,8 +1245,8 @@ function handleCategoriaChange(event) {
     selectUbicazione.value = '';
     
     if (categoria) {
-        // Filtra i tipi per la categoria selezionata
-        const tipi = [...new Set(materiali
+        // Filtra i tipi per la categoria selezionata dall'anagrafica completa
+        const tipi = [...new Set(anagraficaMateriali
             .filter(m => m.categoria === categoria)
             .map(m => m.tipo))].sort();
         
@@ -1242,10 +1267,17 @@ function handleTipoChange(event) {
     const selectUbicazione = document.getElementById('selectUbicazione');
     if (!selectUbicazione || !categoria) return;
 
+    // Trova il materiale dall'anagrafica
+    const materiale = anagraficaMateriali.find(m => m.categoria === categoria && m.tipo === tipo);
+    if (!materiale) {
+        showError('⚠️ Combinazione tipo/categoria non trovata');
+        return;
+    }
+
     // Ottieni ubicazioni uniche escludendo quelle dove il materiale è già presente
     const ubicazioniOccupate = new Set(
         materiali
-            .filter(m => m.categoria === categoria && m.tipo === tipo)
+            .filter(m => m.codice_materiale === materiale.codice_materiale)
             .map(m => m.nome_ubicazione)
     );
 
@@ -1293,21 +1325,21 @@ async function handleSalvaAssociazione() {
     if (!validateUserName(userName)) {
         showError('⚠️ Inserisci un nome valido (minimo 4 caratteri)');
         return;
-    }    // Trova il materiale esistente per tipo e categoria
+    }    // Trova il materiale esistente per tipo e categoria    // Trova il materiale dall'anagrafica
+    const materiale = anagraficaMateriali.find(m => m.categoria === categoria && m.tipo === tipo);
+    if (!materiale) {
+        showError('⚠️ Combinazione tipo/categoria non trovata');
+        return;
+    }
+
+    // Verifica se esiste già una giacenza per questo materiale in questa ubicazione
     const materialeEsistente = materiali.find(
-        m => m.categoria === categoria && 
-        m.tipo === tipo && 
+        m => m.codice_materiale === materiale.codice_materiale && 
         m.nome_ubicazione === ubicazione
     );
     
     if (materialeEsistente) {
         showError('⚠️ Questo materiale è già presente in questa ubicazione');
-        return;
-    }
-
-    const materiale = materiali.find(m => m.categoria === categoria && m.tipo === tipo);
-    if (!materiale) {
-        showError('⚠️ Combinazione tipo/categoria non trovata');
         return;
     }
 
