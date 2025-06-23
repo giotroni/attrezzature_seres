@@ -7,12 +7,15 @@
 require_once 'config.php';
 
 // Configurazione
-$csvFile = 'INVENTARIO_SERES_250621.CSV';
+$csvFile = __DIR__ . '/init/inventario_attrezzature.CSV';
 $delimiter = ';';
 $username = 'IMPORT_SCRIPT'; // Username per tracking delle creazioni
 
+// Colonne attese nel CSV
+$expectedColumns = ['CATEGORIA', 'TIPO', 'MARCA/MODELLO', 'UBICAZIONE', 'CODICE'];
+
 // Funzione per leggere il CSV
-function readCsvFile($filename, $delimiter = ',') {
+function readCsvFile($filename, $delimiter = ',', $expectedColumns = []) {
     $data = [];
     
     if (!file_exists($filename)) {
@@ -35,6 +38,14 @@ function readCsvFile($filename, $delimiter = ',') {
     $header = array_map(function($col) {
         return trim(str_replace("\xEF\xBB\xBF", '', $col));
     }, $header);
+
+    // Verifica che tutte le colonne attese siano presenti
+    foreach ($expectedColumns as $column) {
+        if (!in_array($column, $header)) {
+            fclose($handle);
+            throw new Exception("Colonna mancante nel CSV: $column");
+        }
+    }
     
     // Leggi i dati
     while (($row = fgetcsv($handle, 0, $delimiter)) !== false) {
@@ -75,6 +86,13 @@ function getOrCreateUbicazione($conn, $nomeUbicazione, $username) {
 
 // Funzione per inserire attrezzatura
 function insertAttrezzatura($conn, $data, $ubicazioneId, $username) {
+    // Verifica se l'attrezzatura esiste già
+    $stmt = $conn->prepare("SELECT codice FROM attrezzature WHERE codice = ?");
+    $stmt->execute([$data['CODICE']]);
+    if ($stmt->fetch()) {
+        throw new Exception("Attrezzatura con codice {$data['CODICE']} già esistente");
+    }
+
     $stmt = $conn->prepare("
         INSERT INTO attrezzature (
             codice, 
@@ -82,9 +100,8 @@ function insertAttrezzatura($conn, $data, $ubicazioneId, $username) {
             tipo, 
             marca, 
             ID_ubicazione, 
-            doc, 
             utente_creazione
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?)
     ");
     
     return $stmt->execute([
@@ -93,7 +110,6 @@ function insertAttrezzatura($conn, $data, $ubicazioneId, $username) {
         $data['TIPO'],
         $data['MARCA/MODELLO'],
         $ubicazioneId,
-        $data['SCHEDA/MANUALE'] ?: null,
         $username
     ]);
 }
@@ -107,7 +123,7 @@ try {
     
     // Leggi il file CSV
     echo "Lettura file CSV: $csvFile...\n";
-    $csvData = readCsvFile($csvFile, $delimiter);
+    $csvData = readCsvFile($csvFile, $delimiter, $expectedColumns);
     
     echo "Trovati " . count($csvData) . " record nel CSV\n\n";
     
