@@ -195,14 +195,13 @@ const UI = {
 class ApiService {
     async request(action, data = null) {
         try {
-            const url = data ? CONFIG.API_BASE_URL : `${CONFIG.API_BASE_URL}?action=${action}`;
+            const url = `${CONFIG.API_BASE_URL}?action=${action}`;
             const options = {
                 method: data ? 'POST' : 'GET'
             };
 
             if (data) {
                 const formData = new FormData();
-                formData.append('action', action);
                 Object.entries(data).forEach(([key, value]) => {
                     formData.append(key, value);
                 });
@@ -252,6 +251,17 @@ class ApiService {
             ubicazione: ubicazione,
             nuova_quantita: nuovaQuantita,
             userName: userName
+        });
+    }
+
+    async addMateriale(categoria, tipo, unitaMisura, userName, sogliaMinima = 0, note = '') {
+        return this.request('addMateriale', {
+            categoria: categoria,
+            tipo: tipo,
+            unita_misura: unitaMisura,
+            userName: userName,
+            soglia_minima: sogliaMinima,
+            note: note
         });
     }
 }
@@ -750,7 +760,7 @@ class ViewRenderer {
                 <div class="material-info">
                     <div class="material-type">${displayText}</div>
                     <div class="material-details">
-                        <span class="material-code">${materiale.codice_materiale}</span>
+                        <span class="material-code">${materiale.tipo}</span>
                         <span class="material-quantity ${statoClasse}">
                             ${Utils.formatQuantity(materiale.quantita_attuale)} ${materiale.unita_misura}
                         </span>
@@ -1081,7 +1091,7 @@ class AssociationModal {
 
         const categorie = [...new Set(appState.getData('anagraficaMateriali').map(m => m.categoria))].sort();
         
-        selectCategoria.innerHTML = '<option value="">Seleziona una categoria...</option>';
+        selectCategoria.innerHTML = '<option value="">SELEZIONA UNA CATEGORIA...</option>';
         categorie.forEach(categoria => {
             const option = document.createElement('option');
             option.value = categoria;
@@ -1112,8 +1122,7 @@ class AssociationModal {
         
         if (!selectTipo || !selectUbicazione) return;
 
-        selectTipo.disabled = !categoria;
-        selectTipo.innerHTML = '<option value="">Seleziona un tipo...</option>';
+        selectTipo.disabled = !categoria;            selectTipo.innerHTML = '<option value="">SELEZIONA UN TIPO...</option>';
         selectUbicazione.value = '';
         
         if (categoria) {
@@ -1248,6 +1257,236 @@ class AssociationModal {
 const associationModal = new AssociationModal();
 
 // ============================================================================
+// NEW MATERIAL MODAL MANAGER
+// ============================================================================
+
+class NewMaterialModal {
+    constructor() {
+        this.modal = document.getElementById('newMaterialModal');
+        this.setupEventListeners();
+    }
+
+    setupEventListeners() {
+        if (!this.modal) return;
+
+        // Close button
+        const closeBtn = document.getElementById('newMaterialModalClose');
+        if (closeBtn) {
+            closeBtn.onclick = () => this.hide();
+        }
+
+        // Click outside to close
+        this.modal.onclick = (event) => {
+            if (event.target === this.modal) {
+                this.hide();
+            }
+        };
+
+        // Category change
+        const selectCategoria = document.getElementById('newMaterialCategoria');
+        const altroCategoria = document.getElementById('altroCategoria');
+        if (selectCategoria && altroCategoria) {
+            selectCategoria.addEventListener('change', (e) => {
+                altroCategoria.style.display = e.target.value === 'ALTRO' ? 'block' : 'none';
+            });
+        }
+
+        // Unit change
+        const selectUnitaMisura = document.getElementById('newMaterialUnitaMisura');
+        const altraUnitaMisura = document.getElementById('altraUnitaMisura');
+        const altraUnitaMisuraGroup = document.getElementById('altraUnitaMisuraGroup');
+        if (selectUnitaMisura && altraUnitaMisura && altraUnitaMisuraGroup) {
+            selectUnitaMisura.addEventListener('change', (e) => {
+                altraUnitaMisuraGroup.style.display = e.target.value === 'ALTRO' ? 'block' : 'none';
+            });
+        }
+
+        // Save button
+        const saveButton = document.getElementById('btnSalvaNuovoMateriale');
+        if (saveButton) {
+            saveButton.onclick = () => this.saveMaterial();
+        }
+    }
+
+    async show() {
+        this.resetForm();
+        await this.populateCategories();
+        this.modal.style.display = 'block';
+    }
+
+    hide() {
+        this.modal.style.display = 'none';
+        this.resetForm();
+    }
+
+    resetForm() {
+        const selectCategoria = document.getElementById('newMaterialCategoria');
+        const altroCategoria = document.getElementById('altroCategoria');
+        const tipo = document.getElementById('newMaterialTipo');
+        const unitaMisura = document.getElementById('newMaterialUnitaMisura');
+        const soglia = document.getElementById('newMaterialSoglia');
+        const note = document.getElementById('newMaterialNote');
+        const userName = document.getElementById('newMaterialUserName');
+
+        if (selectCategoria) selectCategoria.value = '';
+        if (altroCategoria) {
+            altroCategoria.value = '';
+            altroCategoria.style.display = 'none';
+        }
+        if (tipo) tipo.value = '';
+        if (unitaMisura) {
+            unitaMisura.value = '';
+            const altraUnitaMisura = document.getElementById('altraUnitaMisura');
+            const altraUnitaMisuraGroup = document.getElementById('altraUnitaMisuraGroup');
+            if (altraUnitaMisura) altraUnitaMisura.value = '';
+            if (altraUnitaMisuraGroup) altraUnitaMisuraGroup.style.display = 'none';
+        }
+        if (soglia) soglia.value = '';
+        if (note) note.value = '';
+        if (userName) userName.value = '';
+    }
+
+    async populateCategories() {
+        const selectCategoria = document.getElementById('newMaterialCategoria');
+        const altroCategoria = document.getElementById('altroCategoria');
+        if (!selectCategoria || !altroCategoria) return;
+
+        try {
+            // Load anagrafica if not already loaded
+            if (appState.getData('anagraficaMateriali').length === 0) {
+                const materiali = await apiService.getMateriali();
+                appState.updateData('anagraficaMateriali', materiali);
+            }
+
+            const categorie = [...new Set(appState.getData('anagraficaMateriali').map(m => m.categoria))].sort();
+            
+            selectCategoria.innerHTML = '<option value="">SELEZIONA UNA CATEGORIA...</option>' +
+                categorie.map(cat => `<option value="${cat}">${cat}</option>`).join('') +
+                '<option value="ALTRO">NUOVA CATEGORIA...</option>';
+            
+            // Verifica la selezione corrente
+            if (selectCategoria.value === 'ALTRO') {
+                altroCategoria.style.display = 'block';
+            } else {
+                altroCategoria.style.display = 'none';
+            }
+
+        } catch (error) {
+            console.error('Errore durante il caricamento delle categorie:', error);
+            UI.showError('⚠️ Errore nel caricamento delle categorie');
+        }
+    }
+
+    async saveMaterial() {
+        const selectCategoria = document.getElementById('newMaterialCategoria');
+        const altroCategoria = document.getElementById('altroCategoria');
+        const tipo = document.getElementById('newMaterialTipo');
+        const unitaMisura = document.getElementById('newMaterialUnitaMisura');
+        const soglia = document.getElementById('newMaterialSoglia');
+        const note = document.getElementById('newMaterialNote');
+        const userName = document.getElementById('newMaterialUserName');
+
+        // Validazione
+        if (!selectCategoria.value) {
+            UI.showError('⚠️ Seleziona una categoria');
+            return;
+        }
+
+        if (!tipo.value.trim()) {
+            UI.showError('⚠️ Inserisci il tipo');
+            return;
+        }
+
+        if (!unitaMisura.value.trim()) {
+            UI.showError('⚠️ Inserisci l\'unità di misura');
+            return;
+        }
+
+        const userValidation = Utils.validateUserName(userName.value);
+        if (!userValidation.valid) {
+            UI.showError(`⚠️ ${userValidation.message}`);
+            return;
+        }
+
+        // Verifica unità di misura
+        const unitaMisuraValue = unitaMisura.value;
+        if (unitaMisuraValue === 'ALTRO') {
+            const altraUnitaMisura = document.getElementById('altraUnitaMisura');
+            if (!altraUnitaMisura || !altraUnitaMisura.value.trim()) {
+                UI.showError('⚠️ Inserisci la nuova unità di misura');
+                return;
+            }
+        }
+
+        // Prepara i dati
+        const categoria = selectCategoria.value === 'ALTRO' ? altroCategoria.value.trim().toUpperCase() : selectCategoria.value;
+        const tipoValue = tipo.value.trim().toUpperCase();
+        const unitaMisuraFinal = unitaMisuraValue === 'ALTRO' ? 
+            document.getElementById('altraUnitaMisura').value.trim().toUpperCase() : 
+            unitaMisuraValue;
+
+        // Verifica che il tipo non esista già per questa categoria
+        const tipoEsistente = appState.getData('anagraficaMateriali').find(
+            m => m.categoria === categoria && m.tipo === tipoValue
+        );
+
+        if (tipoEsistente) {
+            UI.showError('⚠️ Questo tipo esiste già per questa categoria');
+            return;
+        }
+
+        try {
+            UI.showLoadingOverlay('Creazione nuovo materiale in corso...');
+            
+            try {
+                UI.showLoadingOverlay('Creazione nuovo materiale in corso...');
+                
+                const response = await fetch(`${CONFIG.API_BASE_URL}?action=addMateriale`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams({
+                        categoria: categoria,
+                        tipo: tipoValue,
+                        unita_misura: unitaMisuraFinal,
+                        soglia_minima: soglia.value || '0',
+                        note: note.value.trim(),
+                        userName: userValidation.formatted
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (!result.success) {
+                    throw new Error(result.error || 'Errore durante la creazione del materiale');
+                }
+
+                // Ricarica tutti i dati, inclusa l'anagrafica materiali
+                const materiali = await apiService.getMateriali();
+                appState.updateData('anagraficaMateriali', materiali);
+                await dataManager.loadAllData();
+                
+                UI.showSuccess('✅ Materiale creato con successo');
+                this.hide();
+                viewRenderer.render();
+
+            } finally {
+                UI.hideLoadingOverlay();
+            }
+
+        } catch (error) {
+            console.error('Errore durante la creazione del materiale:', error);
+            UI.showError(`⚠️ ${error.message || 'Errore durante la creazione del materiale'}`);
+        } finally {
+            UI.hideLoadingOverlay();
+        }
+    }
+}
+
+const newMaterialModal = new NewMaterialModal();
+
+// ============================================================================
 // NAVIGATION MANAGER
 // ============================================================================
 
@@ -1305,6 +1544,7 @@ class MenuManager {
         const refreshBtn = document.getElementById('btnRefresh');
         const aboutBtn = document.getElementById('btnAbout');
         const addMaterialBtn = document.getElementById('btnAddMaterial');
+        const newMaterialBtn = document.getElementById('btnNewMaterial');
 
         if (refreshBtn) {
             refreshBtn.addEventListener('click', () => {
@@ -1324,6 +1564,13 @@ class MenuManager {
             addMaterialBtn.addEventListener('click', () => {
                 this.closeMenu();
                 associationModal.show();
+            });
+        }
+
+        if (newMaterialBtn) {
+            newMaterialBtn.addEventListener('click', () => {
+                this.closeMenu();
+                newMaterialModal.show();
             });
         }
 
@@ -1540,7 +1787,7 @@ class SearchManager {
         if (!searchResults) return;
 
         if (results.length === 0) {
-            searchResults.innerHTML = '<div class="search-no-results">Nessun risultato trovato</div>';
+            searchResults.innerHTML = '<div class="search-no-results">NESSUN RISULTATO TROVATO</div>';
             return;
         }
 

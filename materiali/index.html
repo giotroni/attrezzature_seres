@@ -39,9 +39,14 @@
             <button class="menu-close" id="menuClose">✕</button>
         </div>
         <div class="menu-content">
-            <h4 style="margin: 25px 0 15px; color: #333;">⚙️ Azioni</h4>            <button class="menu-item" id="btnAddMaterial">
+            <h4 style="margin: 25px 0 15px; color: #333;">⚙️ Azioni</h4>
+            <button class="menu-item" id="btnAddMaterial">
                 📦 Nuova Associazione
             </button>
+            <button class="menu-item" id="btnNewMaterial">
+                ➕ Nuovo Materiale
+            </button>
+
             <button class="menu-item" id="btnRefresh">
                 🔄 Aggiorna Dati
             </button>
@@ -243,6 +248,66 @@
                 </div>
                 <button class="update-button" id="btnSalvaAssociazione">
                     💾 Salva Associazione
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Nuovo Materiale Modal -->
+    <div class="material-modal" id="newMaterialModal">
+        <div class="material-modal-content">
+            <div class="material-modal-header">
+                <h2>Nuovo Materiale</h2>
+                <button class="modal-close" id="newMaterialModalClose">✕</button>
+            </div>
+            <div class="material-modal-body">
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label for="newMaterialCategoria">Categoria:</label>
+                        <select id="newMaterialCategoria" required>
+                            <option value="">Seleziona una categoria...</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label for="altroCategoria">Nuova Categoria:</label>
+                        <input type="text" id="altroCategoria" placeholder="INSERISCI NUOVA CATEGORIA...">
+                    </div>
+                    <div class="input-group">
+                        <label for="newMaterialTipo">Tipo:</label>
+                        <input type="text" id="newMaterialTipo" placeholder="INSERISCI TIPO..." required>
+                    </div>
+                    <div class="input-group">
+                        <label for="newMaterialUnitaMisura">Unità di misura:</label>
+                        <select id="newMaterialUnitaMisura" required>
+                            <option value="">SELEZIONA UN'UNITÀ DI MISURA...</option>
+                            <option value="L">L (LITRI)</option>
+                            <option value="KG">KG (KILOGRAMMI)</option>
+                            <option value="PZ">PZ (PEZZI)</option>
+                            <option value="F">F (FOGLI)</option>
+                            <option value="SCATOLE">SCATOLE</option>
+                            <option value="MT">MT (METRI)</option>
+                            <option value="ALTRO">ALTRA UNITÀ DI MISURA...</option>
+                        </select>
+                    </div>
+                    <div class="input-group" id="altraUnitaMisuraGroup" style="display: none;">
+                        <label for="altraUnitaMisura">Nuova unità di misura:</label>
+                        <input type="text" id="altraUnitaMisura" placeholder="INSERISCI NUOVA UNITÀ DI MISURA...">
+                    </div>
+                    <div class="input-group">
+                        <label for="newMaterialSoglia">Soglia minima:</label>
+                        <input type="number" id="newMaterialSoglia" step="0.01" min="0" placeholder="INSERISCI SOGLIA MINIMA...">
+                    </div>
+                    <div class="input-group">
+                        <label for="newMaterialNote">Note:</label>
+                        <textarea id="newMaterialNote" placeholder="INSERISCI EVENTUALI NOTE..."></textarea>
+                    </div>
+                    <div class="input-group">
+                        <label for="newMaterialUserName">Il tuo nome:</label>
+                        <input type="text" id="newMaterialUserName" placeholder="INSERISCI IL TUO NOME (MIN. 4 CARATTERI)" required>
+                    </div>
+                </div>
+                <button class="update-button" id="btnSalvaNuovoMateriale">
+                    💾 Salva Materiale
                 </button>
             </div>
         </div>
