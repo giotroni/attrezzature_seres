@@ -465,8 +465,11 @@ function renderMaterialiUbicazione(mainContent, ubicazione) {
     Object.keys(materialiPerCategoria).sort().forEach(categoria => {
         html += `
             <div class="category-section">
-                <h3 class="category-header">${categoria}</h3>
-                <div class="category-items">
+                <h3 class="category-header" data-categoria="${categoria}">
+                    <span class="category-toggle">▶</span>
+                    ${categoria}
+                </h3>
+                <div class="category-items" style="display: none;">
         `;
 
         materialiPerCategoria[categoria].sort((a, b) => a.tipo.localeCompare(b.tipo)).forEach(materiale => {
@@ -474,7 +477,8 @@ function renderMaterialiUbicazione(mainContent, ubicazione) {
                                materiale.quantita_attuale <= (materiale.soglia_minima * 1.5) ? 'stato-basso' : 
                                'stato-ok';
 
-            html += `                <div class="material-item" 
+            html += `
+                <div class="material-item" 
                     data-id="${materiale.codice_materiale}"
                     data-ubicazione="${materiale.nome_ubicazione}">
                     <div class="material-info">
@@ -514,6 +518,24 @@ function renderMaterialiUbicazione(mainContent, ubicazione) {
         item.addEventListener('click', () => {
             const materialId = item.dataset.id;
             handleMaterialClick(materialId);
+        });
+    });
+
+    // Aggiungi event listener per il toggle delle categorie
+    document.querySelectorAll('.category-header').forEach(header => {
+        header.addEventListener('click', () => {
+            const categorySection = header.closest('.category-section');
+            const categoryItems = categorySection.querySelector('.category-items');
+            const toggle = header.querySelector('.category-toggle');
+            
+            // Toggle della visibilità
+            if (categoryItems.style.display === 'none') {
+                categoryItems.style.display = 'block';
+                toggle.textContent = '▼';
+            } else {
+                categoryItems.style.display = 'none';
+                toggle.textContent = '▶';
+            }
         });
     });
 }
@@ -567,6 +589,7 @@ function renderCategorieList() {
                             ${stats.materialiCritici > 0 ? 
                                 `<span class="material-alert">⚠️ ${stats.materialiCritici} sotto scorta</span>` : 
                                 ''}
+
                         </div>
                     </div>
                     <div class="location-arrow">▶</div>
@@ -646,6 +669,7 @@ function renderTipiList() {
                                     ${parseFloat(tipo.quantita_totale) <= parseFloat(tipo.soglia_minima) ? 
                                         `<span class="material-alert">⚠️ Sotto scorta minima</span>` : 
                                         ''}
+
                                 </div>
                             </div>
                             <div class="location-arrow">▶</div>
@@ -697,39 +721,43 @@ function renderMaterialiCategoria(mainContent, categoria) {
             <div class="materials-list">
     `;
 
-    // Raggruppa per tipo
+    // Raggruppa prima per tipo
     const materialiPerTipo = {};
     materialiCategoria.forEach(materiale => {
         if (!materialiPerTipo[materiale.tipo]) {
-            materialiPerTipo[materiale.tipo] = {
-                materiali: [],
-                totale: 0,
-                unita_misura: materiale.unita_misura
-            };
+            materialiPerTipo[materiale.tipo] = [];
         }
-        materialiPerTipo[materiale.tipo].materiali.push(materiale);
-        materialiPerTipo[materiale.tipo].totale += parseFloat(materiale.quantita_attuale);
+        materialiPerTipo[materiale.tipo].push(materiale);
     });
 
     // Ordina i tipi e renderizza i materiali
     Object.keys(materialiPerTipo).sort().forEach(tipo => {
-        const tipoInfo = materialiPerTipo[tipo];
+        // Calcola il totale per questo tipo
+        const materiali = materialiPerTipo[tipo];
+        const totaleQuantita = materiali.reduce((acc, m) => acc + parseFloat(m.quantita_attuale), 0);
+        const unitaMisura = materiali[0].unita_misura;
+
         html += `
             <div class="category-section">
-                <h3 class="category-header">${tipo}: ${formatQuantity(tipoInfo.totale)} ${tipoInfo.unita_misura}</h3>
-                <div class="category-items">
+                <h3 class="category-header" data-tipo="${tipo}">
+                    <span class="category-toggle">▶</span>
+                    ${tipo} (${formatQuantity(totaleQuantita)} ${unitaMisura})
+                </h3>
+                <div class="category-items" style="display: none;">
         `;
 
-        tipoInfo.materiali.sort((a, b) => a.nome_ubicazione.localeCompare(b.nome_ubicazione)).forEach(materiale => {
+        // Ordina i materiali per ubicazione
+        materiali.sort((a, b) => a.nome_ubicazione.localeCompare(b.nome_ubicazione)).forEach(materiale => {
             const statoClasse = materiale.quantita_attuale <= materiale.soglia_minima ? 'stato-critico' :
                                materiale.quantita_attuale <= (materiale.soglia_minima * 1.5) ? 'stato-basso' : 
                                'stato-ok';
 
-            html += `                <div class="material-item" 
+            html += `
+                <div class="material-item" 
                     data-id="${materiale.codice_materiale}"
                     data-ubicazione="${materiale.nome_ubicazione}">
                     <div class="material-info">
-                        <div class="material-type">📍 ${materiale.nome_ubicazione}</div>
+                        <div class="material-type">${materiale.nome_ubicazione}</div>
                         <div class="material-details">
                             <span class="material-code">${materiale.codice_materiale}</span>
                             <span class="material-quantity ${statoClasse}">
@@ -764,7 +792,26 @@ function renderMaterialiCategoria(mainContent, categoria) {
     document.querySelectorAll('.material-item').forEach(item => {
         item.addEventListener('click', () => {
             const materialId = item.dataset.id;
-            handleMaterialClick(materialId);
+            const ubicazione = item.dataset.ubicazione;
+            handleMaterialClick(materialId, ubicazione);
+        });
+    });
+
+    // Aggiungi event listener per il toggle delle categorie
+    document.querySelectorAll('.category-header').forEach(header => {
+        header.addEventListener('click', () => {
+            const categorySection = header.closest('.category-section');
+            const categoryItems = categorySection.querySelector('.category-items');
+            const toggle = header.querySelector('.category-toggle');
+            
+            // Toggle della visibilità
+            if (categoryItems.style.display === 'none') {
+                categoryItems.style.display = 'block';
+                toggle.textContent = '▼';
+            } else {
+                categoryItems.style.display = 'none';
+                toggle.textContent = '▶';
+            }
         });
     });
 }
@@ -872,16 +919,19 @@ function renderMaterialsList(materials, parentElement) {
                         <span class="info-label">Ubicazione:</span>
                         <span class="info-value">${material.ubicazione}</span>
                     </div>` : ''}
+
                 ${currentView !== VIEWS.CATEGORIA ? 
                     `<div class="material-info">
                         <span class="info-label">Categoria:</span>
                         <span class="info-value">${material.categoria}</span>
                     </div>` : ''}
+
                 ${currentView !== VIEWS.TIPO ? 
                     `<div class="material-info">
                         <span class="info-label">Tipo:</span>
                         <span class="info-value">${material.tipo}</span>
                     </div>` : ''}
+
             </div>
         `;
         
@@ -922,8 +972,7 @@ function showMaterialModal(material) {
         return;
     }
 
-    console.log(`Mostra modal per materiale: ${material.codice_materiale} (${material.nome_ubicazione})`);
-    
+    console.log(`Mostra modal per materiale: ${material.codice_materiale} (${material.nome_ubicazione})`);    
     // Popola i dettagli del materiale
     materialCodice.textContent = material.codice_materiale;
     materialCategoria.textContent = material.categoria;
@@ -1461,6 +1510,7 @@ function caricaStorico(codice_materiale, ubicazione) {
             }            const storicoContent = document.querySelector('.storico-content');
             if (data.data && data.data.length > 0) {
                 let html = '<table class="storico-table">';
+
                 html += `
                     <thead>
                         <tr>
