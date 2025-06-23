@@ -16,14 +16,18 @@
         </div>
     </div>
 
-    <!-- Search Overlay -->
-    <div class="search-overlay" id="searchOverlay">
+    <!-- Area di ricerca -->
+    <div id="searchOverlay" class="search-overlay">
         <div class="search-container">
             <div class="search-header">
-                <h3>🔍 Ricerca Materiali</h3>
-                <button class="search-close" id="searchClose">✕</button>
+                <div class="search-input-container">
+                    <input type="text" id="searchInput" placeholder="Cerca...">
+                    <button id="clearSearchButton" class="clear-search-button">✕</button>
+                    <button id="searchButton" class="search-button">🔍</button>
+                </div>
+                <button id="searchClose" class="search-close">✕</button>
             </div>
-            <input type="text" class="search-bar" id="searchInput" placeholder="Cerca per codice, categoria, tipo o ubicazione..." style="margin-bottom: 0;">
+            <div id="searchResults" class="search-results"></div>
         </div>
     </div>
 

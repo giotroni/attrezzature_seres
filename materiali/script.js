@@ -1388,6 +1388,8 @@ class SearchManager {
         const searchOverlay = document.getElementById('searchOverlay');
         const searchClose = document.getElementById('searchClose');
         const searchInput = document.getElementById('searchInput');
+        const searchButton = document.getElementById('searchButton');
+        const clearSearchButton = document.getElementById('clearSearchButton');
         
         if (searchToggle && searchOverlay && searchClose && searchInput) {
             searchToggle.addEventListener('click', () => this.openSearch());
@@ -1399,10 +1401,37 @@ class SearchManager {
                 }
             });
 
-            // TODO: Implement search functionality
+            // Aggiunto event listener per il pulsante di ricerca
+            if (searchButton) {
+                searchButton.addEventListener('click', () => {
+                    if (searchInput.value.trim()) {
+                        this.performSearch(searchInput.value);
+                    }
+                });
+            }
+
+            // Aggiunto event listener per il pulsante di cancellazione
+            if (clearSearchButton) {
+                clearSearchButton.addEventListener('click', () => {
+                    searchInput.value = '';
+                    searchInput.focus();
+                    this.performSearch('');
+                });
+            }
+
+            // Mantengo la ricerca in tempo reale ma aggiungo la ricerca con invio
+            searchInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    this.performSearch(e.target.value);
+                }
+            });
+
             searchInput.addEventListener('input', (e) => {
-                // Search implementation would go here
-                console.log('Search query:', e.target.value);
+                this.performSearch(e.target.value);
+                // Mostra/nascondi il pulsante di cancellazione in base al contenuto
+                if (clearSearchButton) {
+                    clearSearchButton.style.display = e.target.value ? 'block' : 'none';
+                }
             });
         }
     }
@@ -1413,6 +1442,7 @@ class SearchManager {
         
         if (searchOverlay && searchInput) {
             searchOverlay.classList.add('active');
+            searchInput.value = '';
             searchInput.focus();
         }
     }
@@ -1424,7 +1454,125 @@ class SearchManager {
         if (searchOverlay && searchInput) {
             searchOverlay.classList.remove('active');
             searchInput.value = '';
+            this.performSearch(''); // Resetta i risultati della ricerca
         }
+    }
+
+    performSearch(query) {
+        const searchResults = document.getElementById('searchResults');
+        if (!searchResults) return;
+
+        if (!query.trim()) {
+            searchResults.innerHTML = '';
+            return;
+        }
+
+        const searchTerm = query.toLowerCase().trim();
+        let results = [];
+
+        switch (appState.currentView) {
+            case CONFIG.VIEWS.UBICAZIONE:
+                results = this.searchLocations(searchTerm);
+                break;
+            case CONFIG.VIEWS.CATEGORIA:
+                results = this.searchCategories(searchTerm);
+                break;
+            case CONFIG.VIEWS.TIPO:
+                results = this.searchTypes(searchTerm);
+                break;
+            default:
+                results = this.searchAll(searchTerm);
+                break;
+        }
+
+        this.displayResults(results);
+    }
+
+    searchLocations(query) {
+        const materiali = appState.getData('materiali');
+        const ubicazioni = [...new Set(materiali.map(m => m.nome_ubicazione))];
+        
+        return ubicazioni
+            .filter(ubicazione => ubicazione.toLowerCase().includes(query))
+            .map(ubicazione => ({
+                type: 'ubicazione',
+                text: ubicazione,
+                icon: '📍'
+            }));
+    }
+
+    searchCategories(query) {
+        const materiali = appState.getData('materiali');
+        const categorie = [...new Set(materiali.map(m => m.categoria))];
+        
+        return categorie
+            .filter(categoria => categoria.toLowerCase().includes(query))
+            .map(categoria => ({
+                type: 'categoria',
+                text: categoria,
+                icon: '📂'
+            }));
+    }
+
+    searchTypes(query) {
+        const materiali = appState.getData('materiali');
+        const tipi = [...new Set(materiali.map(m => m.tipo))];
+        
+        return tipi
+            .filter(tipo => tipo.toLowerCase().includes(query))
+            .map(tipo => ({
+                type: 'tipo',
+                text: tipo,
+                icon: '🏷️'
+            }));
+    }
+
+    searchAll(query) {
+        return [
+            ...this.searchLocations(query),
+            ...this.searchCategories(query),
+            ...this.searchTypes(query)
+        ];
+    }
+
+    displayResults(results) {
+        const searchResults = document.getElementById('searchResults');
+        if (!searchResults) return;
+
+        if (results.length === 0) {
+            searchResults.innerHTML = '<div class="search-no-results">Nessun risultato trovato</div>';
+            return;
+        }
+
+        let html = '<div class="search-results-list">';
+        results.forEach(result => {
+            html += `
+                <div class="search-result-item" data-type="${result.type}" data-value="${result.text}">
+                    <span class="search-result-icon">${result.icon}</span>
+                    <span class="search-result-text">${result.text}</span>
+                </div>
+            `;
+        });
+        html += '</div>';
+        searchResults.innerHTML = html;
+
+        // Aggiungi event listeners ai risultati
+        searchResults.querySelectorAll('.search-result-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const type = item.dataset.type;
+                const value = item.dataset.value;
+                
+                // Imposta la vista appropriata e il filtro
+                if (type !== appState.currentView) {
+                    appState.setCurrentView(type);
+                }
+                appState.setCurrentFilter(value);
+                
+                // Chiudi la ricerca e aggiorna la vista
+                this.closeSearch();
+                viewRenderer.render();
+            });
+        });
     }
 }
 
