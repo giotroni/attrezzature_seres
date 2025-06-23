@@ -492,6 +492,97 @@ try {
             ]);
             break;
 
+        case 'addMateriale':
+            // Verifica campi obbligatori
+            $requiredFields = ['categoria', 'tipo', 'unita_misura', 'userName'];
+            foreach ($requiredFields as $field) {
+                if (!isset($_POST[$field]) || trim($_POST[$field]) === '') {
+                    throw new Exception("Campo obbligatorio mancante: $field");
+                }
+            }
+
+            // Standardizza i valori in input
+            $categoria = strtoupper(trim($_POST['categoria']));
+            $tipo = strtoupper(trim($_POST['tipo']));
+            $unitaMisura = strtoupper(trim($_POST['unita_misura']));
+            $userName = strtoupper(trim($_POST['userName']));
+            $sogliaMinima = isset($_POST['soglia_minima']) ? (float)str_replace(',', '.', $_POST['soglia_minima']) : 0;
+            $note = isset($_POST['note']) ? trim($_POST['note']) : '';
+
+            // Verifica che il tipo non esista già per questa categoria
+            $stmt = $conn->prepare("
+                SELECT COUNT(*) 
+                FROM anagrafica_materiali 
+                WHERE UPPER(categoria) = ? AND UPPER(tipo) = ?
+            ");
+            $stmt->execute([$categoria, $tipo]);
+            if ($stmt->fetchColumn() > 0) {
+                throw new Exception("Esiste già un materiale di tipo '$tipo' nella categoria '$categoria'");
+            }
+
+            $conn->beginTransaction();
+            try {
+                // Genera il nuovo codice materiale
+                $stmt = $conn->query("
+                    SELECT codice_materiale 
+                    FROM anagrafica_materiali 
+                    WHERE codice_materiale LIKE 'MATE%'
+                    ORDER BY codice_materiale DESC 
+                    LIMIT 1
+                ");
+                $lastCode = $stmt->fetchColumn();
+                
+                if ($lastCode) {
+                    $lastNumber = (int)substr($lastCode, 4);
+                    $newNumber = $lastNumber + 1;
+                } else {
+                    $newNumber = 1;
+                }
+                
+                $codice_materiale = 'MATE' . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
+
+                // Inserisci il nuovo materiale
+                $stmt = $conn->prepare("
+                    INSERT INTO anagrafica_materiali (
+                        codice_materiale, 
+                        categoria, 
+                        tipo, 
+                        unita_misura, 
+                        soglia_minima, 
+                        note,
+                        attivo,
+                        utente_creazione,
+                        created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, NOW())
+                ");
+
+                $stmt->execute([
+                    $codice_materiale,
+                    $categoria,
+                    $tipo,
+                    $unitaMisura,
+                    $sogliaMinima,
+                    $note,
+                    $userName
+                ]);
+
+                $conn->commit();
+
+                // Log dell'operazione
+                error_log("Nuovo materiale creato - Codice: $codice_materiale, Categoria: $categoria, Tipo: $tipo, Utente: $userName");
+
+                // Restituisci i dati del nuovo materiale
+                echo json_encode([
+                    'success' => true,
+                    'codice_materiale' => $codice_materiale,
+                    'message' => 'Materiale creato con successo'
+                ]);
+            } catch (Exception $e) {
+                $conn->rollBack();
+                throw $e;
+            }
+            break;
+
         default:
             echo json_encode([
                 'success' => false,
