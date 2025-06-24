@@ -162,9 +162,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Event listener per il pulsante Gestione Materiali
     const btnGestioneMateriali = document.getElementById('btnGestioneMateriali');
-    btnGestioneMateriali.addEventListener('click', () => {
-        window.location.href = '../materiali/index.html';
-    });
+    if (btnGestioneMateriali) {
+        btnGestioneMateriali.addEventListener('click', () => {
+            window.location.href = '../materiali/index.html';
+        });
+    }
 });
 
 function initializeEventListeners() {

@@ -1899,8 +1899,10 @@ document.addEventListener('DOMContentLoaded', () => {
     app.init();
 
     // Gestione del menu laterale
-    const btnGestioneAttrezzature = document.getElementById('btnGestioneAttrezzature');
-    btnGestioneAttrezzature.addEventListener('click', () => {
-        window.location.href = '../tools/index.html';
-    });
+    const btnMainMenu = document.getElementById('btnMainMenu');
+    if (btnMainMenu) {
+        btnMainMenu.addEventListener('click', () => {
+            window.location.href = '../index.html';
+        });
+    }
 });
