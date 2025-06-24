@@ -1567,6 +1567,13 @@ class MenuManager {
         const aboutBtn = document.getElementById('btnAbout');
         const addMaterialBtn = document.getElementById('btnAddMaterial');
         const newMaterialBtn = document.getElementById('btnNewMaterial');
+        const mainMenuBtn = document.getElementById('btnMainMenu');
+
+        if (mainMenuBtn) {
+            mainMenuBtn.addEventListener('click', () => {
+                window.location.href = '../index.html';
+            });
+        }
 
         if (refreshBtn) {
             refreshBtn.addEventListener('click', () => {

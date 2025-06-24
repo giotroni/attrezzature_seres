@@ -270,6 +270,14 @@ function initializeEventListeners() {
     // Gestione Modal Nuova Attrezzatura
     initializeNewEquipmentForm();
     
+    // Gestione menu principale
+    const btnMainMenu = document.getElementById('btnMainMenu');
+    if (btnMainMenu) {
+        btnMainMenu.addEventListener('click', () => {
+            window.location.href = '../index.html';
+        });
+    }
+
     // Debug elementi modal
     debugModalElements();
     
