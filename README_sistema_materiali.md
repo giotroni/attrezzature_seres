@@ -57,38 +57,21 @@ Sistema di notifiche per:
 Il file `api_materiali.php` fornisce i seguenti endpoint:
 
 ### 1. `getMateriali`
-Restituisce l'elenco dei materiali con giacenze totali.
+Restituisce l'elenco completo dei materiali con giacenze totali e stato.
 
+**Method:** GET/POST
 **URL:** `api_materiali.php?action=getMateriali`
 
-**Parametri opzionali:**
-- `categoria`: Filtra per categoria
-- `attivo`: true/false (default: true)
-- `stato_giacenza`: OK, BASSO, CRITICO
-
-**Esempio risposta:**
-```json
-{
-  "success": true,
-  "count": 25,
-  "data": [
-    {
-      "codice_materiale": "MATE001",
-      "categoria": "SOLVENTI",
-      "tipo": "Ciclometicone D4",
-      "unita_misura": "L",
-      "quantita_totale": "15.500",
-      "quantita_disponibile_totale": "12.000",
-      "stato_giacenza": "OK",
-      "numero_ubicazioni": 3
-    }
-  ]
-}
-```
+La risposta include:
+- Totali per ogni materiale
+- Stato giacenza (OK, BASSO, CRITICO)
+- Numero di ubicazioni
+- Quantità totali, riservate e disponibili
 
 ### 2. `getGiacenze`
-Dettaglio giacenze per ubicazione.
+Dettaglio delle giacenze per ubicazione.
 
+**Method:** GET
 **URL:** `api_materiali.php?action=getGiacenze`
 
 **Parametri opzionali:**
@@ -99,7 +82,7 @@ Dettaglio giacenze per ubicazione.
 ### 3. `updateGiacenza`
 Aggiorna la quantità di un materiale in un'ubicazione.
 
-**Method:** POST
+**Method:** GET/POST
 **URL:** `api_materiali.php?action=updateGiacenza`
 
 **Parametri richiesti:**
@@ -108,19 +91,15 @@ Aggiorna la quantità di un materiale in un'ubicazione.
 - `nuova_quantita`
 - `userName`
 
-**Parametri opzionali:**
-- `causale`
-- `note`
-
 ### 4. `movimentoMateriale`
-Registra un movimento strutturato (carico/scarico).
+Registra movimenti di carico/scarico.
 
 **Method:** POST
 **URL:** `api_materiali.php?action=movimentoMateriale`
 
 **Parametri richiesti:**
 - `codice_materiale`
-- `tipo_movimento`: carico, scarico, trasferimento
+- `tipo_movimento`: carico/scarico
 - `quantita`
 - `userName`
 
@@ -130,43 +109,82 @@ Registra un movimento strutturato (carico/scarico).
 **Per scarico:**
 - `ubicazione_origine`
 
-**Parametri opzionali:**
-- `causale`
-- `documento_riferimento`
-- `note`
-
 ### 5. `getMaterialeDettaglio`
 Dettagli completi di un materiale specifico.
 
-**URL:** `api_materiali.php?action=getMaterialeDettaglio&codice_materiale=MATE001`
+**Method:** GET
+**URL:** `api_materiali.php?action=getMaterialeDettaglio`
 
-### 6. `getStorico`
-Storico movimenti.
+**Parametri richiesti:**
+- `codice_materiale`
 
+### 6. `getTotaliPerTipo`
+Restituisce i totali aggregati per tipo di materiale.
+
+**Method:** GET/POST
+**URL:** `api_materiali.php?action=getTotaliPerTipo`
+
+La risposta include:
+- Conteggi per tipo
+- Quantità totali, disponibili e riservate
+- Raggruppamento per categoria
+
+### 7. `getStorico`
+Storico dei movimenti.
+
+**Method:** GET
 **URL:** `api_materiali.php?action=getStorico`
 
 **Parametri opzionali:**
-- `codice_materiale`
-- `azione`
-- `data_da`, `data_a`
+- `codice` o `codice_materiale`
+- `ubicazione`
 - `limit`
 
-### 7. `getAlert`
-Alert e notifiche del sistema.
+### 8. `getAlert`
+Alert per materiali sotto soglia minima.
 
+**Method:** GET/POST
 **URL:** `api_materiali.php?action=getAlert`
 
-### 8. `createMateriale`
-Crea un nuovo materiale.
-
-**Method:** POST
-**URL:** `api_materiali.php?action=createMateriale`
-
 ### 9. `getCategorie`
-Lista delle categorie con conteggi.
+Lista delle categorie con statistiche.
+
+**Method:** GET/POST
+**URL:** `api_materiali.php?action=getCategorie`
+
+La risposta include:
+- Elenco categorie
+- Numero materiali per categoria
+- Conteggio materiali attivi
 
 ### 10. `getUbicazioni`
-Lista ubicazioni con statistiche materiali.
+Lista delle ubicazioni con statistiche.
+
+**Method:** GET/POST
+**URL:** `api_materiali.php?action=getUbicazioni`
+
+La risposta include:
+- Elenco ubicazioni
+- Numero materiali per ubicazione
+- Conteggio materiali con giacenza positiva
+
+### 11. `addMateriale`
+Aggiunge un nuovo materiale al sistema.
+
+**Method:** POST
+**URL:** `api_materiali.php?action=addMateriale`
+
+**Parametri richiesti:**
+- `categoria`
+- `tipo`
+- `unita_misura`
+- `userName`
+
+**Parametri opzionali:**
+- `soglia_minima`
+- `note`
+
+Risposta: include il nuovo `codice_materiale` generato automaticamente
 
 ## Installazione e Setup
 

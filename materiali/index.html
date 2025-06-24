@@ -46,7 +46,6 @@
             <button class="menu-item" id="btnNewMaterial">
                 ➕ Nuovo Materiale
             </button>
-
             <button class="menu-item" id="btnRefresh">
                 🔄 Aggiorna Dati
             </button>
@@ -66,89 +65,92 @@
                 <h3>🎯 Scopo dell'applicazione</h3>
         <p>Questa applicazione è progettata per gestire e monitorare i materiali SERES in modo efficiente. Permette di:</p>
         <ul>
-            <li>Tracciare la posizione e la quantità di ogni materiale</li>
-            <li>Monitorare le scorte con alert automatici</li>
-            <li>Registrare tutti i movimenti di magazzino</li>
-            <li>Visualizzare dati in tempo reale</li>
+            <li>Gestire l'inventario dei materiali in diverse ubicazioni</li>
+            <li>Aggiungere nuovi materiali e associazioni</li>
+            <li>Tracciare le quantità e i movimenti</li>
+            <li>Visualizzare i dati in diverse modalità</li>
         </ul>
 
         <h3>🔍 Viste e Navigazione</h3>
+        <p>L'applicazione offre tre viste principali, accessibili dal menu inferiore:</p>
         <ul>
             <li><strong>Vista per Ubicazione 📍</strong>
                 <ul>
-                    <li>Visualizza tutti i materiali presenti in ogni ubicazione</li>
-                    <li>Evidenzia le ubicazioni con materiali sotto scorta</li>
+                    <li>Visualizza i materiali raggruppati per ubicazione</li>
                     <li>Accesso rapido ai dettagli di ogni materiale</li>
+                    <li>Panoramica completa della distribuzione dei materiali</li>
                 </ul>
             </li>
             <li><strong>Vista per Categoria 📂</strong>
                 <ul>
-                    <li>Raggruppa i materiali per categoria merceologica</li>
-                    <li>Mostra il totale dei materiali per categoria</li>
-                    <li>Visualizza rapidamente tutti i tipi in una categoria</li>
+                    <li>Organizza i materiali per categoria merceologica</li>
+                    <li>Facilita la ricerca per tipo di materiale</li>
+                    <li>Visione d'insieme delle categorie disponibili</li>
                 </ul>
             </li>
             <li><strong>Vista per Tipo 🏷️</strong>
                 <ul>
-                    <li>Elenca tutti i tipi di materiale disponibili</li>
-                    <li>Mostra le quantità totali per tipo</li>
-                    <li>Indica in quante ubicazioni è presente ogni tipo</li>
+                    <li>Mostra tutti i tipi di materiale disponibili</li>
+                    <li>Facilita la ricerca di materiali specifici</li>
+                    <li>Visualizza dettagli per ogni tipo di materiale</li>
                 </ul>
             </li>
         </ul>
 
-        <h3>🔎 Ricerca e Filtri</h3>
-        <p>La barra di ricerca (🔍) permette di trovare rapidamente qualsiasi materiale utilizzando:</p>
+        <h3>🔎 Ricerca</h3>
+        <p>La funzione di ricerca (🔍) nell'header permette di:</p>
         <ul>
-            <li>Codice materiale univoco</li>
-            <li>Nome della categoria</li>
-            <li>Tipo di materiale</li>
-            <li>Nome dell'ubicazione</li>
+            <li>Cercare rapidamente qualsiasi materiale</li>
+            <li>Filtrare per categoria, tipo o ubicazione</li>
+            <li>Accedere velocemente ai dettagli dei materiali</li>
         </ul>
 
         <h3>📋 Gestione Materiali</h3>
         <ul>
+            <li><strong>Nuovo Materiale ➕</strong>
+                <ul>
+                    <li>Aggiungi un nuovo tipo di materiale al sistema</li>
+                    <li>Definisci categoria (esistente o nuova)</li>
+                    <li>Specifica tipo e unità di misura</li>
+                    <li>Imposta soglia minima per gli alert</li>
+                    <li>Aggiungi note opzionali</li>
+                </ul>
+            </li>
             <li><strong>Nuova Associazione 📦</strong>
                 <ul>
-                    <li>Associa un materiale esistente ad una nuova ubicazione</li>
-                    <li>Seleziona categoria e tipo del materiale</li>
-                    <li>Scegli l'ubicazione tra quelle disponibili</li>
+                    <li>Collega un materiale esistente a una ubicazione</li>
+                    <li>Seleziona da categorie e tipi disponibili</li>
+                    <li>Specifica l'ubicazione di destinazione</li>
                     <li>Inserisci la quantità iniziale</li>
-                    <li>Il sistema previene automaticamente duplicati</li>
                 </ul>
             </li>
-            <li><strong>Scheda Dettaglio 📝</strong>
+            <li><strong>Gestione Quantità 📝</strong>
                 <ul>
-                    <li>Visualizza tutte le informazioni del materiale</li>
-                    <li>Modifica la quantità in giacenza</li>
-                    <li>Consulta lo storico completo dei movimenti</li>
-                    <li>Verifica data e operatore di ogni modifica</li>
+                    <li>Visualizza i dettagli del materiale</li>
+                    <li>Aggiorna le quantità in giacenza</li>
+                    <li>Traccia lo storico dei movimenti</li>
+                    <li>Registra l'operatore per ogni modifica</li>
                 </ul>
             </li>
         </ul>
 
-        <h3>⚠️ Sistema di Alert</h3>
+        <h3>🔄 Aggiornamento Dati</h3>
         <ul>
-            <li>Indicatori visivi per materiali sotto scorta</li>
-            <li>Tre livelli di stato:
-                <ul>
-                    <li>🟢 Scorta normale</li>
-                    <li>🟡 Scorta bassa (sotto 1.5x soglia minima)</li>
-                    <li>🔴 Sotto soglia minima</li>
-                </ul>
-            </li>
+            <li>Il pulsante "Aggiorna Dati" nel menu permette di:</li>
+            <ul>
+                <li>Sincronizzare i dati con il server</li>
+                <li>Visualizzare le modifiche più recenti</li>
+                <li>Garantire l'accuratezza delle informazioni</li>
+            </ul>
         </ul>
 
-        <h3>📊 Tracciamento</h3>
+        <h3>� Identificazione Operatore</h3>
         <ul>
-            <li>Ogni movimento viene registrato con:
-                <ul>
-                    <li>Data e ora dell'operazione</li>
-                    <li>Quantità modificata</li>
-                    <li>Nome dell'operatore</li>
-                    <li>Ubicazione interessata</li>
-                </ul>
-            </li>
+            <li>Per ogni operazione di modifica è richiesto:</li>
+            <ul>
+                <li>Nome dell'operatore (minimo 4 caratteri)</li>
+                <li>Conferma dell'operazione</li>
+            </ul>
         </ul>        <h3>🔄 Aggiornamento Dati</h3>
         <p>Usa il pulsante "Aggiorna Dati" nel menu per assicurarti di visualizzare sempre le informazioni più recenti.</p>
             </div>
