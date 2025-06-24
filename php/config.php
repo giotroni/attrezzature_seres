@@ -39,6 +39,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 if (!defined('DB_HOST')) {
     define('DB_HOST', 'localhost');
 }
+//
+// PER PRODUZIONE
+//
 // if (!defined('DB_USER')) {
 //     define('DB_USER', 'jseresxg_tools_materials');
 // }
@@ -48,6 +51,9 @@ if (!defined('DB_HOST')) {
 // if (!defined('DB_NAME')) {
 //     define('DB_NAME', 'jseresxg_tools_materials');
 // }
+//
+// PER SVILUPPO
+//
 if (!defined('DB_USER')) {
     define('DB_USER', 'jseresxg_materiali');
 }

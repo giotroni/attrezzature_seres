@@ -583,6 +583,31 @@ try {
             }
             break;
 
+        case 'getLocations':
+            $stmt = $conn->query("
+                SELECT 
+                    u.*,
+                    COUNT(DISTINCT gm.codice_materiale) as numero_materiali,
+                    SUM(CASE WHEN gm.quantita_attuale > 0 THEN 1 ELSE 0 END) as materiali_con_giacenza,
+                    COALESCE(SUM(gm.quantita_attuale), 0) as quantita_totale,
+                    MAX(gm.data_ultimo_inventario) as ultima_data_inventario,
+                    MIN(CASE WHEN gm.quantita_attuale > 0 
+                        THEN DATEDIFF(CURDATE(), gm.data_ultimo_inventario) 
+                        ELSE NULL END) as giorni_da_ultimo_inventario
+                FROM ubicazioni u
+                LEFT JOIN giacenze_materiali gm ON u.ID_ubicazione = gm.ID_ubicazione
+                GROUP BY u.ID_ubicazione
+                ORDER BY u.nome_ubicazione
+            ");
+            $ubicazioni = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            echo json_encode([
+                'success' => true,
+                'count' => count($ubicazioni),
+                'data' => $ubicazioni
+            ]);
+            break;
+
         default:
             echo json_encode([
                 'success' => false,

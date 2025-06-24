@@ -159,6 +159,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // Esponi funzioni debug globalmente
     window.debugModal = debugModalStatus;
     window.testModal = testModalOpen;
+
+    // Event listener per il pulsante Gestione Materiali
+    const btnGestioneMateriali = document.getElementById('btnGestioneMateriali');
+    btnGestioneMateriali.addEventListener('click', () => {
+        window.location.href = '../materiali/index.html';
+    });
 });
 
 function initializeEventListeners() {
@@ -264,6 +270,14 @@ function initializeEventListeners() {
     // Gestione Modal Nuova Attrezzatura
     initializeNewEquipmentForm();
     
+    // Gestione menu principale
+    const btnMainMenu = document.getElementById('btnMainMenu');
+    if (btnMainMenu) {
+        btnMainMenu.addEventListener('click', () => {
+            window.location.href = '../index.html';
+        });
+    }
+
     // Debug elementi modal
     debugModalElements();
     

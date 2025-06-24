@@ -1100,19 +1100,41 @@ class AssociationModal {
         });
     }
 
-    populateLocations() {
+    async populateLocations() {
         const selectUbicazione = document.getElementById('selectUbicazione');
         if (!selectUbicazione) return;
 
-        const ubicazioni = [...new Set(appState.getData('materiali').map(m => m.nome_ubicazione))].sort();
-        
-        selectUbicazione.innerHTML = '<option value="">Seleziona un\'ubicazione...</option>';
-        ubicazioni.forEach(ubicazione => {
-            const option = document.createElement('option');
-            option.value = ubicazione;
-            option.textContent = ubicazione;
-            selectUbicazione.appendChild(option);
-        });
+        try {
+            const response = await fetch(`${CONFIG.API_BASE_URL}?action=getLocations`);
+            const result = await response.json();
+            
+            if (!result.success) {
+                throw new Error(result.error || 'Errore nel recupero delle ubicazioni');
+            }
+
+            const ubicazioni = result.data.map(u => u.nome_ubicazione).sort();
+            
+            selectUbicazione.innerHTML = '<option value="">Seleziona un\'ubicazione...</option>';
+            ubicazioni.forEach(ubicazione => {
+                const option = document.createElement('option');
+                option.value = ubicazione;
+                option.textContent = ubicazione;
+                selectUbicazione.appendChild(option);
+            });
+        } catch (error) {
+            console.error('Errore nel caricamento delle ubicazioni:', error);
+            UI.showError('⚠️ Errore nel caricamento delle ubicazioni');
+            
+            // Fallback: carica le ubicazioni dai materiali esistenti
+            const ubicazioniFallback = [...new Set(appState.getData('materiali').map(m => m.nome_ubicazione))].sort();
+            selectUbicazione.innerHTML = '<option value="">Seleziona un\'ubicazione...</option>';
+            ubicazioniFallback.forEach(ubicazione => {
+                const option = document.createElement('option');
+                option.value = ubicazione;
+                option.textContent = ubicazione;
+                selectUbicazione.appendChild(option);
+            });
+        }
     }
 
     handleCategoriaChange(event) {
@@ -1545,6 +1567,13 @@ class MenuManager {
         const aboutBtn = document.getElementById('btnAbout');
         const addMaterialBtn = document.getElementById('btnAddMaterial');
         const newMaterialBtn = document.getElementById('btnNewMaterial');
+        const mainMenuBtn = document.getElementById('btnMainMenu');
+
+        if (mainMenuBtn) {
+            mainMenuBtn.addEventListener('click', () => {
+                window.location.href = '../index.html';
+            });
+        }
 
         if (refreshBtn) {
             refreshBtn.addEventListener('click', () => {
@@ -1868,4 +1897,10 @@ let app;
 document.addEventListener('DOMContentLoaded', () => {
     app = new App();
     app.init();
+
+    // Gestione del menu laterale
+    const btnGestioneAttrezzature = document.getElementById('btnGestioneAttrezzature');
+    btnGestioneAttrezzature.addEventListener('click', () => {
+        window.location.href = '../tools/index.html';
+    });
 });
