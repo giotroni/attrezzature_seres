@@ -42,27 +42,27 @@ if (!defined('DB_HOST')) {
 //
 // PER PRODUZIONE
 //
-// if (!defined('DB_USER')) {
-//     define('DB_USER', 'jseresxg_tools_materials');
-// }
-// if (!defined('DB_PASS')) {
-//     define('DB_PASS', '^2xs!r][7WwO');
-// }
-// if (!defined('DB_NAME')) {
-//     define('DB_NAME', 'jseresxg_tools_materials');
-// }
+if (!defined('DB_USER')) {
+    define('DB_USER', 'jseresxg_tools_materials');
+}
+if (!defined('DB_PASS')) {
+    define('DB_PASS', '^2xs!r][7WwO');
+}
+if (!defined('DB_NAME')) {
+    define('DB_NAME', 'jseresxg_tools_materials');
+}
 //
 // PER SVILUPPO
 //
-if (!defined('DB_USER')) {
-    define('DB_USER', 'jseresxg_materiali');
-}
-if (!defined('DB_PASS')) {
-    define('DB_PASS', 'WNTwZiIS,@_*');
-}
-if (!defined('DB_NAME')) {
-    define('DB_NAME', 'jseresxg_materiali');
-}
+// if (!defined('DB_USER')) {
+//     define('DB_USER', 'jseresxg_materiali');
+// }
+// if (!defined('DB_PASS')) {
+//     define('DB_PASS', 'WNTwZiIS,@_*');
+// }
+// if (!defined('DB_NAME')) {
+//     define('DB_NAME', 'jseresxg_materiali');
+// }
 // Registra il tempo di inizio per calcolare l'execution time
 $GLOBALS['api_start_time'] = microtime(true);
 
