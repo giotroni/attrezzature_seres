@@ -1,0 +1,19 @@
+Debug LogToolsMovements (2025-06-25 10:05:59):
+Numero totale righe: 1
+
+Record:
+  id: 1
+  timestamp: 2025-06-25 10:00:55
+  user_name: GIORGIO
+  azione: spostamento
+  tipo_oggetto: attrezzatura
+  codice: ATTR0093
+  vecchia_ubicazione_id: 10
+  nuova_ubicazione_id: 1
+  note_precedenti: NULL
+  note_nuove: NULL
+  created_at: 2025-06-25 10:00:55
+  is_prelievo: 0
+  is_restituzione: 0
+  azione_pulita: spostamento
+------------------------
