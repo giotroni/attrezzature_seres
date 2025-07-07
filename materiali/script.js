@@ -4,6 +4,7 @@
 
 const CONFIG = {
     API_BASE_URL: '../php/api_materiali.php',
+    CACHE_VERSION: Date.now(), // Versione dinamica basata su timestamp
     VIEWS: {
         UBICAZIONE: 'ubicazione',
         CATEGORIA: 'categoria',
@@ -262,6 +263,16 @@ class ApiService {
             userName: userName,
             soglia_minima: sogliaMinima,
             note: note
+        });
+    }
+
+    async spostaMateriale(codiceMateriale, ubicazioneOrigin, ubicazioneDestination, quantitaDaSpostare, userName) {
+        return this.request('spostaMateriale', {
+            codice_materiale: codiceMateriale,
+            ubicazione_origine: ubicazioneOrigin,
+            ubicazione_destinazione: ubicazioneDestination,
+            quantita_da_spostare: quantitaDaSpostare,
+            userName: userName
         });
     }
 }
@@ -841,6 +852,12 @@ class MaterialModal {
         if (updateButton) {
             updateButton.onclick = () => this.updateQuantity();
         }
+
+        // Sposta materiale button
+        const spostaMaterialeButton = document.getElementById('spostaMateriale');
+        if (spostaMaterialeButton) {
+            spostaMaterialeButton.onclick = () => this.spostaMateriale();
+        }
     }
 
     show(materialId, ubicazione = null) {
@@ -852,6 +869,7 @@ class MaterialModal {
 
         appState.setCurrentMaterialId(materialId);
         this.populateModal(materiale);
+        this.populateUbicazioniDestinazione(materiale);
         this.loadStorico(materiale.codice_materiale, materiale.nome_ubicazione);
         this.modal.style.display = 'block';
     }
@@ -877,19 +895,32 @@ class MaterialModal {
             if (element) element.textContent = value;
         });
 
-        // Update placeholder
+        // Update placeholder for quantity update
         const quantityInput = document.getElementById('nuovaQuantita');
         if (quantityInput) {
             quantityInput.placeholder = `Inserisci la nuova quantità (attuale: ${Utils.formatQuantity(materiale.quantita_attuale)})`;
+        }
+
+        // Update placeholder and max for quantity to move
+        const quantitaDaSpostareInput = document.getElementById('quantitaDaSpostare');
+        if (quantitaDaSpostareInput) {
+            quantitaDaSpostareInput.placeholder = `Max: ${Utils.formatQuantity(materiale.quantita_attuale)} ${materiale.unita_misura}`;
+            quantitaDaSpostareInput.max = materiale.quantita_attuale;
         }
     }
 
     resetForm() {
         const nuovaQuantitaInput = document.getElementById('nuovaQuantita');
         const userNameInput = document.getElementById('userName');
+        const quantitaDaSpostareInput = document.getElementById('quantitaDaSpostare');
+        const ubicazioneDestinazioneSelect = document.getElementById('ubicazioneDestinazione');
+        const userNameSpostaInput = document.getElementById('userNameSposta');
         
         if (nuovaQuantitaInput) nuovaQuantitaInput.value = '';
         if (userNameInput) userNameInput.value = '';
+        if (quantitaDaSpostareInput) quantitaDaSpostareInput.value = '';
+        if (ubicazioneDestinazioneSelect) ubicazioneDestinazioneSelect.value = '';
+        if (userNameSpostaInput) userNameSpostaInput.value = '';
     }
 
     async updateQuantity() {
@@ -988,6 +1019,125 @@ class MaterialModal {
         } catch (error) {
             console.error('Errore nel caricamento dello storico:', error);
             storicoContent.innerHTML = '<p class="error-message">⚠️ Errore nel caricamento dello storico</p>';
+        }
+    }
+
+    async populateUbicazioniDestinazione(materiale) {
+        const ubicazioneDestinazioneSelect = document.getElementById('ubicazioneDestinazione');
+        if (!ubicazioneDestinazioneSelect) return;
+
+        try {
+            // Carica tutte le ubicazioni disponibili
+            const response = await fetch(`${CONFIG.API_BASE_URL}?action=getLocations&_t=${CONFIG.CACHE_VERSION}`, { cache: 'no-store' });
+            const result = await response.json();
+            
+            if (result.success) {
+                const ubicazioni = result.data.map(u => u.nome_ubicazione)
+                    .filter(ub => ub !== materiale.nome_ubicazione) // Escludi l'ubicazione corrente
+                    .sort();
+                
+                ubicazioneDestinazioneSelect.innerHTML = '<option value="">Seleziona ubicazione...</option>';
+                ubicazioni.forEach(ubicazione => {
+                    const option = document.createElement('option');
+                    option.value = ubicazione;
+                    option.textContent = ubicazione;
+                    ubicazioneDestinazioneSelect.appendChild(option);
+                });
+            } else {
+                throw new Error('Errore nel caricamento ubicazioni');
+            }
+        } catch (error) {
+            console.error('Errore nel caricamento delle ubicazioni:', error);
+            // Fallback: usa le ubicazioni dai materiali esistenti
+            const ubicazioni = [...new Set(appState.getData('materiali').map(m => m.nome_ubicazione))]
+                .filter(ub => ub !== materiale.nome_ubicazione)
+                .sort();
+            
+            ubicazioneDestinazioneSelect.innerHTML = '<option value="">Seleziona ubicazione...</option>';
+            ubicazioni.forEach(ubicazione => {
+                const option = document.createElement('option');
+                option.value = ubicazione;
+                option.textContent = ubicazione;
+                ubicazioneDestinazioneSelect.appendChild(option);
+            });
+        }
+    }
+
+    async spostaMateriale() {
+        const quantitaDaSpostare = document.getElementById('quantitaDaSpostare').value;
+        const ubicazioneDestinazione = document.getElementById('ubicazioneDestinazione').value;
+        const userName = document.getElementById('userNameSposta').value.trim();
+
+        // Validazione
+        const quantityValidation = Utils.validateQuantity(quantitaDaSpostare);
+        if (!quantityValidation.valid) {
+            UI.showError(`⚠️ ${quantityValidation.message}`);
+            return;
+        }
+
+        if (!ubicazioneDestinazione) {
+            UI.showError('⚠️ Seleziona l\'ubicazione di destinazione');
+            return;
+        }
+
+        const userValidation = Utils.validateUserName(userName);
+        if (!userValidation.valid) {
+            UI.showError(`⚠️ ${userValidation.message}`);
+            return;
+        }
+
+        const materiale = dataManager.findMaterial(appState.currentMaterialId);
+        if (!materiale) {
+            UI.showError('⚠️ Materiale non trovato');
+            return;
+        }
+
+        // Verifica che la quantità da spostare non superi quella disponibile
+        if (quantityValidation.value > materiale.quantita_attuale) {
+            UI.showError(`⚠️ Quantità insufficiente. Disponibile: ${Utils.formatQuantity(materiale.quantita_attuale)} ${materiale.unita_misura}`);
+            return;
+        }
+
+        try {
+            UI.showLoadingOverlay('Spostamento materiale in corso...');
+            
+            await apiService.spostaMateriale(
+                appState.currentMaterialId,
+                materiale.nome_ubicazione,
+                ubicazioneDestinazione,
+                quantityValidation.value,
+                userValidation.formatted
+            );
+
+            UI.showSuccess(`✅ Materiale spostato con successo: ${Utils.formatQuantity(quantityValidation.value)} ${materiale.unita_misura} da ${materiale.nome_ubicazione} a ${ubicazioneDestinazione}`);
+            
+            // Reset form campi spostamento
+            document.getElementById('quantitaDaSpostare').value = '';
+            document.getElementById('ubicazioneDestinazione').value = '';
+            document.getElementById('userNameSposta').value = '';
+            
+            // Ricarica dati e aggiorna vista
+            await dataManager.loadAllData();
+            viewRenderer.render();
+            
+            // Ricarica lo storico per mostrare il nuovo movimento
+            this.loadStorico(materiale.codice_materiale, materiale.nome_ubicazione);
+            
+            // Aggiorna il modal con i nuovi dati se il materiale esiste ancora
+            const materialeAggiornato = dataManager.findMaterial(appState.currentMaterialId, materiale.nome_ubicazione);
+            if (materialeAggiornato) {
+                this.populateModal(materialeAggiornato);
+                this.populateUbicazioniDestinazione(materialeAggiornato);
+            } else {
+                // Se il materiale non esiste più in questa ubicazione, chiudi il modal
+                this.hide();
+            }
+
+        } catch (error) {
+            console.error('Errore durante lo spostamento:', error);
+            UI.showError(`⚠️ ${error.message || 'Errore durante lo spostamento del materiale'}`);
+        } finally {
+            UI.hideLoadingOverlay();
         }
     }
 }

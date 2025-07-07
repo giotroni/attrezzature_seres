@@ -210,6 +210,143 @@ try {
             echo json_encode($response);
             break;
 
+        case 'spostaMateriale':
+            $requiredFields = ['codice_materiale', 'ubicazione_origine', 'ubicazione_destinazione', 'quantita_da_spostare', 'userName'];
+            foreach ($requiredFields as $field) {
+                if ((!isset($_POST[$field]) || $_POST[$field] === '') && (!isset($_GET[$field]) || $_GET[$field] === '')) {
+                    throw new Exception("Campo obbligatorio mancante: $field");
+                }
+            }
+            
+            // Prende i valori da POST o GET
+            $codice_materiale = $_POST['codice_materiale'] ?? $_GET['codice_materiale'];
+            $ubicazione_origine = $_POST['ubicazione_origine'] ?? $_GET['ubicazione_origine'];
+            $ubicazione_destinazione = $_POST['ubicazione_destinazione'] ?? $_GET['ubicazione_destinazione'];
+            $quantita_da_spostare = $_POST['quantita_da_spostare'] ?? $_GET['quantita_da_spostare'];
+            $userName = $_POST['userName'] ?? $_GET['userName'];
+
+            // Validazione dei dati
+            $quantita_da_spostare = (float)str_replace(',', '.', trim($quantita_da_spostare));
+            if ($quantita_da_spostare <= 0) {
+                throw new Exception("La quantità da spostare deve essere positiva");
+            }
+
+            if (strtoupper(trim($ubicazione_origine)) === strtoupper(trim($ubicazione_destinazione))) {
+                throw new Exception("L'ubicazione di origine e destinazione non possono essere uguali");
+            }
+
+            $conn->beginTransaction();
+
+            // 1. Trova ID ubicazione origine
+            $stmt = $conn->prepare("SELECT ID_ubicazione FROM ubicazioni WHERE UPPER(nome_ubicazione) = UPPER(?)");
+            $stmt->execute([trim($ubicazione_origine)]);
+            $ubicazione_origine_id = $stmt->fetchColumn();
+
+            if (!$ubicazione_origine_id) {
+                throw new Exception("Ubicazione di origine non trovata: " . $ubicazione_origine);
+            }
+
+            // 2. Verifica quantità disponibile nell'ubicazione origine
+            $stmt = $conn->prepare("
+                SELECT quantita_attuale 
+                FROM giacenze_materiali 
+                WHERE codice_materiale = ? AND ID_ubicazione = ?
+            ");
+            $stmt->execute([$codice_materiale, $ubicazione_origine_id]);
+            $quantita_origine = $stmt->fetchColumn();
+
+            if ($quantita_origine === false) {
+                throw new Exception("Materiale non trovato nell'ubicazione di origine");
+            }
+
+            if ($quantita_origine < $quantita_da_spostare) {
+                throw new Exception("Quantità insufficiente nell'ubicazione di origine. Disponibile: " . $quantita_origine . ", Richiesta: " . $quantita_da_spostare);
+            }
+
+            // 3. Trova o crea ubicazione destinazione
+            $stmt = $conn->prepare("SELECT ID_ubicazione FROM ubicazioni WHERE UPPER(nome_ubicazione) = UPPER(?)");
+            $stmt->execute([trim($ubicazione_destinazione)]);
+            $ubicazione_dest_id = $stmt->fetchColumn();
+
+            if (!$ubicazione_dest_id) {
+                $stmt = $conn->prepare("INSERT INTO ubicazioni (nome_ubicazione, user_created) VALUES (UPPER(?), ?)");
+                $stmt->execute([trim($ubicazione_destinazione), strtoupper($userName)]);
+                $ubicazione_dest_id = $conn->lastInsertId();
+            }
+
+            // 4. Verifica se il materiale esiste già nella destinazione
+            $stmt = $conn->prepare("
+                SELECT quantita_attuale 
+                FROM giacenze_materiali 
+                WHERE codice_materiale = ? AND ID_ubicazione = ?
+            ");
+            $stmt->execute([$codice_materiale, $ubicazione_dest_id]);
+            $quantita_destinazione = $stmt->fetchColumn();
+
+            // 5. Diminuisci quantità nell'origine
+            $nuova_quantita_origine = $quantita_origine - $quantita_da_spostare;
+            
+            if ($nuova_quantita_origine == 0) {
+                // Rimuovi completamente la giacenza se diventa zero
+                $stmt = $conn->prepare("DELETE FROM giacenze_materiali WHERE codice_materiale = ? AND ID_ubicazione = ?");
+                $stmt->execute([$codice_materiale, $ubicazione_origine_id]);
+            } else {
+                // Aggiorna la quantità
+                $stmt = $conn->prepare("
+                    UPDATE giacenze_materiali 
+                    SET quantita_attuale = ?, utente_modifica = ?
+                    WHERE codice_materiale = ? AND ID_ubicazione = ?
+                ");
+                $stmt->execute([$nuova_quantita_origine, strtoupper($userName), $codice_materiale, $ubicazione_origine_id]);
+            }
+
+            // 6. Aggiungi/aggiorna quantità nella destinazione
+            if ($quantita_destinazione !== false) {
+                // Aggiorna giacenza esistente
+                $nuova_quantita_destinazione = $quantita_destinazione + $quantita_da_spostare;
+                $stmt = $conn->prepare("
+                    UPDATE giacenze_materiali 
+                    SET quantita_attuale = ?, utente_modifica = ?
+                    WHERE codice_materiale = ? AND ID_ubicazione = ?
+                ");
+                $stmt->execute([$nuova_quantita_destinazione, strtoupper($userName), $codice_materiale, $ubicazione_dest_id]);
+            } else {
+                // Crea nuova giacenza
+                $stmt = $conn->prepare("
+                    INSERT INTO giacenze_materiali (
+                        codice_materiale, ID_ubicazione, quantita_attuale, 
+                        utente_creazione, utente_modifica
+                    ) VALUES (?, ?, ?, ?, ?)
+                ");
+                $stmt->execute([$codice_materiale, $ubicazione_dest_id, $quantita_da_spostare, strtoupper($userName), strtoupper($userName)]);
+                $quantita_destinazione = 0;
+                $nuova_quantita_destinazione = $quantita_da_spostare;
+            }
+
+            // 7. Log del movimento (opzionale - se hai una tabella movimenti)
+            // Potresti aggiungere qui il logging in una tabella dedicata ai movimenti
+
+            $conn->commit();
+
+            $response = [
+                'success' => true,
+                'message' => 'Materiale spostato con successo',
+                'data' => [
+                    'codice_materiale' => $codice_materiale,
+                    'ubicazione_origine' => $ubicazione_origine,
+                    'ubicazione_destinazione' => $ubicazione_destinazione,
+                    'quantita_spostata' => $quantita_da_spostare,
+                    'origine_prima' => $quantita_origine,
+                    'origine_dopo' => $nuova_quantita_origine,
+                    'destinazione_prima' => $quantita_destinazione ?: 0,
+                    'destinazione_dopo' => $nuova_quantita_destinazione
+                ]
+            ];
+            
+            logApiEvent($conn, $action, $requestData, 200, $response);
+            echo json_encode($response);
+            break;
+
         case 'movimentoMateriale':
             $requiredFields = ['codice_materiale', 'tipo_movimento', 'quantita', 'userName'];
             foreach ($requiredFields as $field) {

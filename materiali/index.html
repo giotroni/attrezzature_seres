@@ -204,6 +204,28 @@
                     </button>
                 </div>
 
+                <!-- Sezione Sposta Materiale -->
+                <div class="update-section">
+                    <h3>🚚 Sposta Materiale</h3>
+                    <div class="input-group">
+                        <label for="quantitaDaSpostare">Quantità da Spostare:</label>
+                        <input type="number" id="quantitaDaSpostare" step="0.01" min="0.01">
+                    </div>
+                    <div class="input-group">
+                        <label for="ubicazioneDestinazione">Ubicazione Destinazione:</label>
+                        <select id="ubicazioneDestinazione">
+                            <option value="">Seleziona ubicazione...</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label for="userNameSposta">Il tuo nome:</label>
+                        <input type="text" id="userNameSposta" placeholder="Inserisci il tuo nome (min. 4 caratteri)">
+                    </div>
+                    <button class="update-button" id="spostaMateriale" style="background-color: #FF8C00;">
+                        🚚 Sposta Materiale
+                    </button>
+                </div>
+
                 <!-- Sezione Storico Movimenti -->
                 <div class="storico-section mobile-friendly">
                     <h3 class="storico-title">Storico Movimenti</h3>
