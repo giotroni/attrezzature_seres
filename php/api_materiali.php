@@ -3,6 +3,13 @@
  * API per la gestione dei materiali
  */
 
+// Headers per controllo cache - impedisce la cache lato client
+header('Cache-Control: no-cache, no-store, must-revalidate, proxy-revalidate, max-age=0');
+header('Pragma: no-cache');
+header('Expires: 0');
+header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
+header('ETag: ' . md5(microtime() . rand()));
+
 // Abilita la visualizzazione degli errori
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);

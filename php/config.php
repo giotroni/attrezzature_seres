@@ -1,4 +1,11 @@
 <?php
+// --- HEADERS DI CACHE CONTROL: impedisce la cache lato client ---
+header('Cache-Control: no-cache, no-store, must-revalidate, proxy-revalidate, max-age=0');
+header('Pragma: no-cache');
+header('Expires: 0');
+header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
+header('ETag: ' . md5(microtime()));
+
 // --- CORS ROBUSTO: deve essere la PRIMA cosa eseguita ---
 $allowed_origins = [
     'http://seres.it',
