@@ -3,6 +3,11 @@
  * API per la gestione dei materiali
  */
 
+// Headers per controllo cache - impedisce la cache lato client
+header('Cache-Control: no-cache, no-store, must-revalidate');
+header('Pragma: no-cache');
+header('Expires: 0');
+
 // Abilita la visualizzazione degli errori
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);

@@ -4,6 +4,7 @@
 
 const CONFIG = {
     API_BASE_URL: '../php/api_materiali.php',
+    CACHE_VERSION: Date.now(), // Versione dinamica basata su timestamp
     VIEWS: {
         UBICAZIONE: 'ubicazione',
         CATEGORIA: 'categoria',
@@ -195,9 +196,13 @@ const UI = {
 class ApiService {
     async request(action, data = null) {
         try {
-            const url = `${CONFIG.API_BASE_URL}?action=${action}`;
+            // Aggiungi cache busting all'URL
+            const separator = action.includes('&') ? '&' : '';
+            const url = `${CONFIG.API_BASE_URL}?action=${action}${separator}&_t=${CONFIG.CACHE_VERSION}`;
+            
             const options = {
-                method: data ? 'POST' : 'GET'
+                method: data ? 'POST' : 'GET',
+                cache: 'no-store' // Forza il browser a non usare la cache
             };
 
             if (data) {
@@ -1105,7 +1110,9 @@ class AssociationModal {
         if (!selectUbicazione) return;
 
         try {
-            const response = await fetch(`${CONFIG.API_BASE_URL}?action=getLocations`);
+            // Usa cache busting anche per le chiamate dirette
+            const url = `${CONFIG.API_BASE_URL}?action=getLocations&_t=${CONFIG.CACHE_VERSION}`;
+            const response = await fetch(url, { cache: 'no-store' });
             const result = await response.json();
             
             if (!result.success) {
@@ -1194,7 +1201,9 @@ class AssociationModal {
         // Get all available locations from API, then filter out occupied ones
         let tutte_ubicazioni = [];
         try {
-            const response = await fetch(`${CONFIG.API_BASE_URL}?action=getLocations`);
+            // Usa cache busting
+            const url = `${CONFIG.API_BASE_URL}?action=getLocations&_t=${CONFIG.CACHE_VERSION}`;
+            const response = await fetch(url, { cache: 'no-store' });
             const result = await response.json();
             
             if (result.success) {
