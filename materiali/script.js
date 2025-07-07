@@ -1144,8 +1144,10 @@ class AssociationModal {
         
         if (!selectTipo || !selectUbicazione) return;
 
-        selectTipo.disabled = !categoria;            selectTipo.innerHTML = '<option value="">SELEZIONA UN TIPO...</option>';
-        selectUbicazione.value = '';
+        selectTipo.disabled = !categoria;
+        selectTipo.innerHTML = '<option value="">SELEZIONA UN TIPO...</option>';
+        selectUbicazione.innerHTML = '<option value="">Seleziona un\'ubicazione...</option>';
+        selectUbicazione.disabled = false;
         
         if (categoria) {
             const tipi = [...new Set(
@@ -1163,7 +1165,7 @@ class AssociationModal {
         }
     }
 
-    handleTipoChange(event) {
+    async handleTipoChange(event) {
         const tipo = event.target.value;
         const categoria = document.getElementById('selectCategoria').value;
         const selectUbicazione = document.getElementById('selectUbicazione');
@@ -1178,18 +1180,41 @@ class AssociationModal {
             return;
         }
 
-        // Get available locations (excluding those where material already exists)
+        // Show loading state
+        selectUbicazione.innerHTML = '<option value="">Caricamento ubicazioni...</option>';
+        selectUbicazione.disabled = true;
+
+        // Get locations where this material already exists
         const ubicazioniOccupate = new Set(
             appState.getData('materiali')
                 .filter(m => m.codice_materiale === materiale.codice_materiale)
                 .map(m => m.nome_ubicazione)
         );
 
-        const ubicazioni = [...new Set(appState.getData('materiali').map(m => m.nome_ubicazione))]
+        // Get all available locations from API, then filter out occupied ones
+        let tutte_ubicazioni = [];
+        try {
+            const response = await fetch(`${CONFIG.API_BASE_URL}?action=getLocations`);
+            const result = await response.json();
+            
+            if (result.success) {
+                tutte_ubicazioni = result.data.map(u => u.nome_ubicazione);
+            } else {
+                throw new Error('API error');
+            }
+        } catch (error) {
+            console.warn('Fallback to existing materials locations:', error);
+            // Fallback: get locations from existing materials
+            tutte_ubicazioni = [...new Set(appState.getData('materiali').map(m => m.nome_ubicazione))];
+        }
+
+        // Filter out locations where material already exists
+        const ubicazioni = tutte_ubicazioni
             .filter(ubicazione => !ubicazioniOccupate.has(ubicazione))
             .sort();
         
         selectUbicazione.innerHTML = '<option value="">Seleziona un\'ubicazione...</option>';
+        selectUbicazione.disabled = false;
         
         if (ubicazioni.length === 0) {
             const option = document.createElement('option');

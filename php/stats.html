@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Statistiche Sistema Materiali</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.css" rel="stylesheet">
+    <style>
+        .card {
+            margin-bottom: 20px;
+        }
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-bottom: 20px;
+        }
+        .table-responsive {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid py-4">
+        <h1 class="mb-4">Dashboard Statistiche Sistema Materiali</h1>
+        
+        <!-- Sommario -->
+        <div class="row" id="summary-cards">
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Chiamate API Totali</h5>
+                        <h2 class="card-text" id="total-calls">-</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Materiali Totali</h5>
+                        <h2 class="card-text" id="total-materials">-</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Ubicazioni Totali</h5>
+                        <h2 class="card-text" id="total-locations">-</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Tasso di Successo API</h5>
+                        <h2 class="card-text" id="success-rate">-</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Grafico chiamate API per giorno -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Chiamate API per Giorno</h5>
+                        <div class="chart-container">
+                            <canvas id="apiCallsChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Grafico Top 10 Azioni -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Top 10 Azioni API</h5>
+                        <div class="chart-container">
+                            <canvas id="topActionsChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Utenti Attivi -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Utenti più Attivi</h5>
+                        <div class="table-responsive">
+                            <table class="table table-striped" id="usersTable">
+                                <thead>
+                                    <tr>
+                                        <th>Utente</th>
+                                        <th>Modifiche Ubicazioni</th>
+                                        <th>Modifiche Materiali</th>
+                                        <th>Ultimo Accesso</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Statistiche Database -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Statistiche Database</h5>
+                        <div class="table-responsive">
+                            <table class="table table-striped" id="dbStatsTable">
+                                <thead>
+                                    <tr>
+                                        <th>Tabella</th>
+                                        <th>Righe</th>
+                                        <th>Dimensione (MB)</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Movimenti Strumenti -->
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Movimenti Strumenti</h5>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="chart-container">
+                                    <canvas id="monthlyMovementsChart"></canvas>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="table-responsive">
+                                    <table class="table table-sm">
+                                        <tr>
+                                            <th>Totale Movimenti:</th>
+                                            <td id="total-movements">-</td>
+                                            <th>Strumenti Unici:</th>
+                                            <td id="unique-tools">-</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Totale Prelievi:</th>
+                                            <td id="total-prelievi">-</td>
+                                            <th>Totale Restituzioni:</th>
+                                            <td id="total-restituzioni">-</td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Top 10 Strumenti Movimentati -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Top 10 Strumenti più Movimentati</h5>
+                        <div class="table-responsive">
+                            <table class="table table-striped table-sm" id="topToolsTable">
+                                <thead>
+                                    <tr>
+                                        <th>Codice</th>
+                                        <th>Tot. Movimenti</th>
+                                        <th>Prelievi</th>
+                                        <th>Restituzioni</th>
+                                        <th>Ultimo Movimento</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top 10 Utenti Movimenti -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Top 10 Utenti per Movimenti</h5>
+                        <div class="table-responsive">
+                            <table class="table table-striped table-sm" id="topMovementUsersTable">
+                                <thead>
+                                    <tr>
+                                        <th>Utente</th>
+                                        <th>Tot. Movimenti</th>
+                                        <th>Strumenti Unici</th>
+                                        <th>Prelievi</th>
+                                        <th>Restituzioni</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js"></script>
+    <script>
+        // Funzione per formattare i numeri
+        function formatNumber(num) {
+            return new Intl.NumberFormat('it-IT').format(num);
+        }
+
+        // Funzione per formattare le date
+        function formatDate(dateStr) {
+            return new Date(dateStr).toLocaleDateString('it-IT');
+        }
+
+        // Carica i dati dalle statistiche
+        async function loadStats() {
+            try {
+                const response = await fetch('statistiche.php');
+                const data = await response.json();
+                
+                if (data.success) {
+                    updateDashboard(data.statistics);
+                } else {
+                    console.error('Errore nel caricamento delle statistiche:', data.error);
+                }
+            } catch (error) {
+                console.error('Errore nella richiesta:', error);
+            }
+        }
+
+        // Aggiorna la dashboard con i dati
+        function updateDashboard(stats) {
+            // Aggiorna le card del sommario
+            document.getElementById('total-calls').textContent = formatNumber(stats.api.general.total_calls);
+            document.getElementById('total-materials').textContent = formatNumber(stats.materials.general.total_materials);
+            document.getElementById('total-locations').textContent = formatNumber(stats.inventory.general.locations_used);
+            
+            const successRate = (stats.api.general.success_count / stats.api.general.total_calls * 100).toFixed(1);
+            document.getElementById('success-rate').textContent = `${successRate}%`;
+
+            // Crea il grafico delle chiamate API
+            createApiCallsChart(stats.api.general.daily_calls);
+            
+            // Crea il grafico delle top azioni
+            createTopActionsChart(stats.api.top_actions);
+
+            // Aggiorna la tabella degli utenti
+            updateUsersTable(stats.users);
+
+            // Aggiorna la tabella delle statistiche del database
+            updateDbStatsTable(stats.database.tables);
+
+            // Aggiorna statistiche movimenti
+            if (stats.tools_movements) {
+                const movements = stats.tools_movements.general;
+                document.getElementById('total-movements').textContent = formatNumber(movements.total_movements);
+                document.getElementById('unique-tools').textContent = formatNumber(movements.unique_tools);
+                document.getElementById('total-prelievi').textContent = formatNumber(movements.prelievi);
+                document.getElementById('total-restituzioni').textContent = formatNumber(movements.restituzioni);
+
+                // Aggiorna tabella top strumenti
+                const topToolsTable = document.getElementById('topToolsTable').getElementsByTagName('tbody')[0];
+                topToolsTable.innerHTML = '';
+                stats.tools_movements.top_tools.forEach(tool => {
+                    const row = topToolsTable.insertRow();
+                    row.innerHTML = `
+                        <td>${tool.codice_attrezzatura}</td>
+                        <td>${formatNumber(tool.total_movements)}</td>
+                        <td>${formatNumber(tool.prelievi)}</td>
+                        <td>${formatNumber(tool.restituzioni)}</td>
+                        <td>${formatDate(tool.last_movement)}</td>
+                    `;
+                });
+
+                // Aggiorna tabella top utenti
+                const topUsersTable = document.getElementById('topMovementUsersTable').getElementsByTagName('tbody')[0];
+                topUsersTable.innerHTML = '';
+                stats.tools_movements.top_users.forEach(user => {
+                    const row = topUsersTable.insertRow();
+                    row.innerHTML = `
+                        <td>${user.user_name}</td>
+                        <td>${formatNumber(user.total_movements)}</td>
+                        <td>${formatNumber(user.unique_tools)}</td>
+                        <td>${formatNumber(user.prelievi)}</td>
+                        <td>${formatNumber(user.restituzioni)}</td>
+                    `;
+                });
+
+                // Crea grafico movimenti mensili
+                createMonthlyMovementsChart(stats.tools_movements.monthly);
+            }
+        }
+
+        // Crea il grafico delle chiamate API per giorno
+        function createApiCallsChart(dailyCalls) {
+            const ctx = document.getElementById('apiCallsChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dailyCalls.map(d => formatDate(d.date)),
+                    datasets: [{
+                        label: 'Chiamate API',
+                        data: dailyCalls.map(d => d.count),
+                        borderColor: 'rgb(75, 192, 192)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        }
+
+        // Crea il grafico delle top azioni
+        function createTopActionsChart(topActions) {
+            const ctx = document.getElementById('topActionsChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: topActions.map(a => a.action),
+                    datasets: [{
+                        label: 'Numero di chiamate',
+                        data: topActions.map(a => a.count),
+                        backgroundColor: 'rgba(54, 162, 235, 0.5)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        }
+
+        // Aggiorna la tabella degli utenti
+        function updateUsersTable(users) {
+            const tbody = document.querySelector('#usersTable tbody');
+            tbody.innerHTML = '';
+            
+            users.forEach(user => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${user.username}</td>
+                    <td>${formatNumber(user.location_changes)}</td>
+                    <td>${formatNumber(user.material_changes)}</td>
+                    <td>${formatDate(user.last_access)}</td>
+                `;
+            });
+        }
+
+        // Aggiorna la tabella delle statistiche del database
+        function updateDbStatsTable(tables) {
+            const tbody = document.querySelector('#dbStatsTable tbody');
+            tbody.innerHTML = '';
+            
+            tables.forEach(table => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${table.table}</td>
+                    <td>${formatNumber(table.rows)}</td>
+                    <td>${table.size_mb}</td>
+                `;
+            });
+        }
+
+        function createMonthlyMovementsChart(monthlyData) {
+            const ctx = document.getElementById('monthlyMovementsChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: monthlyData.map(d => d.month),
+                    datasets: [
+                        {
+                            label: 'Prelievi',
+                            data: monthlyData.map(d => d.prelievi),
+                            backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                            borderColor: 'rgb(54, 162, 235)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Restituzioni',
+                            data: monthlyData.map(d => d.restituzioni),
+                            backgroundColor: 'rgba(75, 192, 192, 0.5)',
+                            borderColor: 'rgb(75, 192, 192)',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            stacked: true
+                        },
+                        x: {
+                            stacked: true
+                        }
+                    }
+                }
+            });
+        }
+
+        // Carica i dati all'avvio
+        loadStats();
+
+        // Aggiorna i dati ogni 5 minuti
+        setInterval(loadStats, 300000);
+    </script>
+</body>
+</html>

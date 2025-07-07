@@ -63,6 +63,7 @@ if (!defined('DB_NAME')) {
 // if (!defined('DB_NAME')) {
 //     define('DB_NAME', 'jseresxg_materiali');
 // }
+
 // Registra il tempo di inizio per calcolare l'execution time
 $GLOBALS['api_start_time'] = microtime(true);
 

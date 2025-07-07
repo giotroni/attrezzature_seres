@@ -32,7 +32,7 @@ try {
     if (empty($requestData)) {
         $requestData = $_GET;
     }
-    //logApiEvent($conn, 'api_materiali.php', $action, $requestData);
+    logApiEvent($conn, $action, $requestData);
 
     switch ($action) {
         
@@ -65,11 +65,14 @@ try {
             $stmt = $conn->query($query);
             $materiali = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            echo json_encode([
+            $response = [
                 'success' => true,
                 'count' => count($materiali),
                 'data' => $materiali
-            ]);
+            ];
+            
+            logApiEvent($conn, $action, $requestData, 200, $response);
+            echo json_encode($response);
             break;
 
         case 'getGiacenze':
@@ -111,11 +114,14 @@ try {
             $stmt->execute($params);
             $giacenze = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            echo json_encode([
+            $response = [
                 'success' => true,
                 'count' => count($giacenze),
                 'data' => $giacenze
-            ]);
+            ];
+            
+            logApiEvent($conn, $action, $requestData, 200, $response);
+            echo json_encode($response);
             break;
         case 'updateGiacenza':
             $requiredFields = ['codice_materiale', 'ubicazione', 'nuova_quantita', 'userName'];
@@ -190,7 +196,7 @@ try {
 
             $conn->commit();
 
-            echo json_encode([
+            $response = [
                 'success' => true,
                 'message' => 'Giacenza aggiornata con successo',
                 'data' => [
@@ -198,7 +204,10 @@ try {
                     'nuova_quantita' => $nuova_quantita,
                     'variazione' => $nuova_quantita - $quantita_precedente
                 ]
-            ]);
+            ];
+            
+            logApiEvent($conn, $action, $requestData, 200, $response);
+            echo json_encode($response);
             break;
 
         case 'movimentoMateriale':
