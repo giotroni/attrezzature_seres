@@ -703,6 +703,11 @@ class ViewRenderer {
                     <div class="location-title">
                         <h2>${icon} ${title}</h2>
                         <div class="view-stats">${materiali.length} materiali presenti</div>
+                        ${appState.currentView === CONFIG.VIEWS.UBICAZIONE ? `
+                        <button id="exportExcelBtn" style="margin-top: 10px; padding: 8px 12px; background: #217346; color: white; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 5px; font-weight: bold;">
+                            <span>📥</span> Scarica Excel
+                        </button>
+                        ` : ''}
                     </div>
                 </div>
                 <div class="materials-list">
@@ -780,6 +785,13 @@ class ViewRenderer {
             });
         }
 
+        const exportExcelBtn = document.getElementById('exportExcelBtn');
+        if (exportExcelBtn) {
+            exportExcelBtn.addEventListener('click', () => {
+                this.exportLocationsToExcel();
+            });
+        }
+
         // Material items
         document.querySelectorAll('.material-item').forEach(item => {
             item.addEventListener('click', () => {
@@ -805,6 +817,45 @@ class ViewRenderer {
                 }
             });
         });
+    }
+
+    exportLocationsToExcel() {
+        const location = appState.currentFilter;
+        if (!location) return;
+
+        const materialiUbicazione = appState.getData('materiali')
+            .filter(m => m.nome_ubicazione === location);
+
+        if (materialiUbicazione.length === 0) {
+            UI.showWarning('Nessun materiale da esportare.');
+            return;
+        }
+
+        // Prepare CSV with column headers Categoria, Tipo, Quantità
+        const headers = ['Categoria', 'Tipo', 'Quantita', 'Unita di Misura'];
+        const csvRows = [headers.join(';')];
+
+        materialiUbicazione.forEach(m => {
+            const row = [
+                `"${(m.categoria || '').replace(/"/g, '""')}"`,
+                `"${(m.tipo || '').replace(/"/g, '""')}"`,
+                `"${Utils.formatQuantity(m.quantita_attuale)}"`,
+                `"${(m.unita_misura || '').replace(/"/g, '""')}"`
+            ];
+            csvRows.push(row.join(';'));
+        });
+
+        const csvContent = "\uFEFF" + csvRows.join("\r\n"); // Add BOM for Excel UTF-8 display
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        
+        const dateStr = new Date().toISOString().split('T')[0];
+        link.setAttribute('href', url);
+        link.setAttribute('download', `materiali_${location.replace(/\s+/g, '_')}_${dateStr}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     }
 }
 
